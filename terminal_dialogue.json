@@ -1,0 +1,725 @@
+{
+    "INITIAL": {
+        "text": "SYSTEM READY. AWAITING INPUT...",
+        "options": [
+            {
+                "label": "STATUS CHECK",
+                "next": "STATUS"
+            },
+            {
+                "label": "SCAN ENVIRONMENT",
+                "next": "SCAN"
+            },
+            {
+                "label": "QUERY ARCHIVE",
+                "next": "QUERY"
+            }
+        ]
+    },
+    "STATUS": {
+        "text": "CONNECTIVITY: 12% | INTEGRITY: MARGINAL | OXYGEN: -ERR-",
+        "options": [
+            {
+                "label": "REBOOT SYSTEM",
+                "next": "REBOOT"
+            },
+            {
+                "label": "BACK",
+                "next": "INITIAL"
+            }
+        ]
+    },
+    "SCAN": {
+        "text": "SCANNING... MULTIPLE NON-EUCLIDEAN VECTORS DETECTED. SPACE IS UNSTABLE.",
+        "options": [
+            {
+                "label": "ANALYZE VECTORS",
+                "next": "VECTORS"
+            },
+            {
+                "label": "GATHER DATA",
+                "next": "DATA"
+            },
+            {
+                "label": "PERFORM SPECTRAL ANALYSIS",
+                "next": "SPECTRAL"
+            },
+            {
+                "label": "BACK",
+                "next": "INITIAL"
+            }
+        ]
+    },
+    "VECTORS": {
+        "text": "TEMPORAL SHIFT DETECTED. LOCATION STABILITY: 4.2%. REALITY FRACTURE IMMINENT.",
+        "options": [
+            {
+                "label": "STABILIZE",
+                "next": "STABILIZE"
+            },
+            {
+                "label": "TRACE VECTORS",
+                "next": "TRACE"
+            },
+            {
+                "label": "RETURN TO MAIN",
+                "next": "INITIAL"
+            },
+            {
+                "label": "BACK",
+                "next": "SCAN"
+            }
+        ]
+    },
+    "STABILIZE": {
+        "text": "ERROR: INSUFFICIENT PERMISSIONS. CORE STABILIZER OFFLINE.",
+        "options": [
+            {
+                "label": "FORCED REBOOT",
+                "next": "REBOOT"
+            },
+            {
+                "label": "BACK",
+                "next": "INITIAL"
+            }
+        ]
+    },
+    "REBOOT": {
+        "text": "CRITICAL FAILURE. UNAUTHORIZED REBOOT DETECTED. LOGGING OUT...",
+        "options": [
+            {
+                "label": "EMERGENCY OVERRIDE",
+                "next": "INITIAL"
+            }
+        ]
+    },
+    "DATA": {
+        "text": "DATA SAVED TO LOCAL VOLATILE MEMORY (8.4kb). SUBJECT: 'YELLOW_ROOMS'.",
+        "options": [
+            {
+                "label": "VIEW LOGS",
+                "next": "LOGS"
+            },
+            {
+                "label": "ACCESS CORRUPTED FILES",
+                "next": "CORRUPT"
+            },
+            {
+                "label": "FINISH",
+                "next": "INITIAL"
+            }
+        ]
+    },
+    "LOGS": {
+        "text": "LOG 001: 'The smell of moist carpet... the buzz of fluorescent lights...' END OF LOG.",
+        "options": [
+            {
+                "label": "ACCESS NEXT LOG",
+                "next": "LOG002"
+            },
+            {
+                "label": "BACK",
+                "next": "DATA"
+            },
+            {
+                "label": "EXIT",
+                "next": "INITIAL"
+            }
+        ]
+    },
+    "QUERY": {
+        "text": "ARCHIVE ACCESSIBLE. TOPIC: 'THE BACKROOMS'. DATA CORRUPTED.",
+        "options": [
+            {
+                "label": "VIEW FRAGMENTS",
+                "next": "FRAGMENTS"
+            },
+            {
+                "label": "BACK",
+                "next": "INITIAL"
+            }
+        ]
+    },
+    "FRAGMENTS": {
+        "text": "FRAGMENTS RETRIEVED: 'LEVEL 0', 'ENTITIES', 'NO-CLIP', 'LEVEL 1', 'ALMOND WATER'.",
+        "options": [
+            {
+                "label": "READ 'LEVEL 0'",
+                "next": "LVL0"
+            },
+            {
+                "label": "READ 'ENTITIES'",
+                "next": "ENTITIES"
+            },
+            {
+                "label": "READ 'NO-CLIP'",
+                "next": "NOCLIP"
+            },
+            {
+                "label": "READ 'LEVEL 1'",
+                "next": "LVL1"
+            },
+            {
+                "label": "READ 'ALMOND WATER'",
+                "next": "ALMOND_WATER"
+            },
+            {
+                "label": "RETURN TO MAIN",
+                "next": "INITIAL"
+            },
+            {
+                "label": "BACK",
+                "next": "QUERY"
+            }
+        ]
+    },
+    "LVL0": {
+        "text": "LEVEL 0: THE LOBBY. A NON-EUCLIDEAN SPACE RESEMBLING A DESERTED OFFICE.",
+        "options": [
+            {
+                "label": "MORE DETAILS",
+                "next": "LVL0_DETAIL"
+            },
+            {
+                "label": "CONTINUE",
+                "next": "FRAGMENTS"
+            },
+            {
+                "label": "RETURN TO MAIN",
+                "next": "INITIAL"
+            }
+        ]
+    },
+    "ENTITIES": {
+        "text": "ENTITIES: NUMEROUS HOSTILE ORGANISMS. IF YOU HEAR SOMETHING, IT HAS HEARD YOU.",
+        "options": [
+            {
+                "label": "VIEW DETAILS",
+                "next": "ENTITY_LIST"
+            },
+            {
+                "label": "CONTINUE",
+                "next": "FRAGMENTS"
+            },
+            {
+                "label": "RETURN TO MAIN",
+                "next": "INITIAL"
+            }
+        ]
+    },
+    "SPECTRAL": {
+        "text": "SPECTRAL ANALYSIS REVEALS ANOMALOUS FREQUENCIES. PATTERN: 50Hz HUM WITH VARIATIONS. POSSIBLE ENTITY COMMUNICATION.",
+        "options": [
+            {
+                "label": "DECODE SIGNAL",
+                "next": "DECODE"
+            },
+            {
+                "label": "RECORD SAMPLE",
+                "next": "RECORD"
+            },
+            {
+                "label": "RETURN TO MAIN",
+                "next": "INITIAL"
+            },
+            {
+                "label": "BACK",
+                "next": "SCAN"
+            }
+        ]
+    },
+    "DECODE": {
+        "text": "DECODING... PARTIAL MESSAGE: '...help... ...no exit... ...flicker...' SIGNAL LOST.",
+        "options": [
+            {
+                "label": "RETRY",
+                "next": "DECODE"
+            },
+            {
+                "label": "BACK",
+                "next": "SPECTRAL"
+            },
+            {
+                "label": "RETURN TO MAIN",
+                "next": "INITIAL"
+            }
+        ]
+    },
+    "RECORD": {
+        "text": "SAMPLE RECORDED. FILE NAME: 'HUM_001'. WARNING: PLAYBACK MAY ATTRACT UNWANTED ATTENTION.",
+        "options": [
+            {
+                "label": "PLAYBACK",
+                "next": "PLAYBACK"
+            },
+            {
+                "label": "DELETE",
+                "next": "SPECTRAL"
+            },
+            {
+                "label": "RETURN TO MAIN",
+                "next": "INITIAL"
+            }
+        ]
+    },
+    "PLAYBACK": {
+        "text": "PLAYING... A LOW HUM FILLS THE AREA. SUDDENLY, A DISTANT SCRAPING SOUND. YOU FEEL WATCHED.",
+        "options": [
+            {
+                "label": "STOP PLAYBACK",
+                "next": "RECORD"
+            },
+            {
+                "label": "INCREASE VOLUME",
+                "next": "VOLUME"
+            },
+            {
+                "label": "RETURN TO MAIN",
+                "next": "INITIAL"
+            }
+        ]
+    },
+    "VOLUME": {
+        "text": "VOLUME MAX. THE HUM BECOMES A ROAR. THEN SILENCE. TOO LATE. ENTITY DETECTED. SYSTEM SHUTDOWN.",
+        "options": [
+            {
+                "label": "RESTART",
+                "next": "INITIAL"
+            }
+        ]
+    },
+    "TRACE": {
+        "text": "TRACING TEMPORAL VECTORS... ORIGIN POINT IDENTIFIED: LEVEL 0, SECTION 7. REALITY FRACTURE DETECTED NEARBY.",
+        "options": [
+            {
+                "label": "ATTEMPT FRACTURE STABILIZATION",
+                "next": "FRACTURE"
+            },
+            {
+                "label": "LOG COORDINATES",
+                "next": "COORDS"
+            },
+            {
+                "label": "RETURN TO MAIN",
+                "next": "INITIAL"
+            },
+            {
+                "label": "BACK",
+                "next": "VECTORS"
+            }
+        ]
+    },
+    "COORDS": {
+        "text": "COORDINATES LOGGED TO MEMORY. BUT SPACE IS SHIFTING. DATA BECOMES MEANINGLESS.",
+        "options": [
+            {
+                "label": "BACK",
+                "next": "TRACE"
+            },
+            {
+                "label": "RETURN TO MAIN",
+                "next": "INITIAL"
+            }
+        ]
+    },
+    "FRACTURE": {
+        "text": "STABILIZATION PROTOCOL INITIATED. ERROR: FRACTURE IS EXPANDING. RECOMMEND IMMEDIATE EVACUATION.",
+        "options": [
+            {
+                "label": "OVERRIDE",
+                "next": "OVERRIDE_FRACTURE"
+            },
+            {
+                "label": "EVACUATE",
+                "next": "EVAC"
+            },
+            {
+                "label": "RETURN TO MAIN",
+                "next": "INITIAL"
+            }
+        ]
+    },
+    "OVERRIDE_FRACTURE": {
+        "text": "OVERRIDE FAILED. REALITY COLLAPSE IN 3... 2... 1... SYSTEM TERMINATED.",
+        "options": [
+            {
+                "label": "RESTART",
+                "next": "INITIAL"
+            }
+        ]
+    },
+    "EVAC": {
+        "text": "EVACUATION ROUTE CALCULATED. BUT ALL DIRECTIONS LEAD TO THE SAME YELLOW CORRIDOR. YOU ARE TRAPPED.",
+        "options": [
+            {
+                "label": "WANDER",
+                "next": "WANDER"
+            },
+            {
+                "label": "RETURN TO MAIN",
+                "next": "INITIAL"
+            }
+        ]
+    },
+    "WANDER": {
+        "text": "YOU WANDER FOR HOURS. THE BUZZING NEVER STOPS. YOU FIND A NOTE: 'TURN BACK NOW'. BUT THERE IS NO BACK.",
+        "options": [
+            {
+                "label": "CONTINUE",
+                "next": "WANDER2"
+            },
+            {
+                "label": "RETURN TO MAIN",
+                "next": "INITIAL"
+            }
+        ]
+    },
+    "WANDER2": {
+        "text": "YOU STUMBLE UPON A DOOR. IT LEADS TO A FAMILIAR ROOM. YOU ARE BACK WHERE YOU STARTED. THE CYCLE CONTINUES.",
+        "options": [
+            {
+                "label": "RESTART",
+                "next": "INITIAL"
+            }
+        ]
+    },
+    "CORRUPT": {
+        "text": "CORRUPTED FILES FOUND. ATTEMPTING RECOVERY... PARTIAL DATA: '...the walls breathe...' '...don't trust the lights...'",
+        "options": [
+            {
+                "label": "RECOVER MORE",
+                "next": "CORRUPT2"
+            },
+            {
+                "label": "SAVE TO MEMORY",
+                "next": "SAVE"
+            },
+            {
+                "label": "RETURN TO MAIN",
+                "next": "INITIAL"
+            },
+            {
+                "label": "BACK",
+                "next": "DATA"
+            }
+        ]
+    },
+    "CORRUPT2": {
+        "text": "FURTHER RECOVERY: '...Entity 11 observed...' '...Almond water supplies low...' FILE ENDS.",
+        "options": [
+            {
+                "label": "BACK",
+                "next": "CORRUPT"
+            },
+            {
+                "label": "RETURN TO MAIN",
+                "next": "INITIAL"
+            }
+        ]
+    },
+    "SAVE": {
+        "text": "DATA SAVED TO NON-VOLATILE MEMORY. BUT MEMORY IS CORRUPTED. DATA LOST.",
+        "options": [
+            {
+                "label": "RETRY",
+                "next": "CORRUPT"
+            },
+            {
+                "label": "RETURN TO MAIN",
+                "next": "INITIAL"
+            }
+        ]
+    },
+    "LOG002": {
+        "text": "LOG 002: 'Day 3. I saw something moving in the periphery. When I turned, nothing. The lights flicker in patterns.'",
+        "options": [
+            {
+                "label": "NEXT LOG",
+                "next": "LOG003"
+            },
+            {
+                "label": "PREVIOUS LOG",
+                "next": "LOGS"
+            },
+            {
+                "label": "RETURN TO MAIN",
+                "next": "INITIAL"
+            }
+        ]
+    },
+    "LOG003": {
+        "text": "LOG 003: 'Entity spotted. It looks like a human but with too many joints. It hasn't seen me yet. I must remain quiet.'",
+        "options": [
+            {
+                "label": "NEXT LOG",
+                "next": "LOG004"
+            },
+            {
+                "label": "PREVIOUS LOG",
+                "next": "LOG002"
+            },
+            {
+                "label": "RETURN TO MAIN",
+                "next": "INITIAL"
+            }
+        ]
+    },
+    "LOG004": {
+        "text": "LOG 004: 'The entity is gone. But now the walls are closer than before. I hear whispers. They say my name.'",
+        "options": [
+            {
+                "label": "NEXT LOG",
+                "next": "LOG005"
+            },
+            {
+                "label": "PREVIOUS LOG",
+                "next": "LOG003"
+            },
+            {
+                "label": "RETURN TO MAIN",
+                "next": "INITIAL"
+            }
+        ]
+    },
+    "LOG005": {
+        "text": "LOG 005: 'I can't find the exit. The monotony is crushing. I think I'm becoming part of the walls.'",
+        "options": [
+            {
+                "label": "PREVIOUS LOG",
+                "next": "LOG004"
+            },
+            {
+                "label": "RETURN TO MAIN",
+                "next": "INITIAL"
+            }
+        ]
+    },
+    "LVL1": {
+        "text": "LEVEL 1: THE HABITABLE ZONE. VAST WAREHOUSE-LIKE AREA WITH MACHINERY AND PIPE MAZES. BUT DANGER LURKS.",
+        "options": [
+            {
+                "label": "MORE DETAILS",
+                "next": "LVL1_DETAIL"
+            },
+            {
+                "label": "RETURN TO MAIN",
+                "next": "INITIAL"
+            },
+            {
+                "label": "BACK",
+                "next": "FRAGMENTS"
+            }
+        ]
+    },
+    "LVL1_DETAIL": {
+        "text": "LEVEL 1 IS INFINITE. ENTITIES: HOUNDS, FACELINGS. RUMORS OF A STATION WITH SUPPLIES. BUT TRUST IS SCARCE.",
+        "options": [
+            {
+                "label": "BACK",
+                "next": "LVL1"
+            },
+            {
+                "label": "RETURN TO MAIN",
+                "next": "INITIAL"
+            }
+        ]
+    },
+    "NOCLIP": {
+        "text": "NO-CLIP: A GLITCH IN REALITY. WALK THROUGH WALLS. BUT YOU MAY END UP IN THE VOID OR A DEAD END.",
+        "options": [
+            {
+                "label": "ATTEMPT NO-CLIP",
+                "next": "ATTEMPT_NOCLIP"
+            },
+            {
+                "label": "RETURN TO MAIN",
+                "next": "INITIAL"
+            },
+            {
+                "label": "BACK",
+                "next": "FRAGMENTS"
+            }
+        ]
+    },
+    "ATTEMPT_NOCLIP": {
+        "text": "YOU FOCUS AND WALK TOWARD A WALL. FOR A MOMENT, YOU PASS THROUGH. THEN YOU ARE IN A DARK EMPTY SPACE. THE VOID.",
+        "options": [
+            {
+                "label": "SHOUT",
+                "next": "VOID_SHOUT"
+            },
+            {
+                "label": "SIT AND WAIT",
+                "next": "VOID_WAIT"
+            },
+            {
+                "label": "RETURN TO MAIN",
+                "next": "INITIAL"
+            }
+        ]
+    },
+    "VOID_SHOUT": {
+        "text": "YOUR SHOUT ECHOES FOREVER. NO RESPONSE. YOU FEEL YOURSELF FADING. SYSTEM LOST.",
+        "options": [
+            {
+                "label": "RESTART",
+                "next": "INITIAL"
+            }
+        ]
+    },
+    "VOID_WAIT": {
+        "text": "YOU WAIT. TIME HAS NO MEANING. EVENTUALLY, YOU REAPPEAR IN LEVEL 0. BUT SOMETHING FOLLOWED YOU.",
+        "options": [
+            {
+                "label": "LOOK BEHIND",
+                "next": "FOLLOWED"
+            },
+            {
+                "label": "RETURN TO MAIN",
+                "next": "INITIAL"
+            }
+        ]
+    },
+    "FOLLOWED": {
+        "text": "A SHADOWY FIGURE STANDS BEHIND YOU. IT WHISPERS: 'YOU SHOULDN'T HAVE DONE THAT.' THEN DARKNESS.",
+        "options": [
+            {
+                "label": "RESTART",
+                "next": "INITIAL"
+            }
+        ]
+    },
+    "ALMOND_WATER": {
+        "text": "ALMOND WATER: A MYSTERIOUS LIQUID FOUND IN BACKROOMS. IT QUENCHES THIRST BUT SOME SAY IT ALTERS PERCEPTION.",
+        "options": [
+            {
+                "label": "DRINK",
+                "next": "DRINK_AW"
+            },
+            {
+                "label": "ANALYZE",
+                "next": "ANALYZE_AW"
+            },
+            {
+                "label": "RETURN TO MAIN",
+                "next": "INITIAL"
+            },
+            {
+                "label": "BACK",
+                "next": "FRAGMENTS"
+            }
+        ]
+    },
+    "DRINK_AW": {
+        "text": "YOU DRINK. IT TASTES LIKE PLASTIC AND OLD CARPET. FOR A MOMENT, THE WALLS SEEM TO BREATHE. THEN YOU FEEL NUMB.",
+        "options": [
+            {
+                "label": "WAIT",
+                "next": "AW_EFFECT"
+            },
+            {
+                "label": "RETURN TO MAIN",
+                "next": "INITIAL"
+            }
+        ]
+    },
+    "AW_EFFECT": {
+        "text": "YOU SEE DOORS WHERE THERE WERE NONE. BUT ARE THEY REAL? YOU OPEN ONE AND FIND... YOURSELF. THE CYCLE REPEATS.",
+        "options": [
+            {
+                "label": "RESTART",
+                "next": "INITIAL"
+            }
+        ]
+    },
+    "ANALYZE_AW": {
+        "text": "ANALYSIS: COMPOSITION UNKNOWN. TRACES OF MEMORY ALTERING COMPOUNDS. PROLONGED EXPOSURE MAY CAUSE HALLUCINATIONS.",
+        "options": [
+            {
+                "label": "BACK",
+                "next": "ALMOND_WATER"
+            },
+            {
+                "label": "RETURN TO MAIN",
+                "next": "INITIAL"
+            }
+        ]
+    },
+    "ENTITY_LIST": {
+        "text": "KNOWN ENTITIES: HOUND, FACELING, SMEILER, DEATHMOTH, PARTYGOER. WARNING: DO NOT APPROACH.",
+        "options": [
+            {
+                "label": "HOUND",
+                "next": "HOUND"
+            },
+            {
+                "label": "FACELING",
+                "next": "FACELING"
+            },
+            {
+                "label": "SMEILER",
+                "next": "SMEILER"
+            },
+            {
+                "label": "RETURN TO MAIN",
+                "next": "INITIAL"
+            },
+            {
+                "label": "BACK",
+                "next": "ENTITIES"
+            }
+        ]
+    },
+    "HOUND": {
+        "text": "HOUND: CANINE-LIKE CREATURE WITH DISTORTED FEATURES. ATTRACTED TO SOUND. RUNNING IS FUTILE.",
+        "options": [
+            {
+                "label": "BACK",
+                "next": "ENTITY_LIST"
+            },
+            {
+                "label": "RETURN TO MAIN",
+                "next": "INITIAL"
+            }
+        ]
+    },
+    "FACELING": {
+        "text": "FACELING: HUMAN-SHAPED WITH NO FACE. THEY MIMIC HUMAN BEHAVIOR. IF ONE SPEAKS, IT'S ALREADY TOO LATE.",
+        "options": [
+            {
+                "label": "BACK",
+                "next": "ENTITY_LIST"
+            },
+            {
+                "label": "RETURN TO MAIN",
+                "next": "INITIAL"
+            }
+        ]
+    },
+    "SMEILER": {
+        "text": "SMEILER: CREATURE THAT GRINS. ITS SMILE IS A WARNING. IT CAN TELEPORT SHORT DISTANCES. AVOID EYE CONTACT.",
+        "options": [
+            {
+                "label": "BACK",
+                "next": "ENTITY_LIST"
+            },
+            {
+                "label": "RETURN TO MAIN",
+                "next": "INITIAL"
+            }
+        ]
+    },
+    "LVL0_DETAIL": {
+        "text": "LEVEL 0 CONSISTS OF MONOTONOUS YELLOW ROOMS, FLUORESCENT LIGHTS, AND MOIST CARPET. NO TWO ROOMS ARE ALIKE, YET ALL ARE THE SAME. ENTITIES ARE RARE BUT PRESENT.",
+        "options": [
+            {
+                "label": "BACK",
+                "next": "LVL0"
+            },
+            {
+                "label": "RETURN TO MAIN",
+                "next": "INITIAL"
+            }
+        ]
+    }
+}

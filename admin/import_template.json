@@ -1,0 +1,41 @@
+[
+    {
+        "id": "lobby_example",
+        "name": "The Lobby",
+        "desc": "You are in a large, empty room with yellow wallpaper and buzzing fluorescent lights.",
+        "tags": [
+            "liminal",
+            "yellow",
+            "intro"
+        ],
+        "transitions": [
+            "liminal",
+            "industrial"
+        ],
+        "interactables": [
+            "light_switch_01",
+            "old_carpet"
+        ],
+        "texts": [
+            "The hum of the lights is maddening.",
+            "You feel like you've been here before."
+        ]
+    },
+    {
+        "id": "corridor_infinite",
+        "name": "Infinite Corridor",
+        "desc": "A hallway that seems to stretch on forever. The air is stale.",
+        "tags": [
+            "dark",
+            "narrow"
+        ],
+        "transitions": [
+            "industrial"
+        ],
+        "interactables": [],
+        "texts": [
+            "Footsteps echo in the distance.",
+            "Is that a shadow moving?"
+        ]
+    }
+]

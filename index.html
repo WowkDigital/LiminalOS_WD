@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LIMINAL OS - Backrooms Explorer</title>
+    <meta name="description" content="A vanilla JS adventure game set in the Backrooms. Survive the liminal space.">
+    <meta name="theme-color" content="#0a0a0a">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div id="app-container">
+
+        <!-- Fullscreen Background Image -->
+        <div id="scene-bg">
+            <img id="room-image-blur" src="" alt="">
+            <img id="room-image" src="" alt="Room View">
+            <div id="scene-vignette"></div>
+            <div id="scene-noise"></div>
+        </div>
+
+        <!-- CRT Scanline overlay -->
+        <div id="crt-overlay"></div>
+
+        <!-- Top HUD Bar -->
+        <header id="hud-bar">
+            <div class="hud-left">
+                <div class="hud-group" id="sanity-group">
+                    <button id="sanity-minus" class="hud-badge hud-badge-btn debug-btn"
+                        aria-label="Decrease Sanity">-</button>
+                    <span class="hud-icon">🧠</span>
+                    <div class="sanity-bar">
+                        <div id="sanity-fill"></div>
+                    </div>
+                    <span id="sanity-value" class="hud-number">100%</span>
+                    <button id="sanity-plus" class="hud-badge hud-badge-btn debug-btn"
+                        aria-label="Increase Sanity">+</button>
+                </div>
+            </div>
+            <div class="hud-center">
+                <span class="hud-logo">LIMINAL<span class="hud-logo-dim">OS</span></span>
+            </div>
+            <div class="hud-right">
+                <span class="hud-badge">
+                    <span class="hud-icon">👁</span>
+                    <span id="discovered-value">0/0</span>
+                </span>
+                <button id="settings-btn" class="hud-badge hud-badge-btn" aria-label="Settings">
+                    <span class="hud-icon">⚙</span>
+                </button>
+                <button id="reset-btn" class="hud-badge hud-badge-btn" aria-label="Reset">
+                    <span class="hud-icon">↺</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Dynamic Terminal Line -->
+        <div id="terminal-line-container">
+            <div id="terminal-history"></div>
+            <div class="terminal-current-line" id="terminal-active-line">
+                <span id="terminal-prompt">></span>
+                <span id="terminal-text"></span>
+            </div>
+        </div>
+
+        <!-- Settings Panel Dropdown -->
+        <div id="settings-panel" class="settings-panel hidden">
+            <div class="settings-title">// SYSTEM CONFIG</div>
+            <div class="control-group">
+                <label for="master-vol">MASTER VOL</label>
+                <input type="range" id="master-vol" min="0" max="1" step="0.01" value="1.0">
+            </div>
+            <div class="control-group">
+                <label for="ambient-vol">AMBIENT VOL</label>
+                <input type="range" id="ambient-vol" min="0" max="1" step="0.01" value="0.0">
+            </div>
+            <div class="control-group">
+                <label for="sfx-vol">SFX VOL</label>
+                <input type="range" id="sfx-vol" min="0" max="1" step="0.01" value="0.5">
+            </div>
+        </div>
+
+        <!-- Main Content - layered over the image -->
+        <main id="game-viewport">
+            <div id="narrative-panel">
+                <h1 id="room-title">INITIALIZING...</h1>
+                <div id="room-subtitle"></div>
+                <p id="room-desc"></p>
+                <p id="interactable-desc" class="interactable-desc"></p>
+            </div>
+        </main>
+
+        <!-- Actions Area - sticky bottom -->
+        <section id="actions-container">
+            <!-- Buttons injected by JS -->
+        </section>
+
+        <!-- Map Panel -->
+        <div id="map-panel" class="map-panel collapsed">
+            <button id="map-toggle-btn" class="map-toggle-btn">MAP</button>
+            <div class="map-content" id="map-content">
+                <svg id="map-svg" width="100%" height="100%"></svg>
+                <div class="map-legend">
+                    <div class="map-legend-item">
+                        <div class="map-legend-dot map-legend-dot--current"></div>
+                        <span>YOU ARE HERE</span>
+                    </div>
+                    <div class="map-legend-item">
+                        <div class="map-legend-dot map-legend-dot--visited"></div>
+                        <span>VISITED</span>
+                    </div>
+                    <div class="map-legend-item">
+                        <div class="map-legend-dot map-legend-dot--unknown"></div>
+                        <span>UNKNOWN</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <svg style="display: none;">
+        <defs>
+            <filter id="glitch-filter">
+                <feTurbulence type="fractalNoise" baseFrequency="0.05 0.5" numOctaves="1" result="noise" seed="0"
+                    id="glitch-turbulence">
+                </feTurbulence>
+                <feDisplacementMap in="SourceGraphic" in2="noise" scale="0" xChannelSelector="R" yChannelSelector="G"
+                    id="glitch-displacement" />
+
+                <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 1 0" id="glitch-color" />
+            </filter>
+        </defs>
+    </svg>
+
+    <script src="audio.js"></script>
+    <script src="terminal.js"></script>
+    <script src="mapgen.js"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>

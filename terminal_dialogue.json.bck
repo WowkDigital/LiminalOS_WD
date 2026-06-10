@@ -1,0 +1,158 @@
+{
+    "INITIAL": {
+        "text": "SYSTEM READY. AWAITING INPUT...",
+        "options": [
+            {
+                "label": "STATUS CHECK",
+                "next": "STATUS"
+            },
+            {
+                "label": "SCAN ENVIRONMENT",
+                "next": "SCAN"
+            },
+            {
+                "label": "QUERY ARCHIVE",
+                "next": "QUERY"
+            }
+        ]
+    },
+    "STATUS": {
+        "text": "CONNECTIVITY: 12% | INTEGRITY: MARGINAL | OXYGEN: -ERR-",
+        "options": [
+            {
+                "label": "REBOOT SYSTEM",
+                "next": "REBOOT"
+            },
+            {
+                "label": "BACK",
+                "next": "INITIAL"
+            }
+        ]
+    },
+    "SCAN": {
+        "text": "SCANNING... MULTIPLE NON-EUCLIDEAN VECTORS DETECTED. SPACE IS UNSTABLE.",
+        "options": [
+            {
+                "label": "ANALYZE VECTORS",
+                "next": "VECTORS"
+            },
+            {
+                "label": "GATHER DATA",
+                "next": "DATA"
+            },
+            {
+                "label": "BACK",
+                "next": "INITIAL"
+            }
+        ]
+    },
+    "VECTORS": {
+        "text": "TEMPORAL SHIFT DETECTED. LOCATION STABILITY: 4.2%. REALITY FRACTURE IMMINENT.",
+        "options": [
+            {
+                "label": "STABILIZE",
+                "next": "STABILIZE"
+            },
+            {
+                "label": "BACK",
+                "next": "SCAN"
+            }
+        ]
+    },
+    "STABILIZE": {
+        "text": "ERROR: INSUFFICIENT PERMISSIONS. CORE STABILIZER OFFLINE.",
+        "options": [
+            {
+                "label": "FORCED REBOOT",
+                "next": "REBOOT"
+            },
+            {
+                "label": "BACK",
+                "next": "INITIAL"
+            }
+        ]
+    },
+    "REBOOT": {
+        "text": "CRITICAL FAILURE. UNAUTHORIZED REBOOT DETECTED. LOGGING OUT...",
+        "options": [
+            {
+                "label": "EMERGENCY OVERRIDE",
+                "next": "INITIAL"
+            }
+        ]
+    },
+    "DATA": {
+        "text": "DATA SAVED TO LOCAL VOLATILE MEMORY (8.4kb). SUBJECT: 'YELLOW_ROOMS'.",
+        "options": [
+            {
+                "label": "VIEW LOGS",
+                "next": "LOGS"
+            },
+            {
+                "label": "FINISH",
+                "next": "INITIAL"
+            }
+        ]
+    },
+    "LOGS": {
+        "text": "LOG 001: 'The smell of moist carpet... the buzz of fluorescent lights...' END OF LOG.",
+        "options": [
+            {
+                "label": "BACK",
+                "next": "DATA"
+            },
+            {
+                "label": "EXIT",
+                "next": "INITIAL"
+            }
+        ]
+    },
+    "QUERY": {
+        "text": "ARCHIVE ACCESSIBLE. TOPIC: 'THE BACKROOMS'. DATA CORRUPTED.",
+        "options": [
+            {
+                "label": "VIEW FRAGMENTS",
+                "next": "FRAGMENTS"
+            },
+            {
+                "label": "BACK",
+                "next": "INITIAL"
+            }
+        ]
+    },
+    "FRAGMENTS": {
+        "text": "FRAGMENTS RETRIEVED: 'LEVEL 0', 'ENTITIES', 'NO-CLIP'.",
+        "options": [
+            {
+                "label": "READ 'LEVEL 0'",
+                "next": "LVL0"
+            },
+            {
+                "label": "READ 'ENTITIES'",
+                "next": "ENTITIES"
+            },
+            {
+                "label": "BACK",
+                "next": "QUERY"
+            }
+        ]
+    },
+    "LVL0": {
+        "text": "LEVEL 0: THE LOBBY. A NON-EUCLIDEAN SPACE RESEMBLING A DESERTED OFFICE.",
+        "options": [
+            {
+                "label": "CONTINUE",
+                "next": "FRAGMENTS"
+            }
+        ]
+    },
+    "ENTITIES": {
+        "text": "ENTITIES: NUMEROUS HOSTILE ORGANISMS. IF YOU HEAR SOMETHING, IT HAS HEARD YOU.",
+        "options": [
+            {
+                "label": "CONTINUE",
+                "next": "FRAGMENTS"
+            }
+        ]
+    }
+}

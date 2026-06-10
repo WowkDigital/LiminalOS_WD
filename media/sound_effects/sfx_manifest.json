@@ -1,0 +1,32 @@
+{
+    "effects": [
+        {
+            "id": "steps_heavy",
+            "file": "heavy-walking-footsteps.mp3",
+            "tags": [
+                "liminal",
+                "lobby",
+                "office"
+            ],
+            "volume": 0.5
+        },
+        {
+            "id": "steam_hiss",
+            "file": "steam-hissing.mp3",
+            "tags": [
+                "industrial",
+                "boiler"
+            ],
+            "volume": 0.4
+        },
+        {
+            "id": "water_drip",
+            "file": "water-dripping.mp3",
+            "tags": [
+                "aquatic",
+                "poolrooms"
+            ],
+            "volume": 0.6
+        }
+    ]
+}
