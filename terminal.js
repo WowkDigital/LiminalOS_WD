@@ -176,6 +176,7 @@ const TerminalSystem = {
         } else if (cmd === 'RESET') {
             if (confirm("REBOOT SYSTEM? ALL SESSION DATA WILL BE WIPED.")) {
                 localStorage.removeItem('backrooms_session');
+                window.location.hash = '';
                 location.reload();
             }
         } else if (cmd === 'MAP') {
