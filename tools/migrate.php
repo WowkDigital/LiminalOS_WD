@@ -1,6 +1,6 @@
 <?php
-// migrate.php
-$dbFile = __DIR__ . '/world_data/database.sqlite';
+// tools/migrate.php
+$dbFile = __DIR__ . '/../world_data/database.sqlite';
 try {
     $pdo = new PDO('sqlite:' . $dbFile);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);

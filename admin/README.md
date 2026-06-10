@@ -15,8 +15,8 @@ Then open your browser to: [http://localhost:8000](http://localhost:8000)
 ## Features
 - **Dashboard**: View all configured rooms.
 - **Editor**: Create new rooms or edit existing ones.
-- **Data**: All changes are saved directly to `world_data/rooms.json`.
+- **Data**: All changes are saved directly to `world_data/database.sqlite`.
 
 ## Requirements
 - PHP 7.4 or higher
-- Write permissions for `world_data/rooms.json`
+- Write permissions for `world_data/database.sqlite`

@@ -1,6 +1,7 @@
 <?php
+// tools/update_db.php
 try {
-    $pdo = new PDO('sqlite:world_data/database.sqlite');
+    $pdo = new PDO('sqlite:' . __DIR__ . '/../world_data/database.sqlite');
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
     $tables = [
