@@ -1,0 +1,26 @@
+# Large binary media folders (hosted externally)
+media/images/
+media/uploads/
+media/sound_effects/
+
+# Secret configuration files
+.env
+
+# System / OS generated files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# IDE, Editor and workspace files
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# Local testing and server logs
+.php_history
+*.log

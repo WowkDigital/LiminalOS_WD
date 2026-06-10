@@ -3,6 +3,10 @@
  * Tag-based media resolution system
  */
 
+/* === CONFIGURATION === */
+// Set this to your external CDN/storage base URL (e.g. "https://cdn.liminalos.com/") to load graphics externally.
+const CONFIG_MEDIA_BASE_URL = "";
+
 /* === CORE LOCATION CLASSES === */
 
 class Location {
@@ -16,7 +20,11 @@ class Location {
     getName() { return "UNKNOWN"; }
     getSubtitle() { return ""; }
     getDescription() { return ""; }
-    getImage() { return "media/uploads/fallback.png"; }
+    getImage() { 
+        return CONFIG_MEDIA_BASE_URL 
+            ? `${CONFIG_MEDIA_BASE_URL.endsWith('/') ? CONFIG_MEDIA_BASE_URL : CONFIG_MEDIA_BASE_URL + '/'}media/uploads/fallback.png` 
+            : "media/uploads/fallback.png"; 
+    }
 
     getTerminalTexts() { return []; }
 
@@ -472,16 +480,23 @@ class BackroomsGame {
      * Handles both legacy paths and new media/ paths.
      */
     resolveImagePath(path) {
-        if (!path) return 'media/uploads/fallback.png';
-
-        // If it points to original uploads, redirect to compressed version
-        if (path.startsWith('media/uploads/')) {
+        let resolved = '';
+        if (!path) {
+            resolved = 'media/uploads/fallback.png';
+        } else if (path.startsWith('media/uploads/')) {
             const filename = path.split('/').pop();
-            return `media/images/${filename}`;
+            resolved = `media/images/${filename}`;
+        } else if (path.startsWith('media/')) {
+            resolved = path;
+        } else {
+            resolved = `media/images/${path}`;
         }
 
-        if (path.startsWith('media/')) return path;
-        return `media/images/${path}`;
+        if (CONFIG_MEDIA_BASE_URL) {
+            const base = CONFIG_MEDIA_BASE_URL.endsWith('/') ? CONFIG_MEDIA_BASE_URL : `${CONFIG_MEDIA_BASE_URL}/`;
+            return `${base}${resolved}`;
+        }
+        return resolved;
     }
 
     /**

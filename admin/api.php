@@ -9,6 +9,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
 
+// Start session to access authentication state
+session_start();
+
+// Helper to parse .env file
+function loadEnv($path) {
+    if (!file_exists($path)) return;
+    $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        if (strpos(trim($line), '#') === 0) continue;
+        $parts = explode('=', $line, 2);
+        if (count($parts) === 2) {
+            $name = trim($parts[0]);
+            $value = trim($parts[1]);
+            if (!array_key_exists($name, $_SERVER) && !array_key_exists($name, $_ENV)) {
+                putenv(sprintf('%s=%s', $name, $value));
+                $_ENV[$name] = $value;
+                $_SERVER[$name] = $value;
+            }
+        }
+    }
+}
+loadEnv(__DIR__ . '/../.env');
+
+// Check authorization
+$isAuthorized = isset($_SESSION['admin_auth']) && $_SESSION['admin_auth'] === true;
+
+// Publicly readable endpoints required by the game client:
+// 1. Loading game database (GET request with no action)
+// 2. Loading game audio mapping (GET request with action=get_audio)
+$action = $_GET['action'] ?? '';
+$isPublicEndpoint = ($_SERVER['REQUEST_METHOD'] === 'GET' && ($action === '' || $action === 'get_audio'));
+
+if (!$isAuthorized && !$isPublicEndpoint) {
+    http_response_code(401);
+    echo json_encode(['error' => 'Unauthorized: Please authenticate via the admin login panel.']);
+    exit;
+}
+
 ini_set('display_errors', 0);
 error_reporting(E_ALL & ~E_DEPRECATED);
 ini_set('log_errors', 1);

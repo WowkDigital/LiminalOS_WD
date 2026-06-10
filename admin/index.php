@@ -1,3 +1,51 @@
+<?php
+session_start();
+
+// Helper to parse .env file
+function loadEnv($path) {
+    if (!file_exists($path)) return;
+    $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        if (strpos(trim($line), '#') === 0) continue;
+        $parts = explode('=', $line, 2);
+        if (count($parts) === 2) {
+            $name = trim($parts[0]);
+            $value = trim($parts[1]);
+            if (!array_key_exists($name, $_SERVER) && !array_key_exists($name, $_ENV)) {
+                putenv(sprintf('%s=%s', $name, $value));
+                $_ENV[$name] = $value;
+                $_SERVER[$name] = $value;
+            }
+        }
+    }
+}
+
+loadEnv(__DIR__ . '/../.env');
+
+$adminPassword = $_ENV['ADMIN_PASSWORD'] ?? getenv('ADMIN_PASSWORD') ?? 'liminal_secret_99';
+
+// Handle login POST
+$error = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['password'])) {
+    if ($_POST['password'] === $adminPassword) {
+        $_SESSION['admin_auth'] = true;
+        header('Location: index.php');
+        exit;
+    } else {
+        $error = 'ACCESS DENIED: INVALID AUTHORIZATION KEY';
+    }
+}
+
+// Handle logout GET
+if (isset($_GET['logout'])) {
+    unset($_SESSION['admin_auth']);
+    header('Location: index.php');
+    exit;
+}
+
+// If authenticated, render the admin page
+if (isset($_SESSION['admin_auth']) && $_SESSION['admin_auth'] === true):
+?>
 <!DOCTYPE html>
 <html lang="en">
 
@@ -64,6 +112,7 @@
                 <div class="separator"></div>
                 <a href="../index.html" target="_blank" class="nav-link"><i data-lucide="external-link"></i> Open
                     Game</a>
+                <a href="?logout=1" class="nav-link" style="color: var(--error);"><i data-lucide="log-out"></i> Log Out</a>
             </nav>
             <div class="status-indicator">
                 <span class="dot"></span> System Online
@@ -615,6 +664,131 @@
     <div id="toast-container"></div>
 
     <script src="script.js"></script>
+    <script>
+        // Initialize lucide icons for elements created dynamically/late
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    </script>
 </body>
 
 </html>
+<?php else: ?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Liminal // Access Authorization</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .login-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: var(--bg-core);
+            background-image: radial-gradient(circle at 50% 50%, rgba(234, 179, 8, 0.04) 0%, transparent 40%);
+            font-family: var(--font-sans);
+            padding: 20px;
+        }
+        .login-card {
+            background: rgba(10, 10, 10, 0.85);
+            border: 1px solid var(--glass-border);
+            padding: 2.5rem;
+            border-radius: var(--radius-md);
+            width: 100%;
+            max-width: 420px;
+            box-shadow: var(--shadow-card);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            text-align: center;
+        }
+        .login-logo {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--text-main);
+            letter-spacing: 2px;
+            margin-bottom: 0.5rem;
+        }
+        .login-logo span.dim {
+            color: var(--accent-primary);
+            text-shadow: 0 0 10px var(--accent-glow);
+        }
+        .login-subtitle {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+            text-transform: uppercase;
+        }
+        .login-form input[type="password"] {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--glass-border);
+            color: var(--text-main);
+            padding: 0.8rem 1rem;
+            border-radius: var(--radius-sm);
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            margin-bottom: 1.2rem;
+            outline: none;
+            transition: all var(--transition-fast);
+            text-align: center;
+        }
+        .login-form input[type="password"]:focus {
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 8px rgba(234, 179, 8, 0.15);
+        }
+        .login-form button {
+            width: 100%;
+            background: var(--accent-primary);
+            color: #000;
+            border: none;
+            padding: 0.8rem;
+            border-radius: var(--radius-sm);
+            font-family: var(--font-sans);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+        }
+        .login-form button:hover {
+            opacity: 0.9;
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+        .login-error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid var(--error);
+            color: var(--error);
+            font-family: var(--font-mono);
+            font-size: 0.72rem;
+            padding: 0.7rem;
+            border-radius: var(--radius-sm);
+            margin-bottom: 1.2rem;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-wrapper">
+        <div class="login-card">
+            <div class="login-logo">
+                LIMINAL<span class="dim">ADMIN</span>
+            </div>
+            <div class="login-subtitle">Authorization Protocol Required</div>
+            
+            <form method="POST" class="login-form">
+                <?php if ($error): ?>
+                    <div class="login-error"><?php echo htmlspecialchars($error); ?></div>
+                <?php endif; ?>
+                <input type="password" name="password" placeholder="ENTER ACCESS KEY..." required autofocus autocomplete="off">
+                <button type="submit">Initialize Override</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>
+<?php endif; ?>
