@@ -8,6 +8,7 @@
     <meta name="description" content="A vanilla JS adventure game set in the Backrooms. Survive the liminal space.">
     <meta name="theme-color" content="#0a0a0a">
     <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 
 <body>
@@ -30,7 +31,7 @@
                 <div class="hud-group" id="sanity-group">
                     <button id="sanity-minus" class="hud-badge hud-badge-btn debug-btn"
                         aria-label="Decrease Sanity">-</button>
-                    <span class="hud-icon">🧠</span>
+                    <span class="hud-icon"><i data-lucide="brain"></i></span>
                     <div class="sanity-bar">
                         <div id="sanity-fill"></div>
                     </div>
@@ -44,14 +45,14 @@
             </div>
             <div class="hud-right">
                 <span class="hud-badge">
-                    <span class="hud-icon">👁</span>
+                    <span class="hud-icon"><i data-lucide="eye"></i></span>
                     <span id="discovered-value">0/0</span>
                 </span>
                 <button id="settings-btn" class="hud-badge hud-badge-btn" aria-label="Settings">
-                    <span class="hud-icon">⚙</span>
+                    <i data-lucide="settings"></i>
                 </button>
                 <button id="reset-btn" class="hud-badge hud-badge-btn" aria-label="Reset">
-                    <span class="hud-icon">↺</span>
+                    <i data-lucide="rotate-ccw"></i>
                 </button>
             </div>
         </header>
@@ -139,6 +140,9 @@
     <script src="terminal.js"></script>
     <script src="mapgen.js"></script>
     <script src="app.js"></script>
+    <script>
+        lucide.createIcons();
+    </script>
 </body>
 
 </html>

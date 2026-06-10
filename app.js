@@ -842,17 +842,16 @@ class BackroomsGame {
             if (act.type === 'tra' || act.type === 'mov') {
                 btn.className = act.type === 'mov' ? 'continue-btn' : 'exit-btn';
 
-                // Build button content: label + optional badges
+                // Build button content: label + optional icons
                 const hasBadges = (act.type === 'tra') && (act.isUnknown || act.isRecommended);
                 if (hasBadges) {
-                    const unknownBadge = act.isUnknown
-                        ? `<span class="exit-badge-unknown">◈ NEW</span>`
+                    const unknownIcon = act.isUnknown
+                        ? `<i data-lucide="sparkles" class="exit-icon-new" title="New Area"></i>`
                         : '';
-                    const recommendedBadge = act.isRecommended
-                        ? `<span class="exit-badge-recommend">▹ EXPLORE</span>`
+                    const recommendedIcon = act.isRecommended
+                        ? `<i data-lucide="navigation" class="exit-icon-recommend" title="Recommended path"></i>`
                         : '';
-                    btn.classList.add('exit-btn--unknown');
-                    btn.innerHTML = `<span class="exit-label">${act.label}</span><span class="exit-badges">${unknownBadge}${recommendedBadge}</span>`;
+                    btn.innerHTML = `<span class="exit-label">${act.label}</span><span class="exit-icon-badges">${unknownIcon}${recommendedIcon}</span>`;
                 } else {
                     btn.textContent = act.label;
                 }
@@ -910,6 +909,11 @@ class BackroomsGame {
         if (window.location.hash !== '#' + newHash) {
             this.isInternalHashChange = true;
             window.location.hash = newHash;
+        }
+
+        // Render any dynamically added icons (e.g. exit button icons)
+        if (window.lucide) {
+            window.lucide.createIcons();
         }
     }
 
