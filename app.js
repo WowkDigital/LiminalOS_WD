@@ -289,12 +289,14 @@ class BackroomsGame {
             });
 
             this.elements.resetBtn = document.getElementById('reset-btn');
-            this.elements.resetBtn.onclick = () => {
-                if (confirm("Are you sure you want to reset the game?")) {
-                    localStorage.removeItem('backrooms_session');
-                    location.reload();
-                }
-            };
+            if (this.elements.resetBtn) {
+                this.elements.resetBtn.addEventListener('click', () => {
+                    if (confirm("Are you sure you want to reset the game?")) {
+                        localStorage.removeItem('backrooms_session');
+                        location.reload();
+                    }
+                });
+            }
 
             this.loadSession();
 
@@ -1134,4 +1136,4 @@ class BackroomsGame {
 
 // Start game
 const game = new BackroomsGame();
-window.onload = () => game.init();
+document.addEventListener('DOMContentLoaded', () => game.init());

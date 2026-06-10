@@ -70,18 +70,6 @@ const TerminalSystem = {
             }
         });
 
-        // Close on reset
-        const resetBtn = document.getElementById('reset-btn');
-        if (resetBtn) {
-            resetBtn.addEventListener('click', () => {
-                this.currentState = "INITIAL";
-                this.history = [];
-                this.activeChoices = [];
-                this.renderHistory();
-                this.renderOptions([]);
-                this.blurInput();
-            });
-        }
 
         // Initial welcome
         this.typeResponse("TERMINAL INITIALIZED. CLICK TO ENTER COMMANDS.");
