@@ -1,5 +1,9 @@
 <?php
-session_start();
+session_start([
+    'cookie_httponly' => true,
+    'cookie_samesite' => 'Strict',
+    'cookie_secure' => isset($_SERVER['HTTPS'])
+]);
 
 // Helper to parse .env file
 function loadEnv($path) {
@@ -28,6 +32,7 @@ $adminPassword = $_ENV['ADMIN_PASSWORD'] ?? getenv('ADMIN_PASSWORD') ?? 'liminal
 $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['password'])) {
     if ($_POST['password'] === $adminPassword) {
+        session_regenerate_id(true);
         $_SESSION['admin_auth'] = true;
         header('Location: index.php');
         exit;

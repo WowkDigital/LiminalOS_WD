@@ -10,7 +10,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 // Start session to access authentication state
-session_start();
+session_start([
+    'cookie_httponly' => true,
+    'cookie_samesite' => 'Strict',
+    'cookie_secure' => isset($_SERVER['HTTPS'])
+]);
 
 // Helper to parse .env file
 function loadEnv($path) {
@@ -674,13 +678,21 @@ elseif ($method === 'POST') {
                 $file = $_FILES['file'];
                 $pathInfo = pathinfo($file['name']);
                 $originalName = $pathInfo['filename'];
-                $ext = strtolower($pathInfo['extension']);
+                $ext = strtolower($pathInfo['extension'] ?? '');
+
+                $allowedImageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+                $allowedAudioExts = ['mp3', 'wav', 'ogg', 'm4a'];
+                $isAudio = in_array($ext, $allowedAudioExts);
+                $isImage = in_array($ext, $allowedImageExts);
+
+                if (!$isAudio && !$isImage) {
+                    throw new Exception("Invalid file extension: $ext. Allowed formats: " . implode(', ', array_merge($allowedImageExts, $allowedAudioExts)));
+                }
 
                 // Clean original name (remove non-alphanumeric except underscores/dashes)
                 $cleanName = preg_replace('/[^a-zA-Z0-9_-]/', '_', $originalName);
                 $filename = $cleanName . '_' . substr(md5(uniqid()), 0, 6) . '.' . $ext;
 
-                $isAudio = in_array($ext, ['mp3', 'wav', 'ogg', 'm4a']);
                 $targetSubdir = $isAudio ? 'sound_effects/' : 'uploads/';
                 $dest = $mediaDir . '/' . $targetSubdir . $filename;
 
@@ -688,6 +700,10 @@ elseif ($method === 'POST') {
                     if (!$isAudio) {
                         // Process versions for images
                         if (!processImage($dest, $filename)) {
+                            // Clean up file if processing failed
+                            if (file_exists($dest)) {
+                                @unlink($dest);
+                            }
                             throw new Exception("Image processing failed for $filename. Check GD library and directory permissions.");
                         }
 
@@ -724,10 +740,25 @@ elseif ($method === 'POST') {
             $path = $stmt->fetchColumn();
 
             if ($path) {
-                // Remove file from disk
-                $absPath = realpath(__DIR__ . '/../') . '/' . $path;
+                $filename = basename($path);
+                $rootPath = realpath(__DIR__ . '/../');
+
+                // Remove original file from disk
+                $absPath = $rootPath . '/' . $path;
                 if (file_exists($absPath)) {
-                    unlink($absPath);
+                    @unlink($absPath);
+                }
+
+                // Remove compressed image version
+                $compressedPath = $rootPath . '/media/images/' . $filename;
+                if (file_exists($compressedPath)) {
+                    @unlink($compressedPath);
+                }
+
+                // Remove thumbnail version
+                $thumbPath = $rootPath . '/media/images/thumbs/' . $filename;
+                if (file_exists($thumbPath)) {
+                    @unlink($thumbPath);
                 }
 
                 // Delete from DB
@@ -736,7 +767,7 @@ elseif ($method === 'POST') {
                 echo json_encode(['success' => true]);
             }
             else {
-                throw new Error("Record not found.");
+                throw new Exception("Record not found.");
             }
         }
         catch (Throwable $e) {
