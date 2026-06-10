@@ -738,37 +738,41 @@ button:active {
     transform: translateY(0px) scale(0.98);
 }
 
-/* Interaction buttons */
+/* Interaction groups & buttons */
+.interaction-group {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    width: 100%;
+    background: rgba(255, 255, 255, 0.015);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-sm);
+    padding: 0.4rem 0.8rem;
+    margin-bottom: 0.1rem;
+}
+
+.interaction-group-label {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-right: 0.4rem;
+}
+
 button.interaction-btn {
-    background: var(--glass-light);
-    border-color: var(--glass-border);
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--glass-border);
     color: var(--text-secondary);
-    opacity: 0.9;
-    flex: 1 1 100%;
-    min-width: 90px;
     font-size: 0.75rem;
-    padding: 0.45rem 0.9rem;
-    text-align: left;
-    justify-content: flex-start;
+    padding: 0.25rem 0.75rem;
     min-height: auto;
-}
-
-button.interaction-btn strong {
-    color: var(--text-main);
-    font-weight: 700;
-    border-bottom: 2px solid var(--accent-primary);
-}
-
-button.interaction-btn .sep {
-    opacity: 0.25;
-    margin: 0 0.4rem;
-}
-
-button.interaction-btn .inter-label {
-    opacity: 0.5;
-    margin-right: 0.6rem;
-    font-size: 0.7rem;
-    letter-spacing: 1px;
+    min-width: 70px;
+    flex: 0 1 auto;
+    justify-content: center;
+    text-align: center;
+    border-radius: 3px;
 }
 
 button.interaction-btn.active {
@@ -776,7 +780,7 @@ button.interaction-btn.active {
     border-color: var(--error) !important;
     color: #fff !important;
     opacity: 1;
-    box-shadow: 0 0 10px rgba(239, 68, 68, 0.2);
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.2) !important;
 }
 
 button.interaction-btn.active::before {
@@ -785,8 +789,8 @@ button.interaction-btn.active::before {
 }
 
 button.interaction-btn:hover {
-    border-color: var(--accent-primary);
-    background: rgba(234, 179, 8, 0.03);
+    border-color: var(--error) !important;
+    background: rgba(239, 68, 68, 0.05);
     color: var(--text-main);
     opacity: 1;
 }
@@ -797,7 +801,7 @@ button.interaction-btn.active:hover {
 }
 
 button.interaction-btn:active {
-    transform: scale(0.99);
+    transform: scale(0.97);
 }
 
 /* Exit buttons */

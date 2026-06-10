@@ -589,18 +589,13 @@ class BackroomsGame {
 
             const interactable = this.world.interactables[interId];
             if (interactable && interactable.states) {
-                // Toggle off if clicking the currently active/linked state
-                if (this.state.activeInteractableId === interId && this.state.worldStates[interId] === targetState) {
-                    this.state.activeInteractableId = null;
+                if (typeof targetState === 'number') {
+                    this.state.worldStates[interId] = targetState;
                 } else {
-                    if (typeof targetState === 'number') {
-                        this.state.worldStates[interId] = targetState;
-                    } else {
-                        const numStates = interactable.states.length;
-                        this.state.worldStates[interId] = (this.state.worldStates[interId] + 1) % numStates;
-                    }
-                    this.state.activeInteractableId = interId;
+                    const numStates = interactable.states.length;
+                    this.state.worldStates[interId] = (this.state.worldStates[interId] + 1) % numStates;
                 }
+                this.state.activeInteractableId = interId;
             }
             this.processEffectsFromState(interId);
         }
@@ -813,22 +808,30 @@ class BackroomsGame {
 
                 const currentStateIndex = worldStates[interId] || 0;
 
-                const btn = document.createElement('button');
-                btn.className = 'interaction-btn';
+                // Create a container group for the interactable
+                const group = document.createElement('div');
+                group.className = 'interaction-group';
 
-                if (interId === this.state.activeInteractableId) btn.classList.add('active');
+                // Label span
+                const label = document.createElement('span');
+                label.className = 'interaction-group-label';
+                label.textContent = `${interactable.label.toUpperCase()}:`;
+                group.appendChild(label);
 
-                // Construct label: "Label: state1 / state2 / state3"
-                const stateLabels = interactable.states.map((s, idx) => {
-                    const label = (s.label || s.id).toUpperCase();
-                    return idx === currentStateIndex ? `<strong>${label}</strong>` : label;
-                }).join(' <span class="sep">/</span> ');
+                // Create a button for each state option
+                interactable.states.forEach((state, idx) => {
+                    const btn = document.createElement('button');
+                    btn.className = 'interaction-btn';
+                    if (idx === currentStateIndex) btn.classList.add('active');
 
-                btn.innerHTML = `<span class="inter-label">${interactable.label.toUpperCase()}:</span> ${stateLabels}`;
+                    btn.textContent = (state.label || state.id).toUpperCase();
 
-                // Click to cycle through states
-                btn.onclick = (e) => this.handleAction('act', interId, null, e);
-                this.elements.actionsContainer.appendChild(btn);
+                    // Click to directly set this state
+                    btn.onclick = (e) => this.handleAction('act', interId, idx, e);
+                    group.appendChild(btn);
+                });
+
+                this.elements.actionsContainer.appendChild(group);
             });
         } else {
             this.elements.interactableDesc.innerText = "";
