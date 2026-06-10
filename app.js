@@ -1003,8 +1003,10 @@ class BackroomsGame {
         this.typeTerminalText(displayText.toUpperCase());
     }
 
-    typeTerminalText(fullText) {
+    typeTerminalText(fullText, callback) {
         if (this.terminalTimeout) clearTimeout(this.terminalTimeout);
+
+        if (window.TerminalSystem) window.TerminalSystem.isTyping = true;
 
         const deleteChar = () => {
             const current = this.elements.terminalText.innerText;
@@ -1013,6 +1015,10 @@ class BackroomsGame {
                 this.terminalTimeout = setTimeout(deleteChar, 10);
             } else {
                 if (fullText) startTyping();
+                else {
+                    if (window.TerminalSystem) window.TerminalSystem.isTyping = false;
+                    if (callback) callback();
+                }
             }
         };
 
@@ -1037,14 +1043,20 @@ class BackroomsGame {
                     this.terminalTimeout = setTimeout(type, Math.random() * 30 + 15);
                 } else {
                     this.elements.terminalText.innerText = fullText;
+                    if (window.TerminalSystem) window.TerminalSystem.isTyping = false;
 
                     // Add interactive class if dialogue is linked
                     const container = document.getElementById('terminal-line-container');
                     if (this.state.activeAtmosphericText && this.state.activeAtmosphericText.dialogue_id) {
                         container.classList.add('interactive-prompt');
+                        if (window.TerminalSystem && container.classList.contains('focused')) {
+                            window.TerminalSystem.showActiveDialogueOptions();
+                        }
                     } else {
                         container.classList.remove('interactive-prompt');
                     }
+
+                    if (callback) callback();
                 }
             };
             type();
