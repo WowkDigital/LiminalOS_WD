@@ -269,16 +269,16 @@ class MapGraph {
         // Build adjacency for force simulation
         const edges = this._buildEdges(visited);
 
-        // Force simulation: 80 iterations
+        // Force simulation: 120 iterations
         const allNodes = Object.keys(pos);
-        const TARGET_D = 130;  // ideal spring length between connected nodes
-        const REPEL_D = 80;   // soft repulsion radius
-        const MIN_DIST = 60;   // hard minimum distance between any two nodes
+        const TARGET_D = 110;  // ideal spring length between connected nodes
+        const REPEL_D = 95;   // soft repulsion radius
+        const MIN_DIST = 70;   // hard minimum distance between any two nodes
         const SPRING_K = 0.12;
-        const REPEL_K = 380;
+        const REPEL_K = 480;
         const LAYER_K = 0.08; // soft pull back to BFS layer Y
 
-        for (let iter = 0; iter < 80; iter++) {
+        for (let iter = 0; iter < 120; iter++) {
             // --- Soft repulsion between all pairs ---
             for (let i = 0; i < allNodes.length; i++) {
                 for (let j = i + 1; j < allNodes.length; j++) {
@@ -403,9 +403,9 @@ class MapGraph {
         defs.appendChild(marker);
         this.svg.appendChild(defs);
 
-        const NODE_R_VISITED = 6;
-        const NODE_R_UNKNOWN = 4;
-        const NODE_R_CURRENT = 8;
+        const NODE_R_VISITED = 7;
+        const NODE_R_UNKNOWN = 4.5;
+        const NODE_R_CURRENT = 9;
 
         const state = this.game.state;
         const currentRoom = state.isTransitioning
@@ -426,7 +426,7 @@ class MapGraph {
 
             const isTargetVisited = visited.has(target);
             const color = this.game.getCategoryColor(category);
-            const alpha = isTargetVisited ? 0.55 : 0.22;
+            const alpha = isTargetVisited ? 0.65 : 0.25;
             const strokeColor = color.replace('hsl', 'hsla').replace(')', `, ${alpha})`);
 
             // Shorten line end so arrowhead touches node circumference
@@ -444,7 +444,7 @@ class MapGraph {
             line.setAttribute('x2', ex);
             line.setAttribute('y2', ey);
             line.setAttribute('stroke', strokeColor);
-            line.setAttribute('stroke-width', isTargetVisited ? '1.8' : '1');
+            line.setAttribute('stroke-width', isTargetVisited ? '2' : '1.2');
             line.setAttribute('color', strokeColor); // makes arrowhead currentColor
             if (!isTargetVisited) line.setAttribute('stroke-dasharray', '4 4');
             line.setAttribute('marker-end', 'url(#arrowhead)');
@@ -475,10 +475,17 @@ class MapGraph {
             const glow = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
             glow.setAttribute('cx', pos.x);
             glow.setAttribute('cy', pos.y);
-            glow.setAttribute('r', 12);
-            glow.setAttribute('fill', 'rgba(255,255,255,0.04)');
-            glow.setAttribute('stroke', 'rgba(255,255,255,0.18)');
+            glow.setAttribute('r', 15);
+            glow.setAttribute('fill', 'rgba(255,255,255,0.03)');
+            glow.setAttribute('stroke', 'rgba(255, 255, 255, 0.25)');
             glow.setAttribute('stroke-width', '1');
+            // Adding subtle animation to glow
+            const animate = document.createElementNS('http://www.w3.org/2000/svg', 'animate');
+            animate.setAttribute('attributeName', 'r');
+            animate.setAttribute('values', '13;17;13');
+            animate.setAttribute('dur', '2s');
+            animate.setAttribute('repeatCount', 'indefinite');
+            glow.appendChild(animate);
             group.appendChild(glow);
         }
 
@@ -487,20 +494,20 @@ class MapGraph {
         circle.setAttribute('cy', pos.y);
 
         if (isCurrent) {
-            circle.setAttribute('r', '8');
+            circle.setAttribute('r', '9');
             circle.setAttribute('fill', '#ffffff');
             circle.setAttribute('stroke', '#33ff33');
-            circle.setAttribute('stroke-width', '2');
+            circle.setAttribute('stroke-width', '2.5');
         } else if (isVisited) {
-            circle.setAttribute('r', '6');
-            circle.setAttribute('fill', '#33ff33');
-            circle.setAttribute('stroke', 'rgba(51,255,51,0.35)');
-            circle.setAttribute('stroke-width', '1');
+            circle.setAttribute('r', '7');
+            circle.setAttribute('fill', 'rgba(51, 255, 51, 0.15)');
+            circle.setAttribute('stroke', '#33ff33');
+            circle.setAttribute('stroke-width', '2');
         } else {
             // Unknown room
-            circle.setAttribute('r', '4');
-            circle.setAttribute('fill', 'rgba(70,70,70,0.7)');
-            circle.setAttribute('stroke', 'rgba(110,110,110,0.45)');
+            circle.setAttribute('r', '4.5');
+            circle.setAttribute('fill', 'rgba(255, 255, 255, 0.05)');
+            circle.setAttribute('stroke', 'rgba(255, 255, 255, 0.2)');
             circle.setAttribute('stroke-width', '1');
         }
         group.appendChild(circle);
@@ -509,20 +516,20 @@ class MapGraph {
         if (isVisited || isCurrent) {
             const name = this.game.world.rooms[id]?.name || id;
             const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            text.setAttribute('x', pos.x + 10);
+            text.setAttribute('x', pos.x + 13);
             text.setAttribute('y', pos.y + 4);
-            text.setAttribute('fill', isCurrent ? '#ffffff' : 'rgba(51,255,51,0.8)');
+            text.setAttribute('fill', isCurrent ? '#ffffff' : 'rgba(255, 255, 255, 0.85)');
             text.setAttribute('font-size', isCurrent ? '10px' : '9px');
             text.setAttribute('font-family', 'var(--font-tech)');
-            text.setAttribute('font-weight', isCurrent ? 'bold' : 'normal');
-            text.textContent = name.substring(0, 16);
+            text.setAttribute('font-weight', isCurrent ? 'bold' : '500');
+            text.textContent = name.toUpperCase().substring(0, 16);
             group.appendChild(text);
         } else {
             // Question mark for undiscovered nodes
             const q = document.createElementNS('http://www.w3.org/2000/svg', 'text');
             q.setAttribute('x', pos.x);
             q.setAttribute('y', pos.y + 3);
-            q.setAttribute('fill', 'rgba(120,120,120,0.6)');
+            q.setAttribute('fill', 'rgba(255, 255, 255, 0.35)');
             q.setAttribute('font-size', '7px');
             q.setAttribute('font-family', 'var(--font-tech)');
             q.setAttribute('text-anchor', 'middle');

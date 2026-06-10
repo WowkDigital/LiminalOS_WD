@@ -472,6 +472,7 @@ body {
 }
 
 .hud-badge-btn:hover {
+    transform: none !important;
     background: var(--glass-highlight);
     border-color: var(--accent-primary);
     color: var(--text-main);
@@ -953,9 +954,18 @@ button.custom-category-btn:hover {
 }
 
 .map-toggle-btn:hover {
+    transform: translateY(-50%) !important;
     background: var(--glass-highlight);
     color: var(--accent-primary);
     border-color: var(--accent-primary);
+}
+
+#map-svg text {
+    paint-order: stroke fill;
+    stroke: #0a0a0a;
+    stroke-width: 3px;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 
 .map-content {
