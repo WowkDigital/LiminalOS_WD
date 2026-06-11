@@ -1187,4 +1187,5 @@ class BackroomsGame {
 
 // Start game
 const game = new BackroomsGame();
+window.game = game;
 document.addEventListener('DOMContentLoaded', () => game.init());
