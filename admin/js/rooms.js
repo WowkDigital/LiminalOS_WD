@@ -481,6 +481,7 @@ export function addTextField(item = {}) {
     rendered.addEventListener('input', updateRoomExportArea);
 
     container.appendChild(rendered);
+    if (window.lucide) lucide.createIcons();
     updateRoomExportArea();
 }
 

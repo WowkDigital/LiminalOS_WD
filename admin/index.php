@@ -199,16 +199,18 @@ if (isset($_SESSION['admin_auth']) && $_SESSION['admin_auth'] === true):
                 <form id="room-form">
                     <div class="editor-layout">
                         <div class="editor-main">
-                            <div class="form-group">
-                                <label for="room-id">Unique Room ID</label>
-                                <input type="text" id="room-id" name="id" placeholder="e.g. infinite_hallway" required>
-                                <small>Must be unique, lowercase, no spaces.</small>
-                            </div>
+                            <div class="form-row-2">
+                                <div class="form-group">
+                                    <label for="room-id">Unique Room ID</label>
+                                    <input type="text" id="room-id" name="id" placeholder="e.g. infinite_hallway" required>
+                                    <small>Must be unique, lowercase, no spaces.</small>
+                                </div>
 
-                            <div class="form-group">
-                                <label for="room-name">Display Name</label>
-                                <input type="text" id="room-name" name="name" placeholder="e.g. The Infinite Hallway"
-                                    required>
+                                <div class="form-group">
+                                    <label for="room-name">Display Name</label>
+                                    <input type="text" id="room-name" name="name" placeholder="e.g. The Infinite Hallway"
+                                        required>
+                                </div>
                             </div>
 
                             <div class="form-section graphics-card">
@@ -220,28 +222,28 @@ if (isset($_SESSION['admin_auth']) && $_SESSION['admin_auth'] === true):
                                     Graphics</button>
                             </div>
 
-                            <div class="form-group">
-                                <label for="room-desc">Description</label>
-                                <textarea id="room-desc" name="desc" rows="3" placeholder="..." required></textarea>
-                            </div>
+                            <div class="form-row-2">
+                                <div class="form-group">
+                                    <label for="room-desc">Description</label>
+                                    <textarea id="room-desc" name="desc" rows="2" placeholder="..." required></textarea>
+                                </div>
 
-                            <div class="form-group">
-                                <label for="room-tags">Tags (comma separated)</label>
-                                <input type="text" id="room-tags" name="tags" placeholder="liminal, dark, industrial">
+                                <div class="form-group">
+                                    <label for="room-tags">Tags (comma separated)</label>
+                                    <input type="text" id="room-tags" name="tags" placeholder="liminal, dark, industrial">
+                                </div>
                             </div>
 
                             <div class="form-section">
                                 <h3>Transitions Categories</h3>
-                                <div id="transitions-container"
-                                    style="display: flex; flex-direction: column; gap: 8px;">
+                                <div id="transitions-container">
                                     <!-- Dynamically filled by script.js -->
                                 </div>
                             </div>
 
                             <div class="form-section interactables-section">
                                 <h3>Interactables Available</h3>
-                                <div id="interactables-checkbox-group"
-                                    style="display: flex; flex-direction: column; gap: 8px;">
+                                <div id="interactables-checkbox-group">
                                     <!-- Dynamically filled by script.js -->
                                     <small class="loading">Loading interactables...</small>
                                 </div>
@@ -250,38 +252,50 @@ if (isset($_SESSION['admin_auth']) && $_SESSION['admin_auth'] === true):
 
                             <div class="form-section">
                                 <h3>Atmospheric Texts</h3>
+                                <div class="text-list-header">
+                                    <span class="col-text">Atmospheric Line</span>
+                                    <span class="col-sanity">Sanity Range</span>
+                                    <span class="col-dialog">Dialog ID</span>
+                                    <span class="col-action"></span>
+                                </div>
                                 <div id="texts-list"></div>
                                 <button type="button" id="btn-add-text" class="btn-small">+ Add Text Line</button>
                             </div>
-
-
                         </div>
                         <div class="editor-sidebar">
-                            <div class="form-section">
-                                <h3>Data Control (JSON)</h3>
-                                <div class="form-group">
-                                    <label>Current State (Export)</label>
-                                    <textarea id="room-json-export" readonly rows="12"
-                                        style="font-family: var(--font-mono); font-size: 0.8rem; background: rgba(0,0,0,0.5); color: var(--accent-primary); resize: none;"></textarea>
-                                    <button type="button" id="btn-copy-room-json" class="btn-secondary full-width"
-                                        style="margin-top: 10px;">
-                                        <i data-lucide="copy"
-                                            style="width: 14px; height: 14px; display: inline-block; vertical-align: middle; margin-right: 5px;"></i>
-                                        Copy to Clipboard
-                                    </button>
+                            <div class="form-section json-control-section">
+                                <h3 style="margin-bottom: 0.75rem;">Data Control (JSON)</h3>
+                                
+                                <div class="json-tabs">
+                                    <button type="button" class="json-tab-btn active" data-tab-type="export" data-target="room-export-container">Export</button>
+                                    <button type="button" class="json-tab-btn" data-tab-type="import" data-target="room-import-container">Import</button>
                                 </div>
-                                <div class="form-group"
-                                    style="margin-top: 2rem; padding-top: 2rem; border-top: 1px dashed var(--glass-border);">
-                                    <label>Override State (Import)</label>
-                                    <textarea id="room-json-import" rows="12" placeholder="Paste room JSON data here..."
-                                        style="font-family: var(--font-mono); font-size: 0.8rem; background: rgba(0,0,0,0.5); resize: none;"></textarea>
-                                    <button type="button" id="btn-apply-room-json" class="btn-primary full-width"
-                                        style="margin-top: 10px;">
-                                        <i data-lucide="upload"
-                                            style="width: 14px; height: 14px; display: inline-block; vertical-align: middle; margin-right: 5px;"></i>
-                                        Apply JSON Data
-                                    </button>
-                                    <small>Warning: This will overwrite currently entered data.</small>
+                                
+                                <div id="room-export-container" class="json-tab-panel active">
+                                    <div class="form-group compact" style="margin-top: 10px;">
+                                        <textarea id="room-json-export" readonly rows="10"
+                                            style="font-family: var(--font-mono); font-size: 0.8rem; background: rgba(0,0,0,0.5); color: var(--accent-primary); resize: none;"></textarea>
+                                        <button type="button" id="btn-copy-room-json" class="btn-secondary full-width"
+                                            style="margin-top: 10px;">
+                                            <i data-lucide="copy"
+                                                style="width: 14px; height: 14px; display: inline-block; vertical-align: middle; margin-right: 5px;"></i>
+                                            Copy JSON
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div id="room-import-container" class="json-tab-panel hidden">
+                                    <div class="form-group compact" style="margin-top: 10px;">
+                                        <textarea id="room-json-import" rows="10" placeholder="Paste room JSON data here..."
+                                            style="font-family: var(--font-mono); font-size: 0.8rem; background: rgba(0,0,0,0.5); resize: none;"></textarea>
+                                        <button type="button" id="btn-apply-room-json" class="btn-primary full-width"
+                                            style="margin-top: 10px;">
+                                            <i data-lucide="upload"
+                                                style="width: 14px; height: 14px; display: inline-block; vertical-align: middle; margin-right: 5px;"></i>
+                                            Apply JSON Data
+                                        </button>
+                                        <small style="margin-top: 8px;">Warning: This will overwrite currently entered data.</small>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -319,16 +333,18 @@ if (isset($_SESSION['admin_auth']) && $_SESSION['admin_auth'] === true):
                 <form id="inter-form">
                     <div class="editor-layout">
                         <div class="editor-main">
-                            <div class="form-group">
-                                <label for="inter-id">Object ID</label>
-                                <input type="text" id="inter-id" name="id" placeholder="e.g. wall_switch" required>
-                                <small>Unique ID, lowercase, no spaces.</small>
-                            </div>
+                            <div class="form-row-2">
+                                <div class="form-group">
+                                    <label for="inter-id">Object ID</label>
+                                    <input type="text" id="inter-id" name="id" placeholder="e.g. wall_switch" required>
+                                    <small>Unique ID, lowercase, no spaces.</small>
+                                </div>
 
-                            <div class="form-group">
-                                <label for="inter-label">Label</label>
-                                <input type="text" id="inter-label" name="label" placeholder="e.g. Old Light Switch"
-                                    required>
+                                <div class="form-group">
+                                    <label for="inter-label">Label</label>
+                                    <input type="text" id="inter-label" name="label" placeholder="e.g. Old Light Switch"
+                                        required>
+                                </div>
                             </div>
 
                             <div class="form-section">
@@ -339,32 +355,40 @@ if (isset($_SESSION['admin_auth']) && $_SESSION['admin_auth'] === true):
                             </div>
                         </div>
                         <div class="editor-sidebar">
-                            <div class="form-section">
-                                <h3>Data Control (JSON)</h3>
-                                <div class="form-group">
-                                    <label>Current State (Export)</label>
-                                    <textarea id="inter-json-export" readonly rows="12"
-                                        style="font-family: var(--font-mono); font-size: 0.8rem; background: rgba(0,0,0,0.5); color: var(--accent-primary); resize: none;"></textarea>
-                                    <button type="button" id="btn-copy-inter-json" class="btn-secondary full-width"
-                                        style="margin-top: 10px;">
-                                        <i data-lucide="copy"
-                                            style="width: 14px; height: 14px; display: inline-block; vertical-align: middle; margin-right: 5px;"></i>
-                                        Copy to Clipboard
-                                    </button>
+                            <div class="form-section json-control-section">
+                                <h3 style="margin-bottom: 0.75rem;">Data Control (JSON)</h3>
+                                
+                                <div class="json-tabs">
+                                    <button type="button" class="json-tab-btn active" data-tab-type="export" data-target="inter-export-container">Export</button>
+                                    <button type="button" class="json-tab-btn" data-tab-type="import" data-target="inter-import-container">Import</button>
                                 </div>
-                                <div class="form-group"
-                                    style="margin-top: 2rem; padding-top: 2rem; border-top: 1px dashed var(--glass-border);">
-                                    <label>Override State (Import)</label>
-                                    <textarea id="inter-json-import" rows="12"
-                                        placeholder="Paste interactable JSON data here..."
-                                        style="font-family: var(--font-mono); font-size: 0.8rem; background: rgba(0,0,0,0.5); resize: none;"></textarea>
-                                    <button type="button" id="btn-apply-inter-json" class="btn-primary full-width"
-                                        style="margin-top: 10px;">
-                                        <i data-lucide="upload"
-                                            style="width: 14px; height: 14px; display: inline-block; vertical-align: middle; margin-right: 5px;"></i>
-                                        Apply JSON Data
-                                    </button>
-                                    <small>Warning: This will overwrite currently entered data.</small>
+                                
+                                <div id="inter-export-container" class="json-tab-panel active">
+                                    <div class="form-group compact" style="margin-top: 10px;">
+                                        <textarea id="inter-json-export" readonly rows="10"
+                                            style="font-family: var(--font-mono); font-size: 0.8rem; background: rgba(0,0,0,0.5); color: var(--accent-primary); resize: none;"></textarea>
+                                        <button type="button" id="btn-copy-inter-json" class="btn-secondary full-width"
+                                            style="margin-top: 10px;">
+                                            <i data-lucide="copy"
+                                                style="width: 14px; height: 14px; display: inline-block; vertical-align: middle; margin-right: 5px;"></i>
+                                            Copy JSON
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div id="inter-import-container" class="json-tab-panel hidden">
+                                    <div class="form-group compact" style="margin-top: 10px;">
+                                        <textarea id="inter-json-import" rows="10"
+                                            placeholder="Paste interactable JSON data here..."
+                                            style="font-family: var(--font-mono); font-size: 0.8rem; background: rgba(0,0,0,0.5); resize: none;"></textarea>
+                                        <button type="button" id="btn-apply-inter-json" class="btn-primary full-width"
+                                            style="margin-top: 10px;">
+                                            <i data-lucide="upload"
+                                                style="width: 14px; height: 14px; display: inline-block; vertical-align: middle; margin-right: 5px;"></i>
+                                            Apply JSON Data
+                                        </button>
+                                        <small style="margin-top: 8px;">Warning: This will overwrite currently entered data.</small>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -402,10 +426,18 @@ if (isset($_SESSION['admin_auth']) && $_SESSION['admin_auth'] === true):
                 <form id="trans-form">
                     <div class="editor-layout">
                         <div class="editor-main">
-                            <div class="form-group">
-                                <label for="trans-id">Unique Transition ID</label>
-                                <input type="text" id="trans-id" name="id" placeholder="e.g. industrial_elevator_01"
-                                    required>
+                            <div class="form-row-2">
+                                <div class="form-group">
+                                    <label for="trans-id">Unique Transition ID</label>
+                                    <input type="text" id="trans-id" name="id" placeholder="e.g. industrial_elevator_01"
+                                        required>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="trans-label">Label</label>
+                                    <input type="text" id="trans-label" name="label"
+                                        placeholder="e.g. Descending into Level 1" required>
+                                </div>
                             </div>
 
                             <div class="form-group">
@@ -415,25 +447,27 @@ if (isset($_SESSION['admin_auth']) && $_SESSION['admin_auth'] === true):
                                 </div>
                             </div>
 
-                            <div class="form-group">
-                                <label for="trans-label">Label</label>
-                                <input type="text" id="trans-label" name="label"
-                                    placeholder="e.g. Descending into Level 1" required>
-                            </div>
+                            <div class="form-row-2">
+                                <div class="form-group">
+                                    <label for="trans-desc">Description</label>
+                                    <textarea id="trans-desc" name="desc" rows="2" placeholder="..." required></textarea>
+                                </div>
 
-                            <div class="form-group">
-                                <label for="trans-desc">Description</label>
-                                <textarea id="trans-desc" name="desc" rows="3" placeholder="..." required></textarea>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="trans-tags">Tags (comma separated)</label>
-                                <input type="text" id="trans-tags" name="tags"
-                                    placeholder="elevator, humming, descending">
+                                <div class="form-group">
+                                    <label for="trans-tags">Tags (comma separated)</label>
+                                    <input type="text" id="trans-tags" name="tags"
+                                        placeholder="elevator, humming, descending">
+                                </div>
                             </div>
 
                             <div class="form-section">
                                 <h3>Transition Texts</h3>
+                                <div class="text-list-header">
+                                    <span class="col-text">Atmospheric Line</span>
+                                    <span class="col-sanity">Sanity Range</span>
+                                    <span class="col-dialog">Dialog ID</span>
+                                    <span class="col-action"></span>
+                                </div>
                                 <div id="trans-texts-list"></div>
                                 <button type="button" id="btn-add-trans-text" class="btn-small">+ Add Text Line</button>
                             </div>
@@ -447,32 +481,40 @@ if (isset($_SESSION['admin_auth']) && $_SESSION['admin_auth'] === true):
                             </div>
                         </div>
                         <div class="editor-sidebar">
-                            <div class="form-section">
-                                <h3>Data Control (JSON)</h3>
-                                <div class="form-group">
-                                    <label>Current State (Export)</label>
-                                    <textarea id="trans-json-export" readonly rows="12"
-                                        style="font-family: var(--font-mono); font-size: 0.8rem; background: rgba(0,0,0,0.5); color: var(--accent-primary); resize: none;"></textarea>
-                                    <button type="button" id="btn-copy-trans-json" class="btn-secondary full-width"
-                                        style="margin-top: 10px;">
-                                        <i data-lucide="copy"
-                                            style="width: 14px; height: 14px; display: inline-block; vertical-align: middle; margin-right: 5px;"></i>
-                                        Copy to Clipboard
-                                    </button>
+                            <div class="form-section json-control-section">
+                                <h3 style="margin-bottom: 0.75rem;">Data Control (JSON)</h3>
+                                
+                                <div class="json-tabs">
+                                    <button type="button" class="json-tab-btn active" data-tab-type="export" data-target="trans-export-container">Export</button>
+                                    <button type="button" class="json-tab-btn" data-tab-type="import" data-target="trans-import-container">Import</button>
                                 </div>
-                                <div class="form-group"
-                                    style="margin-top: 2rem; padding-top: 2rem; border-top: 1px dashed var(--glass-border);">
-                                    <label>Override State (Import)</label>
-                                    <textarea id="trans-json-import" rows="12"
-                                        placeholder="Paste transition JSON data here..."
-                                        style="font-family: var(--font-mono); font-size: 0.8rem; background: rgba(0,0,0,0.5); resize: none;"></textarea>
-                                    <button type="button" id="btn-apply-trans-json" class="btn-primary full-width"
-                                        style="margin-top: 10px;">
-                                        <i data-lucide="upload"
-                                            style="width: 14px; height: 14px; display: inline-block; vertical-align: middle; margin-right: 5px;"></i>
-                                        Apply JSON Data
-                                    </button>
-                                    <small>Warning: This will overwrite currently entered data.</small>
+                                
+                                <div id="trans-export-container" class="json-tab-panel active">
+                                    <div class="form-group compact" style="margin-top: 10px;">
+                                        <textarea id="trans-json-export" readonly rows="10"
+                                            style="font-family: var(--font-mono); font-size: 0.8rem; background: rgba(0,0,0,0.5); color: var(--accent-primary); resize: none;"></textarea>
+                                        <button type="button" id="btn-copy-trans-json" class="btn-secondary full-width"
+                                            style="margin-top: 10px;">
+                                            <i data-lucide="copy"
+                                                style="width: 14px; height: 14px; display: inline-block; vertical-align: middle; margin-right: 5px;"></i>
+                                            Copy JSON
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div id="trans-import-container" class="json-tab-panel hidden">
+                                    <div class="form-group compact" style="margin-top: 10px;">
+                                        <textarea id="trans-json-import" rows="10"
+                                            placeholder="Paste transition JSON data here..."
+                                            style="font-family: var(--font-mono); font-size: 0.8rem; background: rgba(0,0,0,0.5); resize: none;"></textarea>
+                                        <button type="button" id="btn-apply-trans-json" class="btn-primary full-width"
+                                            style="margin-top: 10px;">
+                                            <i data-lucide="upload"
+                                                style="width: 14px; height: 14px; display: inline-block; vertical-align: middle; margin-right: 5px;"></i>
+                                            Apply JSON Data
+                                        </button>
+                                        <small style="margin-top: 8px;">Warning: This will overwrite currently entered data.</small>
+                                    </div>
                                 </div>
                             </div>
                         </div>

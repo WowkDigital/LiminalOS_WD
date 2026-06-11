@@ -227,5 +227,6 @@ export function addTransTextField(item = {}) {
     rendered.addEventListener('input', updateTransitionExportArea);
 
     container.appendChild(rendered);
+    if (window.lucide) lucide.createIcons();
     updateTransitionExportArea();
 }

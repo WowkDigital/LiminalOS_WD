@@ -1,5 +1,5 @@
 // StateConfigRow component to manage object state models
-import { el } from '../dom.js';
+import { el, icon } from '../dom.js';
 
 export class StateConfigRow {
     constructor(item = {}, onRemove, onSelectImage) {
@@ -14,13 +14,15 @@ export class StateConfigRow {
             name: 'state_id[]',
             value: this.item.id || '',
             placeholder: 'e.g. on',
-            required: true
+            required: true,
+            style: { padding: '8px 12px', fontSize: '0.9rem' }
         });
 
         const descTextarea = el('textarea', {
             name: 'state_desc[]',
             rows: '2',
-            placeholder: '...'
+            placeholder: 'State description...',
+            style: { padding: '8px 12px', fontSize: '0.9rem', minHeight: '60px', resize: 'vertical' }
         });
         descTextarea.textContent = this.item.desc || '';
 
@@ -28,56 +30,66 @@ export class StateConfigRow {
             type: 'text',
             name: 'state_image[]',
             value: this.item.image || '',
-            placeholder: 'media/uploads/...',
-            readOnly: true
+            placeholder: 'No asset selected...',
+            readOnly: true,
+            style: { padding: '8px 12px', fontSize: '0.85rem', flex: '1' }
         });
 
         const previewImg = el('img', {
             src: this.item.image ? '../' + this.item.image : '',
-            className: this.item.image ? '' : 'hidden'
+            className: this.item.image ? '' : 'hidden',
+            style: { maxHeight: '100%', maxWidth: '100%', objectFit: 'contain' }
         });
 
         const noImagePlaceholder = el('div', {
-            className: this.item.image ? 'hidden' : 'no-image'
-        }, 'No Asset Selected');
+            className: this.item.image ? 'hidden' : 'no-image',
+            style: { fontSize: '0.75rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }
+        }, 'No Asset');
 
         const selectBtn = el('button', {
             type: 'button',
             className: 'btn-secondary',
-            style: { padding: '10px' },
+            style: { padding: '8px 12px', fontSize: '0.85rem', whiteSpace: 'nowrap' },
             onClick: () => this.onSelectImage(imageInput, previewImg, noImagePlaceholder)
-        }, 'Select from Library');
+        }, 'Pick Image');
 
         return el('div', {
-            className: 'form-section',
-            style: { marginBottom: '1rem' }
+            className: 'state-config-card'
         }, [
-            el('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' } }, [
-                el('strong', {}, 'State Configuration'),
+            el('div', { className: 'state-card-header' }, [
+                el('div', { style: { display: 'flex', alignItems: 'center', gap: '6px' } }, [
+                    icon('sliders', { style: { width: '14px', height: '14px', color: 'var(--accent-primary)' } }),
+                    el('span', { style: { fontWeight: '600', fontSize: '0.9rem', fontFamily: 'var(--font-mono)' } }, 'STATE CONFIG')
+                ]),
                 el('button', {
                     type: 'button',
-                    className: 'btn-remove',
-                    style: { width: 'auto', height: 'auto', padding: '4px 8px' },
-                    onClick: this.onRemove
-                }, 'Remove State')
+                    className: 'btn-remove btn-remove-compact',
+                    onClick: this.onRemove,
+                    title: 'Remove state'
+                }, [icon('trash-2', { style: { width: '14px', height: '14px' } })])
             ]),
-            el('div', { className: 'form-group', style: { marginBottom: '10px' } }, [
-                el('label', {}, 'State ID'),
-                idInput
-            ]),
-            el('div', { className: 'form-group', style: { marginBottom: '10px' } }, [
-                el('label', {}, 'Description'),
-                descTextarea
-            ]),
-            el('div', { className: 'form-group', style: { marginBottom: '0' } }, [
-                el('label', {}, 'Visual Asset'),
-                el('div', { className: 'media-picker-row' }, [
-                    imageInput,
-                    selectBtn
+            
+            el('div', { className: 'state-card-body' }, [
+                el('div', { className: 'state-card-fields' }, [
+                    el('div', { className: 'form-group compact' }, [
+                        el('label', { className: 'compact-label' }, 'State ID'),
+                        idInput
+                    ]),
+                    el('div', { className: 'form-group compact' }, [
+                        el('label', { className: 'compact-label' }, 'Description'),
+                        descTextarea
+                    ])
                 ]),
-                el('div', { className: 'state-image-preview' }, [
-                    previewImg,
-                    noImagePlaceholder
+                el('div', { className: 'state-card-media' }, [
+                    el('label', { className: 'compact-label' }, 'Visual Asset'),
+                    el('div', { className: 'media-picker-row-compact' }, [
+                        imageInput,
+                        selectBtn
+                    ]),
+                    el('div', { className: 'state-image-preview-compact' }, [
+                        previewImg,
+                        noImagePlaceholder
+                    ])
                 ])
             ])
         ]);

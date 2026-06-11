@@ -1896,3 +1896,338 @@ small {
     margin-bottom: 4px;
     font-size: 1.1rem;
 }
+
+/* ==========================================================================
+   Admin Editor Layout Optimizations (Compact & Readable UI Updates)
+   ========================================================================== */
+
+/* 2-Column form grouping */
+.form-row-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+}
+
+/* Make form items denser */
+.form-group {
+    margin-bottom: 1.25rem !important;
+}
+
+.form-group small {
+    margin-top: 4px;
+    font-size: 0.75rem;
+}
+
+.form-section {
+    padding: 1.25rem !important;
+    margin-bottom: 1.25rem !important;
+}
+
+.form-section h3 {
+    font-size: 0.95rem !important;
+    margin-bottom: 1rem !important;
+    padding-bottom: 0.5rem !important;
+}
+
+/* Text List Dynamic Column Header */
+.text-list-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 12px 6px 12px;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    margin-bottom: 8px;
+}
+.text-list-header .col-text {
+    flex: 1;
+}
+.text-list-header .col-sanity {
+    width: 104px;
+    text-align: center;
+}
+.text-list-header .col-dialog {
+    width: 146px;
+    text-align: center;
+}
+.text-list-header .col-action {
+    width: 38px;
+}
+
+/* Atmospheric / Transition Text Config Rows */
+.text-config-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-sm);
+    margin-bottom: 8px;
+    transition: var(--transition-fast);
+}
+
+.text-config-row:hover {
+    border-color: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.text-config-row .text-content {
+    flex: 1;
+    min-width: 150px;
+    padding: 8px 12px;
+    font-size: 0.9rem;
+    height: 38px;
+}
+
+.text-config-param {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--glass-border);
+    padding: 4px 10px;
+    border-radius: var(--radius-sm);
+    height: 38px;
+}
+
+.text-config-param .param-prefix {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--accent-primary);
+    user-select: none;
+    font-weight: 600;
+}
+
+.text-config-param input {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    color: var(--text-main) !important;
+    font-size: 0.85rem !important;
+    height: auto !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+}
+
+.text-config-row .text-smin,
+.text-config-row .text-smax {
+    width: 32px;
+    text-align: center;
+    -moz-appearance: textfield;
+}
+
+.text-config-row .text-smin::-webkit-outer-spin-button,
+.text-config-row .text-smin::-webkit-inner-spin-button,
+.text-config-row .text-smax::-webkit-outer-spin-button,
+.text-config-row .text-smax::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.text-config-row .text-did {
+    width: 100px;
+    font-family: var(--font-mono);
+}
+
+.text-config-row .param-range-sep {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+/* Compact Remove Button */
+.btn-remove-compact {
+    background: rgba(239, 68, 68, 0.08);
+    color: var(--error);
+    border: 1px solid rgba(239, 68, 68, 0.15);
+    width: 38px;
+    height: 38px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition-fast);
+    flex-shrink: 0;
+    padding: 0;
+}
+
+.btn-remove-compact:hover {
+    background: var(--error);
+    color: white;
+    border-color: var(--error);
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.3);
+}
+
+/* Responsive Grid for Transitions list and Interactables list in Space Editor */
+#transitions-container,
+#interactables-checkbox-group {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 10px;
+}
+
+/* State Configuration Card for Interactable Editor */
+.state-config-card {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    padding: 12px;
+    margin-bottom: 12px;
+    transition: var(--transition-fast);
+}
+
+.state-config-card:hover {
+    border-color: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.state-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--glass-border);
+    padding-bottom: 8px;
+    margin-bottom: 10px;
+}
+
+.state-card-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.state-card-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.state-card-media {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.compact-label {
+    margin-bottom: 4px !important;
+    font-size: 0.8rem !important;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+}
+
+.media-picker-row-compact {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.state-image-preview-compact {
+    height: 80px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+    margin-top: 4px;
+}
+
+.state-image-preview-compact img {
+    max-height: 100%;
+    max-width: 100%;
+    object-fit: contain;
+}
+
+.state-image-preview-compact .no-image {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    font-family: var(--font-mono);
+}
+
+/* Tabbed JSON Data Control Panels */
+.json-tabs {
+    display: flex;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-sm);
+    padding: 2px;
+    margin-bottom: 12px;
+}
+
+.json-tab-btn {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: var(--transition-fast);
+    font-family: var(--font-sans);
+}
+
+.json-tab-btn:hover {
+    color: var(--text-main);
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.json-tab-btn.active {
+    color: #1a1a1a;
+    background: var(--accent-primary);
+    font-weight: 600;
+}
+
+.json-tab-panel {
+    display: block;
+}
+
+.json-tab-panel.hidden {
+    display: none !important;
+}
+
+/* Adjust layout columns gaps */
+.editor-layout {
+    gap: 1.5rem !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1024px) {
+    .text-config-row {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .text-config-row .text-content {
+        width: 100%;
+        flex: none;
+    }
+    .text-config-param {
+        flex: 1;
+        justify-content: center;
+    }
+    .text-config-row .text-did {
+        width: 100%;
+    }
+}
+
+@media (max-width: 768px) {
+    .form-row-2 {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+    }
+    .state-card-body {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+}

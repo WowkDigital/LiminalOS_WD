@@ -154,6 +154,24 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     document.getElementById('btn-apply-inter-json').addEventListener('click', applyInteractableJSON);
 
+    // JSON tab switching logic
+    document.querySelectorAll('.json-tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const section = btn.closest('.json-control-section');
+            if (!section) return;
+            const targetId = btn.getAttribute('data-target');
+            
+            // Toggle active state on buttons
+            section.querySelectorAll('.json-tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            
+            // Toggle visible panels
+            section.querySelectorAll('.json-tab-panel').forEach(p => p.classList.add('hidden'));
+            const targetPanel = document.getElementById(targetId);
+            if (targetPanel) targetPanel.classList.remove('hidden');
+        });
+    });
+
     // Taxonomy bindings
     document.getElementById('btn-add-trans-tag').addEventListener('click', () => saveTaxonomyItem('transition_tag', 'new-trans-tag'));
 

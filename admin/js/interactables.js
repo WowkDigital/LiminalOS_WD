@@ -138,6 +138,7 @@ export function addStateField(item = {}) {
     rendered.addEventListener('input', updateInteractableExportArea);
 
     container.appendChild(rendered);
+    if (window.lucide) lucide.createIcons();
     updateInteractableExportArea();
 }
 

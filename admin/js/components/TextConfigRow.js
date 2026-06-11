@@ -1,5 +1,5 @@
 // TextConfigRow component to edit localized dialogue and sanity thresholds safely
-import { el } from '../dom.js';
+import { el, icon } from '../dom.js';
 
 export class TextConfigRow {
     constructor(item = {}, onRemove) {
@@ -17,15 +17,16 @@ export class TextConfigRow {
             type: 'text',
             className: 'text-content',
             value: content,
-            placeholder: 'Atmospheric line...',
-            style: { flexGrow: '1' }
+            placeholder: 'Atmospheric text line...',
+            required: true
         });
 
         const removeBtn = el('button', {
             type: 'button',
-            className: 'btn-remove',
-            onClick: this.onRemove
-        }, 'X');
+            className: 'btn-remove btn-remove-compact',
+            onClick: this.onRemove,
+            title: 'Remove line'
+        }, [icon('trash-2', { style: { width: '14px', height: '14px' } })]);
 
         const sanityMinInput = el('input', {
             type: 'number',
@@ -33,14 +34,7 @@ export class TextConfigRow {
             value: sMin,
             min: '0',
             max: '100',
-            style: {
-                width: '100%',
-                background: 'rgba(0,0,0,0.5)',
-                border: '1px solid #555',
-                color: '#fff',
-                padding: '4px',
-                borderRadius: '4px'
-            }
+            placeholder: 'Min'
         });
 
         const sanityMaxInput = el('input', {
@@ -49,69 +43,33 @@ export class TextConfigRow {
             value: sMax,
             min: '0',
             max: '100',
-            style: {
-                width: '100%',
-                background: 'rgba(0,0,0,0.5)',
-                border: '1px solid #555',
-                color: '#fff',
-                padding: '4px',
-                borderRadius: '4px'
-            }
+            placeholder: 'Max'
         });
 
         const dialogIdInput = el('input', {
             type: 'text',
             className: 'text-did',
             value: dId,
-            placeholder: 'None',
-            style: {
-                width: '100%',
-                background: 'rgba(0,0,0,0.5)',
-                border: '1px solid #555',
-                color: '#fff',
-                padding: '4px',
-                borderRadius: '4px'
-            }
+            placeholder: 'Dialogue ID'
         });
 
-        return el('div', {
-            className: 'text-config-row',
-            style: {
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '5px',
-                padding: '10px',
-                border: '1px solid #333',
-                marginBottom: '10px',
-                background: 'rgba(255,255,255,0.05)'
-            }
+        const row = el('div', {
+            className: 'text-config-row'
         }, [
-            el('div', { style: { display: 'flex', gap: '10px', alignItems: 'center' } }, [
-                textInput,
-                removeBtn
+            textInput,
+            el('div', { className: 'text-config-param' }, [
+                el('span', { className: 'param-prefix' }, 'S:'),
+                sanityMinInput,
+                el('span', { className: 'param-range-sep' }, '-'),
+                sanityMaxInput
             ]),
-            el('div', {
-                style: {
-                    display: 'flex',
-                    gap: '10px',
-                    fontSize: '0.8em',
-                    color: '#aaa',
-                    marginTop: '5px'
-                }
-            }, [
-                el('div', { style: { flex: '1' } }, [
-                    'Sanity Min: ',
-                    sanityMinInput
-                ]),
-                el('div', { style: { flex: '1' } }, [
-                    'Sanity Max: ',
-                    sanityMaxInput
-                ]),
-                el('div', { style: { flex: '2' } }, [
-                    'Dialog ID: ',
-                    dialogIdInput
-                ])
-            ])
+            el('div', { className: 'text-config-param id-param' }, [
+                el('span', { className: 'param-prefix' }, 'ID:'),
+                dialogIdInput
+            ]),
+            removeBtn
         ]);
+
+        return row;
     }
 }
