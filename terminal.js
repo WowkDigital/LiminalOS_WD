@@ -4,6 +4,108 @@
  * Enhanced UX: Better click targets, structured output, animated options, keyboard nav.
  */
 
+/**
+ * Dynamicznie generuje zglitchowany tekst z możliwością dostosowania parametrów.
+ * 
+ * @param {string} text - Tekst wejściowy do zniekształcenia.
+ * @param {Object} options - Parametry konfiguracyjne.
+ * @param {number} [options.percentage=25] - Jaki procent znaków ma zostać zniekształcony (0 - 100).
+ * @param {number} [options.strength=1] - Jak mocny ma być glitch (wpływa na zalgo lub powtórzenia).
+ * @param {string[]} [options.effects=['replace']] - Aktywne efekty (replace, zalgo, case, stutter, leet, binary, delete).
+ * @returns {string} Zglitchowany tekst.
+ */
+function generateGlitchText(text, options = {}) {
+    if (!text) return "";
+
+    const percentage = options.percentage !== undefined ? options.percentage : 25;
+    const strength = options.strength !== undefined ? options.strength : 1;
+    const effects = options.effects && options.effects.length > 0 ? options.effects : ['replace'];
+
+    const glitchChars = "░▒▓█▄▌▐▀☠☣⚡☢⚠◈◇⬡⟁✕◌!?@#$%^&*()_+-=[]{}|;':\",./<>?\\";
+    const leetMap = {
+        'A': '4', 'a': '4',
+        'E': '3', 'e': '3',
+        'I': '1', 'i': '1',
+        'O': '0', 'o': '0',
+        'S': '5', 's': '5',
+        'T': '7', 't': '7',
+        'G': '6', 'g': '6',
+        'B': '8', 'b': '8',
+        'Z': '2', 'z': '2'
+    };
+
+    const zalgoUp = ["\u030d", "\u030e", "\u0304", "\u0305", "\u033f", "\u0311", "\u0306", "\u0310", "\u0352", "\u0357", "\u030a", "\u0317", "\u032c", "\u0329", "\u0315", "\u031a", "\u0309", "\u0303", "\u0300", "\u0301", "\u0302", "\u030c", "\u0307", "\u0308", "\u030b", "\u030f", "\u0312", "\u0313", "\u0314", "\u031b", "\u031c", "\u031d", "\u031e", "\u031f", "\u0320", "\u0324", "\u0330", "\u0334", "\u0335", "\u0336", "\u0337", "\u0338", "\u0339", "\u033a", "\u033b", "\u033c", "\u0345", "\u034e", "\u0347", "\u0348", "\u0349", "\u034a", "\u034b", "\u034c", "\u034d", "\u0350", "\u0351", "\u035b"];
+    const zalgoDown = ["\u0316", "\u0317", "\u0318", "\u0319", "\u031c", "\u031d", "\u031e", "\u031f", "\u0320", "\u0324", "\u0325", "\u0326", "\u0327", "\u0328", "\u032d", "\u032e", "\u0331", "\u0332", "\u0333", "\u0339", "\u033a", "\u033b", "\u033c", "\u0345", "\u0347", "\u0348", "\u0349", "\u034a", "\u034b", "\u034c", "\u034d", "\u034e", "\u0353", "\u0354", "\u0355", "\u0356", "\u0359", "\u035a", "\u032a", "\u032b", "\u032c"];
+    const zalgoMid = ["\u0315", "\u0321", "\u0322", "\u0327", "\u0328", "\u0334", "\u0335", "\u0336", "\u0337", "\u0338", "\u035c", "\u035d", "\u035e", "\u035f", "\u0360", "\u0362", "\u0332", "\u0344"];
+    const zalgoAll = [...zalgoUp, ...zalgoDown, ...zalgoMid];
+
+    let output = "";
+
+    for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+
+        if (char === '\n') {
+            output += '\n';
+            continue;
+        }
+
+        if (Math.random() * 100 >= percentage) {
+            output += char;
+            continue;
+        }
+
+        const effect = effects[Math.floor(Math.random() * effects.length)];
+
+        switch (effect) {
+            case 'replace':
+                output += glitchChars[Math.floor(Math.random() * glitchChars.length)];
+                break;
+
+            case 'zalgo':
+                let zalgoChar = char;
+                const count = Math.max(1, Math.min(15, Math.floor(strength * 3)));
+                for (let j = 0; j < count; j++) {
+                    zalgoChar += zalgoAll[Math.floor(Math.random() * zalgoAll.length)];
+                }
+                output += zalgoChar;
+                break;
+
+            case 'case':
+                output += (char === char.toUpperCase()) ? char.toLowerCase() : char.toUpperCase();
+                break;
+
+            case 'stutter':
+                const stutterTimes = Math.max(1, Math.min(5, Math.floor(strength)));
+                let stuttered = "";
+                for (let j = 0; j < stutterTimes; j++) {
+                    stuttered += char + "-";
+                }
+                stuttered += char;
+                output += stuttered;
+                break;
+
+            case 'leet':
+                output += leetMap[char] || char;
+                break;
+
+            case 'binary':
+                output += Math.random() < 0.5 ? '0' : '1';
+                break;
+
+            case 'delete':
+                break;
+
+            default:
+                output += char;
+                break;
+        }
+    }
+
+    return output;
+}
+
+window.generateGlitchText = generateGlitchText;
+
 const TerminalSystem = {
     isTyping: false,
     terminalTextEl: null,
@@ -372,11 +474,11 @@ const TerminalSystem = {
     },
 
     _glitchText(text) {
-        const chars = "░▒▓█▄▌▐▀ ☠☣⚡☢⚠";
-        return text.split('').map(char => {
-            if (char === ' ') return ' ';
-            return Math.random() < 0.25 ? chars[Math.floor(Math.random() * chars.length)] : char;
-        }).join('');
+        return window.generateGlitchText(text, {
+            percentage: 30,
+            strength: 2,
+            effects: ['replace', 'case', 'zalgo']
+        });
     },
 
     _getOptionIcon(label) {

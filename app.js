@@ -492,16 +492,42 @@ class BackroomsGame {
     glitchText(text, sanity) {
         if (!text) return ""; // Safety
         if (sanity > 90) return text;
+
+        // Dynamiczne skalowanie intensywności w zależności od spadku sanity
+        const intensity = (100 - sanity) / 100; // od 0.1 do 1.0
+
+        // Zależność procentu zepsutych znaków (maksymalnie 50% przy sanity = 0)
+        const percentage = intensity * 50;
+
+        // Moc glitcha (wpływa np. na liczbę nakładanych znaków zalgo)
+        const strength = intensity * 3;
+
+        // Dobór aktywnych efektów w zależności od stopnia szaleństwa
+        let effects = ['replace', 'case'];
+        if (sanity < 70) {
+            effects.push('stutter', 'leet');
+        }
+        if (sanity < 40) {
+            effects.push('zalgo', 'binary', 'delete');
+
+            // Okazjonalne odtworzenie dźwięku błędu przy bardzo niskim sanity
+            if (Math.random() < 0.05 && this.audio) {
+                this.audio.playUiSound('glitch');
+            }
+        }
+
+        if (window.generateGlitchText) {
+            return window.generateGlitchText(text, { percentage, strength, effects });
+        }
+
+        // Fallback w razie braku funkcji
         const zalgoChars = ['░', '▒', '▓', '?', '!', '.', ',', ':', ';', '$', '#', '@', '█', '▄', '▀'];
-        // Chance increases as sanity drops
         const chance = (100 - sanity) / 250.0;
         let output = "";
         for (const char of text) {
             output += char;
             if (Math.random() < chance) {
                 output += zalgoChars[Math.floor(Math.random() * zalgoChars.length)];
-                // Only play sound occasionally if sanity is really low
-                if (sanity < 30 && Math.random() < 0.05) this.audio.playUiSound('glitch');
             }
         }
         return output;
