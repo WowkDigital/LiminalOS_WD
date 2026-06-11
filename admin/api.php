@@ -80,10 +80,269 @@ if (!file_exists($mediaDir . '/sound_effects'))
     mkdir($mediaDir . '/sound_effects', 0777, true);
 
 
+function php_delete_file_on_disk($path) {
+    if (empty($path)) return;
+    $rootPath = realpath(__DIR__ . '/../');
+    $absPath = $rootPath . '/' . $path;
+
+    if (file_exists($absPath)) {
+        @unlink($absPath);
+    }
+
+    // If it's a media image, also delete compressed and thumbnail versions
+    $filename = basename($path);
+    if (strpos($path, 'media/uploads/') === 0) {
+        $compressedPath = $rootPath . '/media/images/' . $filename;
+        if (file_exists($compressedPath)) {
+            @unlink($compressedPath);
+        }
+
+        $thumbPath = $rootPath . '/media/images/thumbs/' . $filename;
+        if (file_exists($thumbPath)) {
+            @unlink($thumbPath);
+        }
+    }
+}
+
+function migrateDatabase($pdo) {
+    // Ensure core and metadata tables exist first
+    $pdo->exec("CREATE TABLE IF NOT EXISTS rooms (
+        id TEXT PRIMARY KEY,
+        name TEXT,
+        desc TEXT
+    )");
+    $pdo->exec("CREATE TABLE IF NOT EXISTS transitions (
+        id TEXT PRIMARY KEY,
+        category TEXT,
+        label TEXT,
+        desc TEXT
+    )");
+    $pdo->exec("CREATE TABLE IF NOT EXISTS interactables (
+        id TEXT PRIMARY KEY,
+        label TEXT,
+        current_state_index INTEGER DEFAULT 0
+    )");
+    $pdo->exec("CREATE TABLE IF NOT EXISTS global_definitions (
+        type TEXT,
+        value TEXT,
+        PRIMARY KEY (type, value)
+    )");
+    $pdo->exec("CREATE TABLE IF NOT EXISTS taxonomy_definitions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        type TEXT,
+        label TEXT UNIQUE
+    )");
+    $pdo->exec("CREATE TABLE IF NOT EXISTS media_library (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        filename TEXT,
+        filepath TEXT,
+        context_type TEXT,
+        context_id TEXT,
+        tags TEXT
+    )");
+    $pdo->exec("CREATE TABLE IF NOT EXISTS audio_library (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        filename TEXT,
+        filepath TEXT,
+        tags TEXT,
+        category TEXT
+    )");
+
+    // Check current version
+    $version = 0;
+    try {
+        $stmt = $pdo->query("SELECT value FROM global_definitions WHERE type = 'db_version'");
+        if ($stmt) {
+            $val = $stmt->fetchColumn();
+            if ($val !== false) {
+                $version = (int)$val;
+            }
+        }
+    } catch (PDOException $e) {
+        // Table global_definitions or version column might not exist or be empty
+    }
+
+    if ($version < 2) {
+        $pdo->exec("PRAGMA foreign_keys = OFF;");
+        $pdo->beginTransaction();
+        try {
+            // Re-create each child table with ON DELETE CASCADE
+
+            // 1. room_tags
+            $pdo->exec("CREATE TABLE IF NOT EXISTS room_tags_new (
+                room_id TEXT,
+                tag TEXT,
+                PRIMARY KEY (room_id, tag),
+                FOREIGN KEY(room_id) REFERENCES rooms(id) ON DELETE CASCADE
+            )");
+            try {
+                $pdo->exec("INSERT OR IGNORE INTO room_tags_new SELECT * FROM room_tags");
+                $pdo->exec("DROP TABLE room_tags");
+            } catch (PDOException $e) {}
+            $pdo->exec("ALTER TABLE room_tags_new RENAME TO room_tags");
+
+            // 2. room_transitions
+            $pdo->exec("CREATE TABLE IF NOT EXISTS room_transitions_new (
+                room_id TEXT,
+                category TEXT,
+                requirements TEXT,
+                PRIMARY KEY (room_id, category),
+                FOREIGN KEY(room_id) REFERENCES rooms(id) ON DELETE CASCADE
+            )");
+            try {
+                $pdo->exec("INSERT OR IGNORE INTO room_transitions_new SELECT * FROM room_transitions");
+                $pdo->exec("DROP TABLE room_transitions");
+            } catch (PDOException $e) {}
+            $pdo->exec("ALTER TABLE room_transitions_new RENAME TO room_transitions");
+
+            // 3. room_interactables
+            $pdo->exec("CREATE TABLE IF NOT EXISTS room_interactables_new (
+                room_id TEXT,
+                interactable_id TEXT,
+                requirements TEXT,
+                PRIMARY KEY (room_id, interactable_id),
+                FOREIGN KEY(room_id) REFERENCES rooms(id) ON DELETE CASCADE,
+                FOREIGN KEY(interactable_id) REFERENCES interactables(id) ON DELETE CASCADE
+            )");
+            try {
+                $pdo->exec("INSERT OR IGNORE INTO room_interactables_new SELECT * FROM room_interactables");
+                $pdo->exec("DROP TABLE room_interactables");
+            } catch (PDOException $e) {}
+            $pdo->exec("ALTER TABLE room_interactables_new RENAME TO room_interactables");
+
+            // 4. room_texts
+            $pdo->exec("CREATE TABLE IF NOT EXISTS room_texts_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                room_id TEXT,
+                text TEXT,
+                sanity_min INTEGER DEFAULT 0,
+                sanity_max INTEGER DEFAULT 100,
+                dialogue_id TEXT,
+                FOREIGN KEY(room_id) REFERENCES rooms(id) ON DELETE CASCADE
+            )");
+            try {
+                $pdo->exec("INSERT INTO room_texts_new (room_id, text, sanity_min, sanity_max, dialogue_id) 
+                            SELECT room_id, text, sanity_min, sanity_max, dialogue_id FROM room_texts");
+                $pdo->exec("DROP TABLE room_texts");
+            } catch (PDOException $e) {}
+            $pdo->exec("ALTER TABLE room_texts_new RENAME TO room_texts");
+
+            // 5. interactable_states
+            $pdo->exec("CREATE TABLE IF NOT EXISTS interactable_states_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                interactable_id TEXT,
+                state_id TEXT,
+                desc TEXT,
+                image TEXT,
+                sort_order INTEGER,
+                effects TEXT,
+                FOREIGN KEY(interactable_id) REFERENCES interactables(id) ON DELETE CASCADE
+            )");
+            try {
+                $pdo->exec("INSERT INTO interactable_states_new (id, interactable_id, state_id, desc, image, sort_order, effects) 
+                            SELECT id, interactable_id, state_id, desc, image, sort_order, effects FROM interactable_states");
+                $pdo->exec("DROP TABLE interactable_states");
+            } catch (PDOException $e) {}
+            $pdo->exec("ALTER TABLE interactable_states_new RENAME TO interactable_states");
+
+            // 6. transition_tags
+            $pdo->exec("CREATE TABLE IF NOT EXISTS transition_tags_new (
+                transition_id TEXT,
+                tag TEXT,
+                PRIMARY KEY (transition_id, tag),
+                FOREIGN KEY(transition_id) REFERENCES transitions(id) ON DELETE CASCADE
+            )");
+            try {
+                $pdo->exec("INSERT OR IGNORE INTO transition_tags_new SELECT * FROM transition_tags");
+                $pdo->exec("DROP TABLE transition_tags");
+            } catch (PDOException $e) {}
+            $pdo->exec("ALTER TABLE transition_tags_new RENAME TO transition_tags");
+
+            // 7. transition_texts
+            $pdo->exec("CREATE TABLE IF NOT EXISTS transition_texts_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                transition_id TEXT,
+                text TEXT,
+                sanity_min INTEGER DEFAULT 0,
+                sanity_max INTEGER DEFAULT 100,
+                dialogue_id TEXT,
+                FOREIGN KEY(transition_id) REFERENCES transitions(id) ON DELETE CASCADE
+            )");
+            try {
+                $pdo->exec("INSERT INTO transition_texts_new (transition_id, text, sanity_min, sanity_max, dialogue_id) 
+                            SELECT transition_id, text, sanity_min, sanity_max, dialogue_id FROM transition_texts");
+                $pdo->exec("DROP TABLE transition_texts");
+            } catch (PDOException $e) {}
+            $pdo->exec("ALTER TABLE transition_texts_new RENAME TO transition_texts");
+
+            // 8. transition_category_links
+            $pdo->exec("CREATE TABLE IF NOT EXISTS transition_category_links_new (
+                transition_id TEXT,
+                category TEXT,
+                PRIMARY KEY (transition_id, category),
+                FOREIGN KEY(transition_id) REFERENCES transitions(id) ON DELETE CASCADE
+            )");
+            try {
+                $pdo->exec("INSERT OR IGNORE INTO transition_category_links_new SELECT * FROM transition_category_links");
+                $pdo->exec("DROP TABLE transition_category_links");
+            } catch (PDOException $e) {}
+            $pdo->exec("ALTER TABLE transition_category_links_new RENAME TO transition_category_links");
+
+            // 9. audio_mappings
+            $pdo->exec("CREATE TABLE IF NOT EXISTS audio_mappings_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                mapping_type TEXT,
+                context_id TEXT,
+                audio_file_id INTEGER,
+                volume REAL DEFAULT 0.5,
+                loop BOOLEAN DEFAULT 0,
+                FOREIGN KEY(audio_file_id) REFERENCES audio_library(id) ON DELETE CASCADE
+            )");
+            try {
+                $pdo->exec("INSERT INTO audio_mappings_new (id, mapping_type, context_id, audio_file_id, volume, loop) 
+                            SELECT id, mapping_type, context_id, audio_file_id, volume, loop FROM audio_mappings");
+                $pdo->exec("DROP TABLE audio_mappings");
+            } catch (PDOException $e) {}
+            $pdo->exec("ALTER TABLE audio_mappings_new RENAME TO audio_mappings");
+
+            // Update version in global_definitions
+            $pdo->exec("INSERT OR REPLACE INTO global_definitions (type, value) VALUES ('db_version', '2')");
+            $pdo->commit();
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            throw $e;
+        } finally {
+            $pdo->exec("PRAGMA foreign_keys = ON;");
+        }
+    }
+}
+
 try {
     $pdo = new PDO('sqlite:' . $dbFile);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+    $pdo->exec("PRAGMA foreign_keys = ON;");
+
+    // Register PHP function for SQLite triggers to clean up files
+    if (method_exists($pdo, 'createFunction')) {
+        $pdo->createFunction('delete_file_on_disk', 'php_delete_file_on_disk', 1);
+    } else {
+        @$pdo->sqliteCreateFunction('delete_file_on_disk', 'php_delete_file_on_disk', 1);
+    }
+
+    // Create Triggers
+    $pdo->exec("CREATE TRIGGER IF NOT EXISTS trg_delete_media AFTER DELETE ON media_library
+    BEGIN
+        SELECT delete_file_on_disk(OLD.filepath);
+    END;");
+
+    $pdo->exec("CREATE TRIGGER IF NOT EXISTS trg_delete_audio AFTER DELETE ON audio_library
+    BEGIN
+        SELECT delete_file_on_disk(OLD.filepath);
+    END;");
+
+    // Re-create the standard tables with ON DELETE CASCADE and run migration
+    migrateDatabase($pdo);
 }
 catch (PDOException $e) {
     http_response_code(500);
@@ -261,46 +520,7 @@ function getFullWorld($pdo)
     ];
 }
 
-// Ensure Taxonomy table exists
-$pdo->exec("CREATE TABLE IF NOT EXISTS taxonomy_definitions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    type TEXT, -- room_tag, transition_category, transition_tag
-    label TEXT UNIQUE
-)");
-
-$pdo->exec("CREATE TABLE IF NOT EXISTS transition_category_links (
-    transition_id TEXT,
-    category TEXT,
-    PRIMARY KEY (transition_id, category)
-)");
-
-$pdo->exec("CREATE TABLE IF NOT EXISTS media_library (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    filename TEXT,
-    filepath TEXT,
-    context_type TEXT,
-    context_id TEXT,
-    tags TEXT
-)");
-
-// NEW: Audio Tables
-$pdo->exec("CREATE TABLE IF NOT EXISTS audio_library (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    filename TEXT,
-    filepath TEXT,
-    tags TEXT,
-    category TEXT
-)");
-
-$pdo->exec("CREATE TABLE IF NOT EXISTS audio_mappings (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    mapping_type TEXT, -- room_bgm, state_sfx, ui_sfx
-    context_id TEXT, -- context string
-    audio_file_id INTEGER,
-    volume REAL DEFAULT 0.5,
-    loop BOOLEAN DEFAULT 0,
-    FOREIGN KEY(audio_file_id) REFERENCES audio_library(id)
-)");
+// Note: Core tables, taxonomy, media, and audio table schemas are dynamically created and verified on demand by migrateDatabase().
 
 // ROUTING
 $method = $_SERVER['REQUEST_METHOD'];
@@ -360,6 +580,40 @@ if ($method === 'GET') {
         $mappings = $stmtMap->fetchAll();
 
         echo json_encode(['library' => $audio, 'mappings' => $mappings]);
+    }
+    elseif ($action === 'export_transitions') {
+        $transitions = [];
+        $stmt = $pdo->query("SELECT * FROM transitions");
+        while ($row = $stmt->fetch()) {
+            $id = $row['id'];
+            $trans = [
+                'id' => $id,
+                'label' => $row['label'],
+                'desc' => $row['desc'],
+                'categories' => [],
+                'tags' => [],
+                'texts' => []
+            ];
+
+            $stmtCats = $pdo->prepare("SELECT category FROM transition_category_links WHERE transition_id = ?");
+            $stmtCats->execute([$id]);
+            $trans['categories'] = $stmtCats->fetchAll(PDO::FETCH_COLUMN);
+
+            $stmtTags = $pdo->prepare("SELECT tag FROM transition_tags WHERE transition_id = ?");
+            $stmtTags->execute([$id]);
+            $trans['tags'] = $stmtTags->fetchAll(PDO::FETCH_COLUMN);
+
+            $stmtTexts = $pdo->prepare("SELECT text, sanity_min, sanity_max, dialogue_id FROM transition_texts WHERE transition_id = ?");
+            $stmtTexts->execute([$id]);
+            $trans['texts'] = $stmtTexts->fetchAll();
+
+            $transitions[] = $trans;
+        }
+
+        header('Content-Type: application/json');
+        header('Content-Disposition: attachment; filename="transitions.json"');
+        echo json_encode($transitions, JSON_PRETTY_PRINT);
+        exit;
     }
     else {
         // Default: get whole world
@@ -605,16 +859,22 @@ elseif ($method === 'POST') {
     }
     elseif ($action === 'delete_interactable') {
         $id = $data['id'];
-        $pdo->beginTransaction();
         try {
-            $pdo->prepare("DELETE FROM room_interactables WHERE interactable_id = ?")->execute([$id]);
-            $pdo->prepare("DELETE FROM interactable_states WHERE interactable_id = ?")->execute([$id]);
             $pdo->prepare("DELETE FROM interactables WHERE id = ?")->execute([$id]);
-            $pdo->commit();
             echo json_encode(['success' => true]);
         }
         catch (Throwable $e) {
-            $pdo->rollBack();
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        }
+    }
+    elseif ($action === 'delete_room') {
+        $id = $data['id'];
+        try {
+            $pdo->prepare("DELETE FROM rooms WHERE id = ?")->execute([$id]);
+            echo json_encode(['success' => true]);
+        }
+        catch (Throwable $e) {
             http_response_code(500);
             echo json_encode(['success' => false, 'error' => $e->getMessage()]);
         }
@@ -664,13 +924,7 @@ elseif ($method === 'POST') {
         $id = $data['id'];
         $pdo->beginTransaction();
         try {
-            // Check if used in room? (handled by room_transitions table FK usually, but let's just delete)
-            $pdo->prepare("DELETE FROM room_transitions WHERE category = (SELECT category FROM transitions WHERE id = ?)")->execute([$id]); // This is tricky, category vs id.
-            // Actually room_transitions links room to a CATEGORY (industrial, liminal, etc.)
-            // Transitions table defines SPECIFIC instances of that category.
-
-            $pdo->prepare("DELETE FROM transition_tags WHERE transition_id = ?")->execute([$id]);
-            $pdo->prepare("DELETE FROM transition_texts WHERE transition_id = ?")->execute([$id]);
+            $pdo->prepare("DELETE FROM room_transitions WHERE category = (SELECT category FROM transitions WHERE id = ?)")->execute([$id]);
             $pdo->prepare("DELETE FROM transitions WHERE id = ?")->execute([$id]);
             $pdo->commit();
             echo json_encode(['success' => true]);
@@ -741,46 +995,11 @@ elseif ($method === 'POST') {
     }
     elseif ($action === 'delete_media') {
         $id = $data['id'];
-        $pdo->beginTransaction();
         try {
-            // Get path first
-            $stmt = $pdo->prepare("SELECT filepath FROM media_library WHERE id = ?");
-            $stmt->execute([$id]);
-            $path = $stmt->fetchColumn();
-
-            if ($path) {
-                $filename = basename($path);
-                $rootPath = realpath(__DIR__ . '/../');
-
-                // Remove original file from disk
-                $absPath = $rootPath . '/' . $path;
-                if (file_exists($absPath)) {
-                    @unlink($absPath);
-                }
-
-                // Remove compressed image version
-                $compressedPath = $rootPath . '/media/images/' . $filename;
-                if (file_exists($compressedPath)) {
-                    @unlink($compressedPath);
-                }
-
-                // Remove thumbnail version
-                $thumbPath = $rootPath . '/media/images/thumbs/' . $filename;
-                if (file_exists($thumbPath)) {
-                    @unlink($thumbPath);
-                }
-
-                // Delete from DB
-                $pdo->prepare("DELETE FROM media_library WHERE id = ?")->execute([$id]);
-                $pdo->commit();
-                echo json_encode(['success' => true]);
-            }
-            else {
-                throw new Exception("Record not found.");
-            }
+            $pdo->prepare("DELETE FROM media_library WHERE id = ?")->execute([$id]);
+            echo json_encode(['success' => true]);
         }
         catch (Throwable $e) {
-            $pdo->rollBack();
             http_response_code(500);
             echo json_encode(['success' => false, 'error' => $e->getMessage()]);
         }
@@ -815,28 +1034,11 @@ elseif ($method === 'POST') {
     }
     elseif ($action === 'delete_audio') {
         $id = $data['id'];
-        $pdo->beginTransaction();
         try {
-            $stmt = $pdo->prepare("SELECT filepath FROM audio_library WHERE id = ?");
-            $stmt->execute([$id]);
-            $path = $stmt->fetchColumn();
-
-            if ($path) {
-                $absPath = realpath(__DIR__ . '/../') . '/' . $path;
-                if (file_exists($absPath))
-                    unlink($absPath);
-
-                $pdo->prepare("DELETE FROM audio_mappings WHERE audio_file_id = ?")->execute([$id]);
-                $pdo->prepare("DELETE FROM audio_library WHERE id = ?")->execute([$id]);
-                $pdo->commit();
-                echo json_encode(['success' => true]);
-            }
-            else {
-                throw new Exception("Audio record not found.");
-            }
+            $pdo->prepare("DELETE FROM audio_library WHERE id = ?")->execute([$id]);
+            echo json_encode(['success' => true]);
         }
         catch (Throwable $e) {
-            $pdo->rollBack();
             http_response_code(500);
             echo json_encode(['success' => false, 'error' => $e->getMessage()]);
         }

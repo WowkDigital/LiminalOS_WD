@@ -17,6 +17,7 @@ import {
     addTextField, 
     applyRoomJSON, 
     handleRoomSubmit, 
+    handleDeleteRoom,
     updateRoomExportArea 
 } from './rooms.js';
 import { 
@@ -115,6 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-add-trans-text').addEventListener('click', () => addTransTextField());
 
     // Delete bindings
+    document.getElementById('btn-delete-room').addEventListener('click', handleDeleteRoom);
     document.getElementById('btn-delete-interactable').addEventListener('click', handleDeleteInteractable);
     document.getElementById('btn-delete-transition').addEventListener('click', handleDeleteTransition);
 

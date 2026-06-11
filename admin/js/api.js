@@ -97,6 +97,16 @@ export async function saveRoom(roomId, roomData) {
     return res.json();
 }
 
+export async function deleteRoom(id) {
+    const res = await fetch('api.php?action=delete_room', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+    });
+    if (!res.ok) throw new Error('Delete room failed');
+    return res.json();
+}
+
 export async function saveTransition(transId, transData) {
     const res = await fetch('api.php?action=save_transition', {
         method: 'POST',

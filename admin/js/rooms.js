@@ -1,7 +1,7 @@
 // Room rendering, integrity check, and editor logic using ES6 Components
 import { state } from './state.js';
 import { getCategoryColor, getThumbPath, showToast } from './ui.js';
-import { fetchWorld, fetchMedia, saveRoom, assignMedia } from './api.js';
+import { fetchWorld, fetchMedia, saveRoom, assignMedia, deleteRoom } from './api.js';
 import { navigate } from './router.js';
 import { el, icon } from './dom.js';
 import { RoomCard } from './components/RoomCard.js';
@@ -297,6 +297,9 @@ export function openEditor(id = null) {
         idInput.value = id;
         idInput.readOnly = true;
 
+        const delBtn = document.getElementById('btn-delete-room');
+        if (delBtn) delBtn.classList.remove('hidden');
+
         document.getElementById('room-name').value = room.name || '';
         document.getElementById('room-desc').value = room.desc || '';
         document.getElementById('room-tags').value = (room.tags || []).join(', ');
@@ -322,6 +325,9 @@ export function openEditor(id = null) {
         idInput.value = '';
         idInput.readOnly = false;
         document.getElementById('room-images-preview').innerHTML = '';
+
+        const delBtn = document.getElementById('btn-delete-room');
+        if (delBtn) delBtn.classList.add('hidden');
 
         state.editorRequirements = { transitions: {}, interactables: {} };
 
@@ -428,6 +434,31 @@ export async function handleRoomSubmit(e) {
         }
     } catch (err) {
         showToast('Update failed: ' + err.message, 'error');
+    }
+}
+
+export async function handleDeleteRoom() {
+    if (!state.currentEditId) return;
+    if (!confirm(`Are you sure you want to completely delete room "${state.currentEditId}"? This cannot be undone.`)) {
+        return;
+    }
+
+    try {
+        const result = await deleteRoom(state.currentEditId);
+        if (result.success) {
+            showToast('Room deleted from reality.', 'success');
+            const syncRes = await fetchWorld();
+            state.roomsData = syncRes.rooms;
+            state.transitionTypes = syncRes.transition_types || {};
+            state.imageIndex = syncRes.image_index || { rooms: {}, transitions: {} };
+            state.allInteractables = syncRes.interactables || {};
+            state.systemTaxonomy = syncRes.taxonomy || [];
+            navigate('dashboard');
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (err) {
+        showToast('Deletion failed: ' + err.message, 'error');
     }
 }
 

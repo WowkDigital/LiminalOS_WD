@@ -110,7 +110,7 @@ if (isset($_SESSION['admin_auth']) && $_SESSION['admin_auth'] === true):
                     Import Transitions
                     <input type="file" id="trans-import-input" accept=".json" style="display:none">
                 </label>
-                <a href="../world_data/transitions.json" download class="nav-link"
+                <a href="api.php?action=export_transitions" download class="nav-link"
                     style="font-size: 0.8rem; margin-top: -8px; opacity: 0.6;">
                     <i data-lucide="eye" style="width: 14px; height: 14px;"></i> (View Current JSON)
                 </a>
@@ -187,6 +187,7 @@ if (isset($_SESSION['admin_auth']) && $_SESSION['admin_auth'] === true):
                         <h2 id="editor-title">Define New Space</h2>
                     </div>
                     <div class="header-actions">
+                        <button id="btn-delete-room" class="btn-remove hidden">Delete</button>
                         <button id="btn-cancel-edit" class="btn-secondary">Cancel</button>
                         <button type="submit" form="room-form" class="btn-primary">Save Reality</button>
                     </div>
