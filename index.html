@@ -59,11 +59,22 @@
 
         <!-- Dynamic Terminal Line -->
         <div id="terminal-line-container">
+            <div class="terminal-header" id="terminal-header">
+                <div class="terminal-header-left">
+                    <span class="terminal-status-dot status-online"></span>
+                    <span class="terminal-status-text">STANDBY</span>
+                </div>
+                <span class="terminal-header-title">TERMINAL v2.0</span>
+                <span class="terminal-header-hint">` / CLICK</span>
+            </div>
             <div id="terminal-history"></div>
-            <div class="terminal-current-line" id="terminal-active-line">
-                <span id="terminal-prompt">></span>
+            <div class="terminal-output-line" id="terminal-output-line">
+                <span class="output-prompt">▸</span>
                 <span id="terminal-text"></span>
-                <input type="text" id="terminal-input" autocomplete="off" spellcheck="false" placeholder="TYPE COMMAND OR CLICK TO EXPLORE...">
+            </div>
+            <div class="terminal-input-line" id="terminal-active-line">
+                <span id="terminal-prompt">›</span>
+                <input type="text" id="terminal-input" autocomplete="off" spellcheck="false" placeholder="type command...">
             </div>
             <div id="terminal-options-list"></div>
         </div>

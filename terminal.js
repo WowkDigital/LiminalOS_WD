@@ -1,6 +1,7 @@
 /**
- * TERMINAL INTERACTION SYSTEM (MODERNIZED)
+ * TERMINAL INTERACTION SYSTEM (MODERNIZED v2)
  * Handles simulated terminal input/output, interactive typing prompt, and choices.
+ * Enhanced UX: Better click targets, structured output, animated options, keyboard nav.
  */
 
 const TerminalSystem = {
@@ -10,14 +11,16 @@ const TerminalSystem = {
     terminalHistoryEl: null,
     terminalInputEl: null,
     terminalOptionsEl: null,
+    terminalHeaderEl: null,
     currentState: "INITIAL",
-    history: [], // Stores last few commands/responses as objects { text, type }
+    history: [], // Stores last few commands/responses as objects { text, type, icon }
     dialogueTree: {},
     activeChoices: [], // Currently shown options
     cmdHistory: [],
     cmdHistoryIndex: -1,
     availableCommands: ['HELP', 'CLEAR', 'CLS', 'RESET', 'MAP', 'SANITY', 'DIAGNOSTICS', 'SYS', 'SCAN', 'PING', 'GO', 'MOVE', 'ACT', 'USE'],
     currentLogType: '', // Current response log type ('success', 'error', 'warning', 'info', '')
+    selectedOptionIndex: -1, // For keyboard navigation of options
 
     async init() {
         this.terminalTextEl = document.getElementById('terminal-text');
@@ -25,6 +28,7 @@ const TerminalSystem = {
         this.terminalHistoryEl = document.getElementById('terminal-history');
         this.terminalInputEl = document.getElementById('terminal-input');
         this.terminalOptionsEl = document.getElementById('terminal-options-list');
+        this.terminalHeaderEl = document.getElementById('terminal-header');
 
         if (!this.terminalContainer || !this.terminalTextEl || !this.terminalInputEl || !this.terminalOptionsEl) return;
 
@@ -39,12 +43,25 @@ const TerminalSystem = {
 
         // Enable clicks on the terminal container
         this.terminalContainer.style.pointerEvents = 'auto';
-        this.terminalContainer.style.cursor = 'text';
 
         this.terminalContainer.addEventListener('click', (e) => {
             if (e.target.closest('.terminal-option-item')) return; // let option click handle itself
+            if (e.target === this.terminalInputEl) return; // clicking input is fine
             e.stopPropagation();
-            this.focusInput();
+
+            // Header click = always toggle
+            if (e.target.closest('.terminal-header')) {
+                this.toggleTerminal();
+                return;
+            }
+
+            // If collapsed, expand
+            if (!this.terminalContainer.classList.contains('expanded')) {
+                this.expandTerminal();
+            } else {
+                // Clicking inside expanded body → focus input
+                this.terminalInputEl.focus();
+            }
         });
 
         // Setup input events
@@ -83,7 +100,7 @@ const TerminalSystem = {
                 }
                 this.terminalInputEl.value = "";
             } else if (e.key === 'Escape') {
-                this.blurInput();
+                this.collapseTerminal();
             } else if (e.key === 'ArrowUp') {
                 e.preventDefault();
                 if (this.cmdHistory.length > 0) {
@@ -113,7 +130,7 @@ const TerminalSystem = {
                     if (matches.length === 1) {
                         this.terminalInputEl.value = matches[0] + " ";
                     } else if (matches.length > 1) {
-                        this.typeResponse("SUGGESTIONS: " + matches.join(', '), null, 'info');
+                        this.typeResponse("AUTOCOMPLETE: " + matches.join(' · '), null, 'info', '◈');
                         if (window.game && window.game.audio) {
                             window.game.audio.playUiSound('click');
                         }
@@ -125,36 +142,70 @@ const TerminalSystem = {
         // Hide input/menu if clicked anywhere else
         document.addEventListener('click', (e) => {
             if (!e.target.closest('#terminal-line-container')) {
-                this.blurInput();
+                this.collapseTerminal();
             }
         });
 
         // Listen for interactions with other elements (buttons, etc.) to hide choices
         document.addEventListener('mousedown', (e) => {
             if (e.target.tagName === 'BUTTON' && !e.target.closest('#terminal-line-container')) {
-                this.blurInput();
+                this.collapseTerminal();
+            }
+        });
+
+        // Global keyboard shortcut: backtick (`) to toggle terminal
+        document.addEventListener('keydown', (e) => {
+            if (e.key === '`' && !e.target.closest('input') && !e.target.closest('textarea')) {
+                e.preventDefault();
+                this.toggleTerminal();
             }
         });
 
         // Initial welcome
-        this.typeResponse("TERMINAL INITIALIZED. CLICK TO ENTER COMMANDS.", null, 'success');
+        this.typeResponse("TERMINAL READY — CLICK TO INTERACT OR TYPE COMMANDS", null, 'success', '✓');
+        this.updateHeaderStatus('online');
     },
 
-    focusInput() {
+    toggleTerminal() {
+        if (this.terminalContainer.classList.contains('expanded')) {
+            this.collapseTerminal();
+        } else {
+            this.expandTerminal();
+        }
+    },
+
+    expandTerminal() {
         if (this.isTyping) return;
         this.terminalContainer.classList.add('focused');
         this.terminalContainer.classList.add('expanded');
         this.terminalInputEl.focus();
         this.showActiveDialogueOptions();
+        this.updateHeaderStatus('active');
     },
 
-    blurInput() {
+    collapseTerminal() {
         this.terminalContainer.classList.remove('focused');
-        // Only collapse if no active dialogue choices
-        if (!this.activeChoices.length) {
-            this.terminalContainer.classList.remove('expanded');
-        }
+        this.terminalContainer.classList.remove('expanded');
         this.terminalInputEl.blur();
+        this.selectedOptionIndex = -1;
+        this.updateHeaderStatus('online');
+    },
+
+    // Legacy aliases for compatibility
+    focusInput() { this.expandTerminal(); },
+    blurInput() { this.collapseTerminal(); },
+
+    updateHeaderStatus(status) {
+        if (!this.terminalHeaderEl) return;
+        const statusDot = this.terminalHeaderEl.querySelector('.terminal-status-dot');
+        const statusText = this.terminalHeaderEl.querySelector('.terminal-status-text');
+        if (statusDot) {
+            statusDot.className = 'terminal-status-dot status-' + status;
+        }
+        if (statusText) {
+            const labels = { online: 'STANDBY', active: 'ACTIVE', busy: 'PROCESSING', error: 'ERROR' };
+            statusText.textContent = labels[status] || 'UNKNOWN';
+        }
     },
 
     showActiveDialogueOptions() {
@@ -175,36 +226,111 @@ const TerminalSystem = {
 
     renderOptions(options) {
         this.terminalOptionsEl.innerHTML = "";
+        this.selectedOptionIndex = -1;
+
         if (!options || options.length === 0) {
             return;
         }
 
+        // Add separator label
+        const separator = document.createElement('div');
+        separator.className = 'terminal-options-label';
+        separator.innerHTML = `<span class="options-label-line"></span><span class="options-label-text">AVAILABLE ACTIONS</span><span class="options-label-line"></span>`;
+        this.terminalOptionsEl.appendChild(separator);
+
         options.forEach((opt, index) => {
             const item = document.createElement('div');
             item.className = 'terminal-option-item';
-            item.innerHTML = `<span class="opt-num">[${index + 1}]</span> ${opt.label.toUpperCase()}`;
-            item.onclick = (e) => {
+            item.setAttribute('data-index', index);
+            item.setAttribute('role', 'button');
+            item.setAttribute('tabindex', '0');
+
+            // Determine icon based on option label
+            const icon = this._getOptionIcon(opt.label);
+
+            item.innerHTML = `
+                <span class="opt-key">${index + 1}</span>
+                <span class="opt-icon">${icon}</span>
+                <span class="opt-label">${opt.label.toUpperCase()}</span>
+                <span class="opt-arrow">›</span>
+            `;
+
+            // Click handler with ripple effect
+            item.addEventListener('click', (e) => {
                 e.stopPropagation();
-                this.selectChoice(opt);
-            };
+                this._createRipple(item, e);
+                setTimeout(() => this.selectChoice(opt), 150);
+            });
+
+            // Keyboard handler
+            item.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    this.selectChoice(opt);
+                }
+            });
+
+            // Hover sound
+            item.addEventListener('mouseenter', () => {
+                if (window.game && window.game.audio) {
+                    window.game.audio.playUiSound('keypress');
+                }
+            });
+
             this.terminalOptionsEl.appendChild(item);
         });
+    },
+
+    _getOptionIcon(label) {
+        const lbl = label.toUpperCase();
+        if (lbl.includes('BACK') || lbl.includes('RETURN')) return '←';
+        if (lbl.includes('SCAN') || lbl.includes('ANALYZE') || lbl.includes('VIEW') || lbl.includes('READ')) return '◉';
+        if (lbl.includes('STATUS') || lbl.includes('DIAGNOSTICS')) return '◈';
+        if (lbl.includes('RESTART') || lbl.includes('REBOOT')) return '↺';
+        if (lbl.includes('EXIT') || lbl.includes('EVACUATE') || lbl.includes('ESCAPE')) return '⬡';
+        if (lbl.includes('CONTINUE') || lbl.includes('NEXT')) return '→';
+        if (lbl.includes('OVERRIDE') || lbl.includes('FORCED')) return '⚡';
+        if (lbl.includes('DECODE') || lbl.includes('TRACE')) return '⟁';
+        if (lbl.includes('RECORD') || lbl.includes('SAVE') || lbl.includes('LOG')) return '◆';
+        if (lbl.includes('QUERY') || lbl.includes('ARCHIVE') || lbl.includes('FRAGMENT')) return '▤';
+        if (lbl.includes('DRINK') || lbl.includes('PLAYBACK') || lbl.includes('ATTEMPT')) return '▶';
+        if (lbl.includes('STABILIZE') || lbl.includes('GATHER')) return '◇';
+        if (lbl.includes('DELETE') || lbl.includes('STOP')) return '✕';
+        if (lbl.includes('WANDER') || lbl.includes('SHOUT') || lbl.includes('SIT')) return '◌';
+        if (lbl.includes('INCREASE') || lbl.includes('VOLUME')) return '▲';
+        if (lbl.includes('MORE') || lbl.includes('DETAIL')) return '⊕';
+        if (lbl.includes('FINISH')) return '✓';
+        return '▸';
+    },
+
+    _createRipple(element, event) {
+        const ripple = document.createElement('span');
+        ripple.className = 'option-ripple';
+        const rect = element.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+        ripple.style.left = x + 'px';
+        ripple.style.top = y + 'px';
+        element.appendChild(ripple);
+        setTimeout(() => ripple.remove(), 600);
     },
 
     selectChoice(option) {
         // Add current prompt response to history
         const prevText = this.terminalTextEl.innerText;
-        if (prevText) this.addToHistory(prevText, this.currentLogType);
+        if (prevText) this.addToHistory(prevText, this.currentLogType, '⊟');
 
-        // Add selected option label to history
-        this.addToHistory("> " + option.label.toUpperCase());
+        // Add selected option label to history with user-input styling
+        this.addToHistory("» " + option.label.toUpperCase(), 'user-input', '▸');
         this.terminalTextEl.innerText = "";
 
         this.currentState = option.next;
+        this.updateHeaderStatus('busy');
         const nextState = this.dialogueTree[this.currentState];
         if (nextState) {
             this.typeResponse(nextState.text, () => {
                 this.showActiveDialogueOptions();
+                this.updateHeaderStatus('active');
             });
         }
     },
@@ -213,8 +339,13 @@ const TerminalSystem = {
         const rawCmd = inputVal.trim();
         const cmd = rawCmd.toUpperCase();
 
-        // 1. Add current command to history
-        this.addToHistory("> " + rawCmd);
+        // Save previous output to history before overwriting
+        const prevText = this.terminalTextEl.innerText;
+        if (prevText) this.addToHistory(prevText, this.currentLogType, '⊟');
+        this.terminalTextEl.innerText = "";
+
+        // 1. Add current command to history with user-input styling
+        this.addToHistory("» " + rawCmd, 'user-input', '▸');
 
         // 2. If dialogue options are active and input is a number:
         const num = parseInt(cmd);
@@ -238,11 +369,29 @@ const TerminalSystem = {
         // 4. Otherwise, parse standard terminal commands:
         if (cmd === 'HELP' || cmd === '?') {
             playSuccess();
-            this.typeResponse("COMMANDS: HELP, GO [EXIT], ACT [ITEM] [STATE], MAP, SANITY, DIAGNOSTICS, SCAN, CLEAR, RESET", null, 'info');
+            const helpLines = [
+                "╔══════════════════════════════════════╗",
+                "║       TERMINAL COMMAND REFERENCE      ║",
+                "╠══════════════════════════════════════╣",
+                "║  HELP      — Show this reference      ║",
+                "║  GO [EXIT] — Move to an exit           ║",
+                "║  ACT [OBJ] — Interact with object      ║",
+                "║  SCAN      — Scan for exits            ║",
+                "║  MAP       — Toggle map view           ║",
+                "║  SANITY    — Check sanity status       ║",
+                "║  SYS       — System diagnostics        ║",
+                "║  CLEAR     — Clear terminal history    ║",
+                "║  RESET     — Reboot system             ║",
+                "╠══════════════════════════════════════╣",
+                "║  TIP: Click options or type numbers    ║",
+                "║  KEYS: ↑↓ History · Tab Autocomplete   ║",
+                "╚══════════════════════════════════════╝"
+            ];
+            this.typeResponse(helpLines.join("\n"), null, 'info', '?');
         } else if (cmd === 'CLEAR' || cmd === 'CLS') {
             this.history = [];
             this.renderHistory();
-            this.typeResponse("TERMINAL HISTORY CLEARED.", null, 'success');
+            this.typeResponse("TERMINAL HISTORY CLEARED.", null, 'success', '✓');
             playSuccess();
         } else if (cmd === 'RESET') {
             if (confirm("REBOOT SYSTEM? ALL SESSION DATA WILL BE WIPED.")) {
@@ -256,19 +405,20 @@ const TerminalSystem = {
                 mapPanel.classList.toggle('collapsed');
                 if (!mapPanel.classList.contains('collapsed')) {
                     window.game.mapGraph.update();
-                    this.typeResponse("MAP INTERFACE ACTIVATED.", null, 'success');
+                    this.typeResponse("MAP INTERFACE ACTIVATED.", null, 'success', '◈');
                 } else {
-                    this.typeResponse("MAP INTERFACE DEACTIVATED.", null, 'warning');
+                    this.typeResponse("MAP INTERFACE DEACTIVATED.", null, 'warning', '◈');
                 }
                 playSuccess();
             } else {
-                this.typeResponse("MAP SYSTEM OFFLINE.", null, 'error');
+                this.typeResponse("MAP SYSTEM OFFLINE.", null, 'error', '✕');
                 playError();
             }
         } else if (cmd === 'SANITY') {
             const sanity = window.game ? window.game.state.sanity : 100;
-            const barWidth = Math.round(sanity / 10);
-            const bar = "[" + "=".repeat(barWidth) + " ".repeat(10 - barWidth) + "]";
+            const barLen = 20;
+            const filled = Math.round(sanity / 100 * barLen);
+            const bar = "█".repeat(filled) + "░".repeat(barLen - filled);
             let level = "STABLE";
             let type = 'success';
             if (sanity < 30) {
@@ -283,7 +433,14 @@ const TerminalSystem = {
                 playSuccess();
             }
 
-            this.typeResponse(`SANITY STATUS: ${bar} ${Math.floor(sanity)}% | LEVEL: ${level}`, null, type);
+            const sanityReport = [
+                "┌─ SANITY REPORT ─────────────────┐",
+                `│  LEVEL:  ${Math.floor(sanity)}%`,
+                `│  STATUS: ${level}`,
+                `│  ▐${bar}▌`,
+                "└─────────────────────────────────┘"
+            ].join("\n");
+            this.typeResponse(sanityReport, null, type, '◈');
         } else if (cmd === 'DIAGNOSTICS' || cmd === 'SYS') {
             if (window.game) {
                 playSuccess();
@@ -294,18 +451,19 @@ const TerminalSystem = {
                 const seedHash = Math.abs(window.game.state.currentRoom.split('').reduce((a,b)=>{a=((a<<5)-a)+b.charCodeAt(0);return a&a},0)) % 10000;
                 
                 const stats = [
-                    "SYSTEM DIAGNOSTICS:",
-                    ` - POSITION: ${loc.getName().toUpperCase()}`,
-                    ` - VECTOR MATRIX SEED: CMD-0x${seedHash.toString(16).toUpperCase()}`,
-                    ` - SANITY LEVEL: ${Math.floor(sanity)}%`,
-                    ` - MAPPED AREA: ${explored}/${total} SECTORS REGISTERED`,
-                    ` - LOGIC MATRIX LOAD: ${(100 - sanity).toFixed(1)}%`,
-                    "SYSTEM INTEGRITY: STABLE"
+                    "┌─ SYSTEM DIAGNOSTICS ─────────────┐",
+                    `│  POSITION .... ${loc.getName().toUpperCase()}`,
+                    `│  SEED ....... CMD-0x${seedHash.toString(16).toUpperCase()}`,
+                    `│  SANITY ..... ${Math.floor(sanity)}%`,
+                    `│  MAPPED ..... ${explored}/${total} SECTORS`,
+                    `│  CPU LOAD ... ${(100 - sanity).toFixed(1)}%`,
+                    `│  INTEGRITY .. STABLE`,
+                    "└──────────────────────────────────┘"
                 ].join("\n");
                 
-                this.typeResponse(stats, null, 'info');
+                this.typeResponse(stats, null, 'info', '◈');
             } else {
-                this.typeResponse("DIAGNOSTICS SERVICE OFFLINE.", null, 'error');
+                this.typeResponse("DIAGNOSTICS SERVICE OFFLINE.", null, 'error', '✕');
                 playError();
             }
         } else if (cmd === 'SCAN' || cmd === 'PING') {
@@ -313,18 +471,20 @@ const TerminalSystem = {
                 playSuccess();
                 const exits = window.game.getCurrentLocation().getActions();
                 if (exits.length === 0) {
-                    this.typeResponse("SCANNING SENSORS... NO EXIT VECTORS DETECTED IN THIS VECTOR FIELD.", null, 'warning');
+                    this.typeResponse("SCAN COMPLETE — NO EXIT VECTORS DETECTED.", null, 'warning', '◉');
                 } else {
-                    let lines = ["SCANNING LOCAL SPACE MANIFOLD...", "EXITS DETECTED:"];
-                    exits.forEach(e => {
-                        const status = e.isUnknown ? "UNKNOWN" : "VISITED";
-                        const recommend = e.isRecommended ? " ⭐ [RECOMMENDED]" : "";
-                        lines.push(` - ${e.label.toUpperCase()} -> [${status}]${recommend}`);
+                    let lines = ["┌─ ENVIRONMENT SCAN ───────────────┐"];
+                    exits.forEach((e, i) => {
+                        const status = e.isUnknown ? "NEW" : "KNOWN";
+                        const recommend = e.isRecommended ? " ★" : "";
+                        const statusIcon = e.isUnknown ? "◆" : "◇";
+                        lines.push(`│  ${statusIcon} ${e.label.toUpperCase()} [${status}]${recommend}`);
                     });
-                    this.typeResponse(lines.join("\n"), null, 'info');
+                    lines.push("└──────────────────────────────────┘");
+                    this.typeResponse(lines.join("\n"), null, 'info', '◉');
                 }
             } else {
-                this.typeResponse("ENVIRONMENTAL SCANNER OFFLINE.", null, 'error');
+                this.typeResponse("SCANNER OFFLINE.", null, 'error', '✕');
                 playError();
             }
         } else if (cmd.startsWith('GO ') || cmd.startsWith('MOVE ')) {
@@ -338,16 +498,16 @@ const TerminalSystem = {
                 );
                 if (found) {
                     playSuccess();
-                    this.typeResponse(`INITIATING SPACE VECTOR SHIFT TO: ${found.label.toUpperCase()}...`, null, 'success');
+                    this.typeResponse(`NAVIGATING → ${found.label.toUpperCase()}...`, null, 'success', '→');
                     setTimeout(() => {
                         window.game.handleAction('tra', found.id, found.extra);
                     }, 500);
                 } else {
-                    this.typeResponse(`PATH ERROR: TRANSITION DIRECTIVE '${exitLabel}' BLOCKED OR INVALID.`, null, 'error');
+                    this.typeResponse(`PATH ERROR: '${exitLabel}' NOT FOUND.`, null, 'error', '✕');
                     playError();
                 }
             } else {
-                this.typeResponse("NAVIGATION ENGINE OFFLINE.", null, 'error');
+                this.typeResponse("NAVIGATION ENGINE OFFLINE.", null, 'error', '✕');
                 playError();
             }
         } else if (cmd.startsWith('ACT ') || cmd.startsWith('USE ')) {
@@ -375,41 +535,41 @@ const TerminalSystem = {
                         const stateIdx = foundInteractable.states.findIndex(s => (s.label || s.id).toUpperCase().includes(stateSearch));
                         if (stateIdx !== -1) {
                             playSuccess();
-                            this.typeResponse(`COMMAND EXECUTED: ${foundInteractable.label.toUpperCase()} STATE -> ${stateSearch}`, null, 'success');
+                            this.typeResponse(`EXECUTING: ${foundInteractable.label.toUpperCase()} → ${stateSearch}`, null, 'success', '⚡');
                             setTimeout(() => {
                                 window.game.handleAction('act', foundInterId, stateIdx);
                             }, 500);
                         } else {
-                            const statesStr = foundInteractable.states.map(s => (s.label || s.id).toUpperCase()).join(', ');
-                            this.typeResponse(`STATE ERROR: VALID STATES FOR ${foundInteractable.label.toUpperCase()}: ${statesStr}`, null, 'warning');
+                            const statesStr = foundInteractable.states.map(s => (s.label || s.id).toUpperCase()).join(' · ');
+                            this.typeResponse(`VALID STATES FOR ${foundInteractable.label.toUpperCase()}: ${statesStr}`, null, 'warning', '?');
                             playError();
                         }
                     } else {
                         // Cycle if no state specified
                         playSuccess();
-                        this.typeResponse(`CYCLING CONTROL MATRIX FOR: ${foundInteractable.label.toUpperCase()}`, null, 'success');
+                        this.typeResponse(`CYCLING: ${foundInteractable.label.toUpperCase()}`, null, 'success', '↺');
                         setTimeout(() => {
                             window.game.handleAction('act', foundInterId, null);
                         }, 500);
                     }
                 } else {
-                    this.typeResponse(`OBJECT ERROR: TARGET '${interSearch}' NOT IDENTIFIED IN LOCAL VIEW.`, null, 'error');
+                    this.typeResponse(`TARGET '${interSearch}' NOT FOUND.`, null, 'error', '✕');
                     playError();
                 }
             } else {
-                this.typeResponse("CONTROL SYSTEM OFFLINE.", null, 'error');
+                this.typeResponse("CONTROL SYSTEM OFFLINE.", null, 'error', '✕');
                 playError();
             }
         } else {
             // Invalid command / fallback
-            this.typeResponse(`SYNTAX ERROR: COMMAND '${cmd}' NOT FOUND. TYPE 'HELP' FOR DETAILS.`, null, 'error');
+            this.typeResponse(`UNKNOWN: '${cmd}' — TYPE 'HELP' FOR COMMANDS.`, null, 'error', '✕');
             playError();
         }
     },
 
-    addToHistory(text, type = '') {
-        this.history.push({ text, type });
-        if (this.history.length > 25) {
+    addToHistory(text, type = '', icon = '') {
+        this.history.push({ text, type, icon });
+        if (this.history.length > 30) {
             this.history.shift();
         }
         this.renderHistory();
@@ -422,20 +582,40 @@ const TerminalSystem = {
             const div = document.createElement('div');
             const type = (typeof lineObj === 'string') ? '' : lineObj.type;
             const text = (typeof lineObj === 'string') ? lineObj : lineObj.text;
+            const icon = (typeof lineObj === 'string') ? '' : (lineObj.icon || '');
             div.className = 'terminal-history-line' + (type ? ' log-' + type : '');
-            div.innerText = text;
+            
+            if (icon) {
+                div.innerHTML = `<span class="history-icon">${icon}</span><span class="history-text">${this._escapeHtml(text)}</span>`;
+            } else {
+                div.innerHTML = `<span class="history-text">${this._escapeHtml(text)}</span>`;
+            }
+            
             this.terminalHistoryEl.appendChild(div);
         });
-        this.terminalHistoryEl.scrollTop = this.terminalHistoryEl.scrollHeight;
+        // Smooth scroll to bottom
+        requestAnimationFrame(() => {
+            this.terminalHistoryEl.scrollTop = this.terminalHistoryEl.scrollHeight;
+        });
     },
 
-    typeResponse(text, callback, logType = '') {
+    _escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    },
+
+    typeResponse(text, callback, logType = '', icon = '') {
         this.currentLogType = logType;
-        this.terminalTextEl.className = logType ? 'log-' + logType : '';
+        this.terminalTextEl.className = 'terminal-response-text' + (logType ? ' log-' + logType : '');
+        this.updateHeaderStatus('busy');
         
         if (window.game) {
             // Forward typing animation to the game to use its glitchy visual typing animation
-            window.game.typeTerminalText(text, callback);
+            window.game.typeTerminalText(text, () => {
+                this.updateHeaderStatus(this.terminalContainer.classList.contains('expanded') ? 'active' : 'online');
+                if (callback) callback();
+            });
         } else {
             // Fallback typing animation
             this.isTyping = true;
@@ -443,12 +623,13 @@ const TerminalSystem = {
             let i = 0;
             const type = () => {
                 if (i < text.length) {
-                    this.terminalTextEl.innerText = text.substring(0, i + 1) + "_";
+                    this.terminalTextEl.innerText = text.substring(0, i + 1) + "█";
                     i++;
-                    setTimeout(type, 20);
+                    setTimeout(type, 18);
                 } else {
                     this.terminalTextEl.innerText = text;
                     this.isTyping = false;
+                    this.updateHeaderStatus(this.terminalContainer.classList.contains('expanded') ? 'active' : 'online');
                     if (callback) callback();
                 }
             };
