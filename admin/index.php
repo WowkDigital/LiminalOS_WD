@@ -15,6 +15,15 @@ function loadEnv($path) {
         if (count($parts) === 2) {
             $name = trim($parts[0]);
             $value = trim($parts[1]);
+            
+            // Strip surrounding quotes
+            if (strlen($value) >= 2 && (
+                ($value[0] === '"' && substr($value, -1) === '"') ||
+                ($value[0] === "'" && substr($value, -1) === "'")
+            )) {
+                $value = substr($value, 1, -1);
+            }
+            
             if (!array_key_exists($name, $_SERVER) && !array_key_exists($name, $_ENV)) {
                 putenv(sprintf('%s=%s', $name, $value));
                 $_ENV[$name] = $value;
