@@ -196,6 +196,12 @@ class MapGraph {
                 if (!mapPanel.classList.contains('collapsed')) this.update();
             });
         }
+
+        window.addEventListener('resize', () => {
+            if (mapPanel && !mapPanel.classList.contains('collapsed')) {
+                this.update();
+            }
+        });
     }
 
     update() {
