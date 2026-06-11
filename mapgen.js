@@ -640,6 +640,14 @@ class MapGraph {
 
         const { pos, edges, visited } = this._computeLayout();
 
+        // Determine which rooms are directly reachable from current position
+        const state = this.game.state;
+        const currentRoom = state.isTransitioning
+            ? state.transitionContext?.target
+            : state.currentRoom;
+        const reachable = new Set();
+        (state.roomTransitions[currentRoom] || []).forEach(e => reachable.add(e.target));
+
         // --- SVG defs: grid pattern & arrowhead marker ---
         const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
         
@@ -683,11 +691,6 @@ class MapGraph {
         const NODE_R_VISITED = 7;
         const NODE_R_UNKNOWN = 4.5;
         const NODE_R_CURRENT = 9;
-
-        const state = this.game.state;
-        const currentRoom = state.isTransitioning
-            ? state.transitionContext?.target
-            : state.currentRoom;
 
         // --- Draw edges (with arrowheads) ---
         const drawn = new Set();
@@ -756,18 +759,27 @@ class MapGraph {
             if (!p) return;
             const isCurrent = id === currentRoom;
             const isVisited = visited.has(id);
-            this._renderNode(id, p, isCurrent, isVisited);
+            const isReachable = reachable.has(id);
+            this._renderNode(id, p, isCurrent, isVisited, isReachable);
         });
     }
 
-    _renderNode(id, pos, isCurrent, isVisited) {
+    _renderNode(id, pos, isCurrent, isVisited, isReachable) {
         const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-        group.setAttribute('class', 'map-node');
+        let nodeClass = 'map-node';
+        if (isReachable) nodeClass += ' map-node--reachable';
+        if (isCurrent) nodeClass += ' map-node--current';
+        group.setAttribute('class', nodeClass);
         group.setAttribute('data-id', id);
 
         // Interaction event listeners
-        group.addEventListener('mouseenter', () => this.showNodeTelemetry(id, isCurrent, isVisited));
+        group.addEventListener('mouseenter', () => this.showNodeTelemetry(id, isCurrent, isVisited, isReachable));
         group.addEventListener('mouseleave', () => this.resetNodeTelemetry());
+
+        // Click to navigate to reachable rooms
+        if (isReachable && !isCurrent) {
+            group.addEventListener('click', () => this._navigateToRoom(id));
+        }
 
         // Target target ring / scanner glow for current location
         if (isCurrent) {
@@ -818,6 +830,36 @@ class MapGraph {
             group.appendChild(targetRing);
         }
 
+        // Reachable room glow halo — solid pulsing ring
+        if (isReachable && !isCurrent) {
+            const halo = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            halo.setAttribute('cx', pos.x);
+            halo.setAttribute('cy', pos.y);
+            halo.setAttribute('r', '13');
+            halo.setAttribute('fill', 'rgba(234, 179, 8, 0.05)');
+            halo.setAttribute('stroke', 'var(--accent-primary)');
+            halo.setAttribute('stroke-width', '1.5');
+            halo.setAttribute('class', 'map-node-reachable-halo');
+
+            // SVG animate for radius pulse
+            const animR = document.createElementNS('http://www.w3.org/2000/svg', 'animate');
+            animR.setAttribute('attributeName', 'r');
+            animR.setAttribute('values', '11;14;11');
+            animR.setAttribute('dur', '2s');
+            animR.setAttribute('repeatCount', 'indefinite');
+            halo.appendChild(animR);
+
+            // SVG animate for opacity pulse
+            const animO = document.createElementNS('http://www.w3.org/2000/svg', 'animate');
+            animO.setAttribute('attributeName', 'opacity');
+            animO.setAttribute('values', '0.4;1;0.4');
+            animO.setAttribute('dur', '2s');
+            animO.setAttribute('repeatCount', 'indefinite');
+            halo.appendChild(animO);
+
+            group.appendChild(halo);
+        }
+
         const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
         circle.setAttribute('cx', pos.x);
         circle.setAttribute('cy', pos.y);
@@ -827,6 +869,16 @@ class MapGraph {
             circle.setAttribute('fill', 'var(--accent-primary)');
             circle.setAttribute('stroke', '#ffffff');
             circle.setAttribute('stroke-width', '2');
+        } else if (isReachable && isVisited) {
+            circle.setAttribute('r', '7');
+            circle.setAttribute('fill', 'rgba(234, 179, 8, 0.15)');
+            circle.setAttribute('stroke', 'var(--accent-primary)');
+            circle.setAttribute('stroke-width', '2');
+        } else if (isReachable) {
+            circle.setAttribute('r', '5.5');
+            circle.setAttribute('fill', 'rgba(234, 179, 8, 0.1)');
+            circle.setAttribute('stroke', 'var(--accent-primary)');
+            circle.setAttribute('stroke-width', '1.5');
         } else if (isVisited) {
             circle.setAttribute('r', '6');
             circle.setAttribute('fill', 'rgba(16, 185, 129, 0.15)');
@@ -842,8 +894,8 @@ class MapGraph {
         }
         group.appendChild(circle);
 
-        // Label for visited / current nodes
-        if (isVisited || isCurrent) {
+        // Label for visited / current / reachable nodes
+        if (isVisited || isCurrent || isReachable) {
             const name = this.game.world.rooms[id]?.name || id;
             const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
             text.setAttribute('x', pos.x + 12);
@@ -868,10 +920,46 @@ class MapGraph {
             group.appendChild(q);
         }
 
+        // Click-to-navigate label for reachable rooms
+        if (isReachable && !isCurrent) {
+            const hint = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            hint.setAttribute('x', pos.x);
+            hint.setAttribute('y', pos.y + 22);
+            hint.setAttribute('fill', 'var(--accent-primary)');
+            hint.setAttribute('font-size', '6px');
+            hint.setAttribute('font-family', 'var(--font-mono)');
+            hint.setAttribute('text-anchor', 'middle');
+            hint.setAttribute('opacity', '0.7');
+            hint.setAttribute('class', 'map-node-goto-hint');
+            hint.textContent = '▸ GO';
+            group.appendChild(hint);
+        }
+
         this.svg.appendChild(group);
     }
 
-    showNodeTelemetry(id, isCurrent, isVisited) {
+    /** Find the transition ID leading to targetRoomId from current room and trigger it */
+    _navigateToRoom(targetRoomId) {
+        const state = this.game.state;
+        const currentRoom = state.isTransitioning
+            ? state.transitionContext?.target
+            : state.currentRoom;
+
+        const transitions = state.roomTransitions[currentRoom] || [];
+        const transition = transitions.find(t => t.target === targetRoomId);
+
+        if (!transition) return;
+
+        // Play UI feedback
+        if (this.game.audio && typeof this.game.audio.playUiSound === 'function') {
+            this.game.audio.playUiSound('click');
+        }
+
+        // Trigger the transition as if the player clicked the exit button
+        this.game.handleAction('tra', transition.id, targetRoomId);
+    }
+
+    showNodeTelemetry(id, isCurrent, isVisited, isReachable) {
         const detailsContainer = document.getElementById('map-node-details');
         if (!detailsContainer) return;
 
@@ -909,6 +997,10 @@ class MapGraph {
             this.game.audio.playUiSound('keypress');
         }
 
+        const reachableHint = (isReachable && !isCurrent)
+            ? `<div class="node-details-row node-details-row--reachable"><div class="node-details-key">ACTION:</div><div class="node-details-val node-details-val--reachable">▸ CLICK TO NAVIGATE</div></div>`
+            : '';
+
         detailsContainer.classList.add('node-details-active');
         detailsContainer.innerHTML = `
             <div class="node-details-header">
@@ -923,6 +1015,7 @@ class MapGraph {
                 <div class="node-details-key">EXITS:</div>
                 <div class="node-details-val">${exitsStr}</div>
             </div>
+            ${reachableHint}
         `;
     }
 

@@ -1749,7 +1749,7 @@ button.custom-category-btn:hover {
 }
 
 #map-svg g.map-node {
-    cursor: pointer;
+    cursor: default;
     pointer-events: all;
 }
 
@@ -1763,6 +1763,48 @@ button.custom-category-btn:hover {
 
 #map-svg g.map-node:hover text {
     font-weight: bold;
+}
+
+/* Reachable rooms — solid pulsing halo + pointer cursor */
+#map-svg g.map-node--reachable {
+    cursor: pointer;
+}
+
+/* Halo pulse is driven by SVG <animate> elements — no CSS needed */
+
+#map-svg g.map-node--reachable:hover circle {
+    filter: drop-shadow(0 0 6px var(--accent-primary));
+}
+
+#map-svg g.map-node--reachable .map-node-goto-hint {
+    animation: reachableHintPulse 1.8s ease-in-out infinite;
+}
+
+@keyframes reachableHintPulse {
+    0%, 100% { opacity: 0.4; transform: translateY(0); }
+    50%       { opacity: 0.9; transform: translateY(-1px); }
+}
+
+/* Telemetry panel – ACTION row */
+.node-details-row--reachable {
+    margin-top: 0.3rem;
+    padding-top: 0.3rem;
+    border-top: 1px dashed var(--glass-border);
+}
+
+.node-details-val--reachable {
+    color: var(--accent-primary) !important;
+    font-weight: bold;
+    letter-spacing: 0.04em;
+    text-shadow: 0 0 8px var(--accent-glow);
+    animation: reachableHintPulse 1.8s ease-in-out infinite;
+}
+
+/* Legend dot for reachable */
+.map-legend-dot--reachable {
+    background: var(--accent-primary);
+    box-shadow: 0 0 6px var(--accent-primary);
+    border: 1px dashed var(--accent-primary);
 }
 
 #map-svg line.map-edge {
