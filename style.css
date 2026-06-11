@@ -350,6 +350,39 @@ body {
     opacity: 0;
 }
 
+/* ---- Preview Text (visible in collapsed state) ---- */
+.terminal-preview-text {
+    flex: 1;
+    font-size: 0.65rem;
+    color: var(--accent-primary);
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0.85;
+    min-width: 0;
+    text-shadow: 0 0 8px rgba(234, 179, 8, 0.2);
+    transition: opacity 0.3s ease;
+}
+
+.terminal-preview-text:empty {
+    display: none;
+}
+
+/* When preview text is present, hide the static title in collapsed state */
+#terminal-line-container:not(.expanded) .terminal-preview-text:not(:empty) ~ .terminal-header-hint {
+    display: none;
+}
+
+#terminal-line-container:not(.expanded) .terminal-header-title {
+    flex-shrink: 0;
+}
+
+/* Hide preview when expanded — the full output is visible */
+#terminal-line-container.expanded .terminal-preview-text {
+    display: none;
+}
+
 /* ---- Prompt Styling ---- */
 #terminal-prompt {
     color: var(--text-muted);

@@ -1076,14 +1076,18 @@ class BackroomsGame {
 
         if (window.TerminalSystem) window.TerminalSystem.isTyping = true;
 
+        const previewEl = document.getElementById('terminal-preview-text');
+
         const deleteChar = () => {
             const current = this.elements.terminalText.innerText;
             if (current.length > 0) {
                 this.elements.terminalText.innerText = current.slice(0, -1);
+                if (previewEl) previewEl.textContent = current.slice(0, -1);
                 this.terminalTimeout = setTimeout(deleteChar, 10);
             } else {
                 if (fullText) startTyping();
                 else {
+                    if (previewEl) previewEl.textContent = '';
                     if (window.TerminalSystem) window.TerminalSystem.isTyping = false;
                     if (callback) callback();
                 }
@@ -1108,9 +1112,13 @@ class BackroomsGame {
                         index++;
                     }
 
+                    // Sync preview with clean text (no glitch chars)
+                    if (previewEl) previewEl.textContent = currentDisplay;
+
                     this.terminalTimeout = setTimeout(type, Math.random() * 10 + 5);
                 } else {
                     this.elements.terminalText.innerText = fullText;
+                    if (previewEl) previewEl.textContent = fullText.replace(/\n/g, ' ');
                     if (window.TerminalSystem) window.TerminalSystem.isTyping = false;
 
                     // Add interactive class if dialogue is linked
