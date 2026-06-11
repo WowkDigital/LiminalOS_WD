@@ -242,6 +242,179 @@ assertTest('World Data Graph & Reference Integrity', function() use ($dbFile) {
     return "Success: " . count($rooms) . " rooms analyzed. References and room-to-object bindings are 100% consistent.";
 });
 
+// Test 7: Room Saving & Modification Operations
+assertTest('Room Saving & Modification Operations', function() use ($dbFile) {
+    $pdo = new PDO('sqlite:' . $dbFile);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo->exec("PRAGMA foreign_keys = ON;");
+    
+    $pdo->beginTransaction();
+    try {
+        $roomId = '__test_edit_room_id__';
+        
+        // 1. Initial Save
+        $roomData = [
+            'name' => 'Initial Room Name',
+            'desc' => 'Initial Room Description',
+            'tags' => ['tag1', 'tag2'],
+            'transitions' => [
+                ['category' => 'hallway', 'requirements' => ['sanity_min' => 20]]
+            ],
+            'interactables' => [
+                ['id' => 'panel_1', 'requirements' => null]
+            ],
+            'texts' => [
+                ['text' => 'Some room text', 'sanity_min' => 10, 'sanity_max' => 90, 'dialogue_id' => 'd_1']
+            ]
+        ];
+        
+        // Insert Mock Interactable dependency to satisfy foreign key constraint
+        $pdo->prepare("INSERT OR REPLACE INTO interactables (id, label, current_state_index) VALUES ('panel_1', 'Mock Panel', 0)")->execute();
+
+        // Run database upsert
+        $pdo->prepare("INSERT INTO rooms (id, name, desc) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, desc=excluded.desc")
+            ->execute([$roomId, $roomData['name'], $roomData['desc']]);
+            
+        foreach ($roomData['tags'] as $tag) {
+            $pdo->prepare("INSERT INTO room_tags (room_id, tag) VALUES (?, ?)")->execute([$roomId, $tag]);
+        }
+        
+        foreach ($roomData['transitions'] as $trans) {
+            $pdo->prepare("INSERT INTO room_transitions (room_id, category, requirements) VALUES (?, ?, ?)")
+                ->execute([$roomId, $trans['category'], json_encode($trans['requirements'])]);
+        }
+        
+        foreach ($roomData['interactables'] as $inter) {
+            $pdo->prepare("INSERT INTO room_interactables (room_id, interactable_id, requirements) VALUES (?, ?, ?)")
+                ->execute([$roomId, $inter['id'], null]);
+        }
+        
+        foreach ($roomData['texts'] as $txt) {
+            $pdo->prepare("INSERT INTO room_texts (room_id, text, sanity_min, sanity_max, dialogue_id) VALUES (?, ?, ?, ?, ?)")
+                ->execute([$roomId, $txt['text'], $txt['sanity_min'], $txt['sanity_max'], $txt['dialogue_id']]);
+        }
+        
+        // 2. Modify values and Save again
+        $modifiedData = [
+            'name' => 'Modified Room Name',
+            'desc' => 'Modified Room Description',
+            'tags' => ['tag2', 'tag3'], // tag1 is removed, tag3 is added
+            'transitions' => [], // transitions removed
+            'interactables' => [], // interactables removed
+            'texts' => [
+                ['text' => 'New text snippet', 'sanity_min' => 0, 'sanity_max' => 100, 'dialogue_id' => null]
+            ]
+        ];
+        
+        // Perform edit operations
+        $pdo->prepare("INSERT INTO rooms (id, name, desc) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, desc=excluded.desc")
+            ->execute([$roomId, $modifiedData['name'], $modifiedData['desc']]);
+            
+        $pdo->prepare("DELETE FROM room_tags WHERE room_id = ?")->execute([$roomId]);
+        foreach ($modifiedData['tags'] as $tag) {
+            $pdo->prepare("INSERT INTO room_tags (room_id, tag) VALUES (?, ?)")->execute([$roomId, $tag]);
+        }
+        
+        $pdo->prepare("DELETE FROM room_transitions WHERE room_id = ?")->execute([$roomId]);
+        $pdo->prepare("DELETE FROM room_interactables WHERE room_id = ?")->execute([$roomId]);
+        
+        $pdo->prepare("DELETE FROM room_texts WHERE room_id = ?")->execute([$roomId]);
+        foreach ($modifiedData['texts'] as $txt) {
+            $pdo->prepare("INSERT INTO room_texts (room_id, text, sanity_min, sanity_max, dialogue_id) VALUES (?, ?, ?, ?, ?)")
+                ->execute([$roomId, $txt['text'], $txt['sanity_min'], $txt['sanity_max'], $txt['dialogue_id']]);
+        }
+        
+        // 3. Assertions
+        $room = $pdo->query("SELECT * FROM rooms WHERE id = '{$roomId}'")->fetch();
+        if ($room['name'] !== 'Modified Room Name' || $room['desc'] !== 'Modified Room Description') {
+            throw new Exception("Room name/description failed to update.");
+        }
+        
+        $tags = $pdo->query("SELECT tag FROM room_tags WHERE room_id = '{$roomId}'")->fetchAll(PDO::FETCH_COLUMN);
+        sort($tags);
+        if ($tags !== ['tag2', 'tag3']) {
+            throw new Exception("Room tags failed to rewrite correctly: " . json_encode($tags));
+        }
+        
+        $transCount = $pdo->query("SELECT COUNT(*) FROM room_transitions WHERE room_id = '{$roomId}'")->fetchColumn();
+        if ($transCount != 0) {
+            throw new Exception("Old transitions were not cleared.");
+        }
+        
+        $texts = $pdo->query("SELECT text, dialogue_id FROM room_texts WHERE room_id = '{$roomId}'")->fetchAll();
+        if (count($texts) !== 1 || $texts[0]['text'] !== 'New text snippet' || $texts[0]['dialogue_id'] !== null) {
+            throw new Exception("Room texts failed to rewrite correctly: " . json_encode($texts));
+        }
+        
+        return "Room creation, data rewrite, and relationship clean-up edits passed validation.";
+    } finally {
+        $pdo->rollBack();
+    }
+});
+
+// Test 8: Interactable State Effects Validation
+assertTest('Interactable State Effects Compliance', function() use ($dbFile) {
+    $pdo = new PDO('sqlite:' . $dbFile);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo->exec("PRAGMA foreign_keys = ON;");
+    
+    $pdo->beginTransaction();
+    try {
+        $interId = '__test_effect_interactable__';
+        
+        // Mock payload with standard sanity and state_change effects
+        $effectsData = [
+            'sanity' => -15,
+            'state_change' => [
+                'target_id' => 'generator_01',
+                'target_state' => 'active'
+            ],
+            'sound' => 'sparks_sfx'
+        ];
+        
+        // Insert Interactable
+        $pdo->prepare("INSERT INTO interactables (id, label, current_state_index) VALUES (?, ?, ?)")
+            ->execute([$interId, 'Test Interactable with Effects', 0]);
+            
+        // Insert State with effects field
+        $pdo->prepare("INSERT INTO interactable_states (interactable_id, state_id, desc, sort_order, effects) VALUES (?, ?, ?, ?, ?)")
+            ->execute([$interId, 'active_state', 'State description', 0, json_encode($effectsData)]);
+            
+        // Retrieve and parse effects
+        $storedEffectsJson = $pdo->query("SELECT effects FROM interactable_states WHERE interactable_id = '{$interId}' AND state_id = 'active_state'")->fetchColumn();
+        if (empty($storedEffectsJson)) {
+            throw new Exception("Effects failed to insert or returned empty.");
+        }
+        
+        $parsed = json_decode($storedEffectsJson, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new Exception("Inserted effects field contains malformed JSON.");
+        }
+        
+        if ($parsed['sanity'] !== -15 || $parsed['state_change']['target_id'] !== 'generator_01' || $parsed['sound'] !== 'sparks_sfx') {
+            throw new Exception("Decoded effects data mismatch.");
+        }
+        
+        // Audit existing database effects for JSON compliance
+        $stmt = $pdo->query("SELECT interactable_id, state_id, effects FROM interactable_states WHERE effects IS NOT NULL");
+        $corruptCount = 0;
+        while ($row = $stmt->fetch()) {
+            json_decode($row['effects']);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                $corruptCount++;
+            }
+        }
+        
+        if ($corruptCount > 0) {
+            throw new Exception("Database audit failed: Found {$corruptCount} interactable state records with invalid JSON in 'effects' field.");
+        }
+        
+        return "Effects payload inserts, decodes, and database JSON integrity audited successfully.";
+    } finally {
+        $pdo->rollBack();
+    }
+});
+
 echo json_encode([
     'success' => ($failed === 0),
     'summary' => [
