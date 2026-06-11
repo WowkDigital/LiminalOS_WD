@@ -121,12 +121,12 @@ body {
 /* Sharp foreground layer */
 #scene-bg img#room-image {
     position: absolute;
-    top: var(--bg-margin, 0px);
+    top: calc(var(--hud-height, 0px) + var(--bg-margin, 0px));
     bottom: var(--bg-margin, 0px);
     left: 0;
     right: 0;
     width: 100%;
-    height: calc(100% - (2 * var(--bg-margin, 0px)));
+    height: calc(100% - var(--hud-height, 0px) - (2 * var(--bg-margin, 0px)));
     object-fit: contain;
     z-index: 1;
     filter: brightness(0.55) contrast(1.15) saturate(0.7);
@@ -218,6 +218,9 @@ body {
     transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
     overflow: hidden;
     max-height: 42px; /* Collapsed: just header */
+    width: fit-content;
+    max-width: calc(100% - 2rem);
+    align-self: flex-start;
 }
 
 #terminal-line-container,
@@ -243,6 +246,8 @@ body {
         0 0 20px rgba(234, 179, 8, 0.06),
         inset 0 1px 0 rgba(255, 255, 255, 0.06);
     overflow-y: auto;
+    width: calc(100% - 2rem);
+    align-self: stretch;
 }
 
 #terminal-line-container.focused {
@@ -1360,13 +1365,16 @@ button.autowalk-btn {
     flex: 1 1 100%;
     border-color: var(--glass-border);
     color: var(--text-secondary);
-    font-size: 0.85rem;
-    padding: 1rem;
+    font-size: 0.78rem;
+    padding: 0.45rem 0.9rem;
     background: rgba(255, 255, 255, 0.02);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
+    white-space: nowrap;
+    height: 2.3rem;
+    align-self: center;
 }
 
 @media (min-width: 600px) {

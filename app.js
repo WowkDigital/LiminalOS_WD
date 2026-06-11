@@ -408,6 +408,18 @@ class BackroomsGame {
                 };
             }
 
+            // Sync --hud-height CSS variable so the background image starts below the HUD bar
+            const hudBar = document.getElementById('hud-bar');
+            const syncHudHeight = () => {
+                if (hudBar) {
+                    document.documentElement.style.setProperty('--hud-height', `${hudBar.offsetHeight}px`);
+                }
+            };
+            syncHudHeight();
+            if (hudBar && window.ResizeObserver) {
+                new ResizeObserver(syncHudHeight).observe(hudBar);
+            }
+
             window.addEventListener('hashchange', () => this.checkHash());
             this.checkHash();
             this.render();
