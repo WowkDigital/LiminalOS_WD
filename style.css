@@ -1,5 +1,5 @@
 /* LiminalOS Client Style - Premium Dark Redesign */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=VT323&display=swap');
 
 /* ============================
    DESIGN TOKENS (Style Guide)
@@ -34,6 +34,7 @@
     /* Typography */
     --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
     --font-mono: 'Space Mono', monospace;
+    --font-title: 'VT323', monospace;
 
     /* Borders & Radius */
     --radius-sm: 6px;
@@ -1064,22 +1065,75 @@ input[type=range]::-moz-range-thumb {
     border: 1px solid var(--glass-border);
     border-radius: var(--radius-md);
     padding: 1rem 1.25rem;
+    padding-right: 2.8rem;
     margin-left: 2rem;
     margin-bottom: 1rem;
-    max-width: 440px;
+    max-width: 650px;
     box-shadow: var(--shadow-card);
     position: relative;
+    transition: max-width 0.3s ease, padding 0.3s ease, max-height 0.4s ease;
+    cursor: pointer;
+}
+
+/* Narrative toggle button styling */
+.narrative-toggle {
+    position: absolute;
+    top: 0.9rem;
+    right: 0.9rem;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    z-index: 10;
+    min-width: unset;
+    height: unset;
+    min-height: unset;
+}
+.narrative-toggle::before {
+    display: none !important;
+}
+.narrative-toggle:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--accent-primary);
+    border-color: transparent;
+    box-shadow: none;
+    transform: none;
+}
+.narrative-toggle svg {
+    width: 18px;
+    height: 18px;
+    transition: transform 0.3s ease;
+}
+
+#narrative-panel.collapsed {
+    padding-bottom: 0.8rem;
+}
+
+#narrative-panel.collapsed #room-subtitle,
+#narrative-panel.collapsed #room-desc,
+#narrative-panel.collapsed .interactable-desc {
+    display: none !important;
+}
+
+#narrative-panel.collapsed .narrative-toggle svg {
+    transform: rotate(180deg);
 }
 
 #room-title {
-    font-family: var(--font-mono);
-    font-size: 1.3rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
+    font-family: var(--font-title);
+    font-size: 1.8rem;
+    font-weight: 400;
+    letter-spacing: 0.04em;
     color: var(--text-main);
-    text-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
     margin-bottom: 0.15rem;
-    line-height: 1.2;
+    line-height: 1.1;
     text-transform: uppercase;
 }
 
@@ -1095,10 +1149,11 @@ input[type=range]::-moz-range-thumb {
 }
 
 #room-desc {
-    font-family: var(--font-sans);
-    font-size: 0.95rem;
-    line-height: 1.5;
-    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    line-height: 1.6;
+    color: rgba(240, 240, 240, 0.85);
+    text-shadow: 0 0 8px rgba(255, 255, 255, 0.05);
     max-height: 22vh;
     overflow-y: auto;
     scrollbar-width: thin;
@@ -1107,14 +1162,15 @@ input[type=range]::-moz-range-thumb {
 
 .interactable-desc {
     margin-top: 0.6rem;
-    font-family: var(--font-sans);
-    font-size: 0.85rem;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
     color: var(--accent-primary);
     opacity: 0.95;
     font-style: italic;
     line-height: 1.4;
     padding-left: 0.75rem;
     border-left: 2px solid var(--accent-primary);
+    text-shadow: 0 0 6px var(--accent-glow);
 }
 
 /* ============================
@@ -1573,11 +1629,11 @@ button.custom-category-btn:hover {
    ============================ */
 @media (min-width: 600px) and (max-width: 1024px) {
     #room-title {
-        font-size: 1.8rem;
+        font-size: 2.6rem;
     }
 
     #room-desc {
-        font-size: 1.1rem;
+        font-size: 1.0rem;
     }
 
     #actions-container {
@@ -1612,15 +1668,15 @@ button.custom-category-btn:hover {
 
     #narrative-panel {
         padding: 1rem 1.25rem;
-        max-width: 440px;
+        max-width: 650px;
     }
 
     #room-title {
-        font-size: 1.3rem;
+        font-size: 2.4rem;
     }
 
     #room-desc {
-        font-size: 0.95rem;
+        font-size: 0.88rem;
     }
 
     #actions-container {
@@ -1674,11 +1730,11 @@ button.custom-category-btn:hover {
     }
 
     #room-title {
-        font-size: 1.4rem;
+        font-size: 1.8rem;
     }
 
     #room-desc {
-        font-size: 0.95rem;
+        font-size: 0.82rem;
     }
 
     .interactable-desc {
@@ -1717,12 +1773,12 @@ button.custom-category-btn:hover {
     }
 
     #room-title {
-        font-size: 1.3rem;
+        font-size: 1.8rem;
         margin-bottom: 0.3rem;
     }
 
     #room-desc {
-        font-size: 0.95rem;
+        font-size: 0.82rem;
         max-height: 15vh;
     }
 

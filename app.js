@@ -345,6 +345,42 @@ class BackroomsGame {
             });
             this.elements.settingsPanel.onclick = (e) => e.stopPropagation();
 
+            // Collapsible Narrative Panel
+            const panel = document.getElementById('narrative-panel');
+            if (panel) {
+                const narrativeCollapsed = localStorage.getItem('narrative_collapsed') === 'true';
+                if (narrativeCollapsed) {
+                    panel.classList.add('collapsed');
+                }
+
+                panel.addEventListener('click', (e) => {
+                    const isCollapsed = panel.classList.contains('collapsed');
+                    if (isCollapsed) {
+                        panel.classList.remove('collapsed');
+                        localStorage.setItem('narrative_collapsed', 'false');
+                        this.audio.playUiSound('click');
+                    } else {
+                        // Collapse only if clicked on the title, subtitle, toggle button or panel background directly.
+                        // Do not collapse if clicked inside descriptions/interactables.
+                        const noCollapseElements = ['room-desc', 'interactable-desc'];
+                        let target = e.target;
+                        let shouldCollapse = true;
+                        while (target && target !== panel) {
+                            if (noCollapseElements.includes(target.id) || target.classList.contains('interaction-btn') || target.classList.contains('interaction-group')) {
+                                shouldCollapse = false;
+                                break;
+                            }
+                            target = target.parentElement;
+                        }
+                        if (shouldCollapse) {
+                            panel.classList.add('collapsed');
+                            localStorage.setItem('narrative_collapsed', 'true');
+                            this.audio.playUiSound('click');
+                        }
+                    }
+                });
+            }
+
             // Sanity Debug Controls
             this.elements.sanityMinus = document.getElementById('sanity-minus');
             this.elements.sanityPlus = document.getElementById('sanity-plus');
