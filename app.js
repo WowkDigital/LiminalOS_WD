@@ -302,11 +302,13 @@ class BackroomsGame {
 
             this.loadSession();
 
-            // Wygeneruj mapę jeśli jej nie ma (nowa gra / reset) lub brakuje bfsDepth
+            // Wygeneruj mapę jeśli jej nie ma (nowa gra / reset) lub brakuje bfsDepth/mapPositions
             const needsRegen = !this.state.roomTransitions
                 || Object.keys(this.state.roomTransitions).length < Object.keys(this.world.rooms).length
                 || !this.state.bfsDepth
-                || Object.keys(this.state.bfsDepth).length === 0;
+                || Object.keys(this.state.bfsDepth).length === 0
+                || !this.state.mapPositions
+                || Object.keys(this.state.mapPositions).length === 0;
 
             if (needsRegen) {
                 this.generateGlobalMap();

@@ -126,6 +126,8 @@ class MapGenerator {
         this.game.state.roomTransitions = globalTransitions;
         // BFS depths used by MapGraph for the hierarchical layout
         this.game.state.bfsDepth = this._computeBFSDepth(startId, globalTransitions);
+        // Optimize and precompute graph positions for the entire world
+        this.game.state.mapPositions = this._computeGlobalLayout(globalTransitions, startId);
     }
 
     /**
@@ -174,6 +176,162 @@ class MapGenerator {
             }
         }
         return depth;
+    }
+
+    /**
+     * Run force-directed layout optimization over the entire world graph.
+     * Calculated in a normalized 800x1200 logical space.
+     */
+    _computeGlobalLayout(transitions, startId) {
+        const roomIds = Object.keys(this.game.world.rooms);
+        const bfsDepth = this._computeBFSDepth(startId, transitions);
+
+        // Group nodes by BFS depth layer
+        const byDepth = {};
+        roomIds.forEach(id => {
+            const d = bfsDepth[id] !== undefined ? bfsDepth[id] : 999;
+            (byDepth[d] = byDepth[d] || []).push(id);
+        });
+
+        const depths = Object.keys(byDepth).map(Number).sort((a, b) => a - b);
+        const layerCount = depths.length;
+
+        // Logical space size
+        const width = 800;
+        const height = 1200;
+        const PAD = 80;
+        const usableW = width - PAD * 2;
+        const usableH = height - PAD * 2;
+
+        // Target Y per layer
+        const layerY = {};
+        depths.forEach((d, i) => {
+            layerY[d] = layerCount === 1
+                ? PAD + usableH / 2
+                : PAD + (i / (layerCount - 1)) * usableH;
+        });
+
+        // Initial positions: spread within each layer
+        const pos = {};
+        depths.forEach(d => {
+            const nodes = byDepth[d];
+            nodes.forEach((id, colIdx) => {
+                const count = nodes.length;
+                const segW = count > 1 ? usableW / (count - 1) : 0;
+                const baseX = count === 1
+                    ? PAD + usableW / 2
+                    : PAD + colIdx * segW;
+                
+                // Tiny deterministic jitter
+                let hash = 0;
+                for (let k = 0; k < id.length; k++) hash = (hash * 31 + id.charCodeAt(k)) | 0;
+                const jitter = (Math.abs(hash % 20) - 10);
+                pos[id] = { x: baseX + jitter, y: layerY[d], vx: 0, vy: 0 };
+            });
+        });
+
+        // Collect all edges in the world
+        const edges = [];
+        roomIds.forEach(source => {
+            (transitions[source] || []).forEach(exit => {
+                edges.push({ source, target: exit.target });
+            });
+        });
+
+        // Run force simulation: 300 iterations for highly polished layout
+        const TARGET_D = 180;  // ideal spring length
+        const REPEL_D = 160;   // soft repulsion radius
+        const MIN_DIST = 110;  // hard minimum distance
+        const SPRING_K = 0.12;
+        const REPEL_K = 600;
+        const LAYER_K = 0.1;
+
+        for (let iter = 0; iter < 300; iter++) {
+            // --- Soft repulsion between all pairs ---
+            for (let i = 0; i < roomIds.length; i++) {
+                for (let j = i + 1; j < roomIds.length; j++) {
+                    const a = pos[roomIds[i]];
+                    const b = pos[roomIds[j]];
+                    const dx = a.x - b.x;
+                    const dy = a.y - b.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy) || 0.1;
+                    if (dist < REPEL_D) {
+                        const f = REPEL_K / (dist * dist);
+                        const ux = dx / dist, uy = dy / dist;
+                        a.vx += ux * f; a.vy += uy * f;
+                        b.vx -= ux * f; b.vy -= uy * f;
+                    }
+                }
+            }
+
+            // --- Spring attraction between connected nodes ---
+            edges.forEach(({ source, target }) => {
+                const a = pos[source];
+                const b = pos[target];
+                if (!a || !b) return;
+                const dx = b.x - a.x;
+                const dy = b.y - a.y;
+                const dist = Math.sqrt(dx * dx + dy * dy) || 0.1;
+                const f = (dist - TARGET_D) * SPRING_K;
+                const ux = dx / dist, uy = dy / dist;
+                a.vx += ux * f; a.vy += uy * f;
+                b.vx -= ux * f; b.vy -= uy * f;
+            });
+
+            // --- Soft pull toward BFS layer Y ---
+            roomIds.forEach(id => {
+                const n = pos[id];
+                const d = bfsDepth[id] !== undefined ? bfsDepth[id] : 999;
+                if (layerY[d] !== undefined) {
+                    n.vy += (layerY[d] - n.y) * LAYER_K;
+                }
+            });
+
+            // --- Integrate + dampen + clamp to logical bounds ---
+            roomIds.forEach(id => {
+                const n = pos[id];
+                n.x += n.vx;
+                n.y += n.vy;
+                n.vx *= 0.45;
+                n.vy *= 0.45;
+                n.x = Math.max(PAD, Math.min(width - PAD, n.x));
+                n.y = Math.max(PAD, Math.min(height - PAD, n.y));
+            });
+
+            // --- Hard separation pass ---
+            for (let sp = 0; sp < 4; sp++) {
+                for (let i = 0; i < roomIds.length; i++) {
+                    for (let j = i + 1; j < roomIds.length; j++) {
+                        const a = pos[roomIds[i]];
+                        const b = pos[roomIds[j]];
+                        const dx = a.x - b.x;
+                        const dy = a.y - b.y;
+                        const distSq = dx * dx + dy * dy;
+                        if (distSq < MIN_DIST * MIN_DIST && distSq > 0) {
+                            const dist = Math.sqrt(distSq);
+                            const push = (MIN_DIST - dist) * 0.5;
+                            const ux = dx / dist, uy = dy / dist;
+                            a.x += ux * push;
+                            a.y += uy * push;
+                            b.x -= ux * push;
+                            b.y -= uy * push;
+                            
+                            a.x = Math.max(PAD, Math.min(width - PAD, a.x));
+                            a.y = Math.max(PAD, Math.min(height - PAD, a.y));
+                            b.x = Math.max(PAD, Math.min(width - PAD, b.x));
+                            b.y = Math.max(PAD, Math.min(height - PAD, b.y));
+                        }
+                    }
+                }
+            }
+        }
+
+        // Return coordinates mapped by ID
+        const result = {};
+        roomIds.forEach(id => {
+            result[id] = { x: pos[id].x, y: pos[id].y };
+        });
+        return result;
     }
 }
 
@@ -244,141 +402,25 @@ class MapGraph {
             (state.roomTransitions[roomId] || []).forEach(e => visible.add(e.target));
         });
 
-        const bfsDepth = state.bfsDepth || {};
+        // Get precalculated logical positions
+        const mapPositions = state.mapPositions || {};
 
-        // Group nodes by BFS depth layer
-        const byDepth = {};
-        visible.forEach(id => {
-            const d = bfsDepth[id] !== undefined ? bfsDepth[id] : 999;
-            (byDepth[d] = byDepth[d] || []).push(id);
-        });
+        // Scale factors: map from logical 800x1200 to actual this.width x this.height
+        const padX = 35;
+        const padY = 40;
+        const scaleX = (x) => padX + (x / 800) * (this.width - padX * 2);
+        const scaleY = (y) => padY + (y / 1200) * (this.height - padY * 2);
 
-        const depths = Object.keys(byDepth).map(Number).sort((a, b) => a - b);
-        const layerCount = depths.length;
-
-        const PAD = 30;
-        const usableW = this.width - PAD * 2;
-        const usableH = this.height - PAD * 2;
-
-        // Target Y per layer (top → bottom, older rooms at top)
-        const layerY = {};
-        depths.forEach((d, i) => {
-            layerY[d] = layerCount === 1
-                ? PAD + usableH / 2
-                : PAD + (i / (layerCount - 1)) * usableH;
-        });
-
-        // Initial positions: evenly spread within each layer
         const pos = {};
-        depths.forEach(d => {
-            const nodes = byDepth[d];
-            nodes.forEach((id, colIdx) => {
-                const count = nodes.length;
-                const segW = count > 1 ? usableW / (count - 1) : 0;
-                const baseX = count === 1
-                    ? PAD + usableW / 2
-                    : PAD + colIdx * segW;
-                // Tiny deterministic jitter to break symmetry
-                let hash = 0;
-                for (let k = 0; k < id.length; k++) hash = (hash * 31 + id.charCodeAt(k)) | 0;
-                const jitter = (Math.abs(hash % 12) - 6);
-                pos[id] = { x: baseX + jitter, y: layerY[d], vx: 0, vy: 0 };
-            });
+        visible.forEach(id => {
+            const logicalPos = mapPositions[id] || { x: 400, y: 600 };
+            pos[id] = {
+                x: scaleX(logicalPos.x),
+                y: scaleY(logicalPos.y)
+            };
         });
 
-        // Build adjacency for force simulation
         const edges = this._buildEdges(visited);
-
-        // Force simulation: 120 iterations
-        const allNodes = Object.keys(pos);
-        const TARGET_D = 110;  // ideal spring length between connected nodes
-        const REPEL_D = 95;   // soft repulsion radius
-        const MIN_DIST = 70;   // hard minimum distance between any two nodes
-        const SPRING_K = 0.12;
-        const REPEL_K = 480;
-        const LAYER_K = 0.08; // soft pull back to BFS layer Y
-
-        for (let iter = 0; iter < 120; iter++) {
-            // --- Soft repulsion between all pairs ---
-            for (let i = 0; i < allNodes.length; i++) {
-                for (let j = i + 1; j < allNodes.length; j++) {
-                    const a = pos[allNodes[i]];
-                    const b = pos[allNodes[j]];
-                    const dx = a.x - b.x;
-                    const dy = a.y - b.y;
-                    const dist = Math.sqrt(dx * dx + dy * dy) || 0.1;
-                    if (dist < REPEL_D) {
-                        const f = REPEL_K / (dist * dist);
-                        const ux = dx / dist, uy = dy / dist;
-                        a.vx += ux * f; a.vy += uy * f;
-                        b.vx -= ux * f; b.vy -= uy * f;
-                    }
-                }
-            }
-
-            // --- Spring attraction between connected nodes ---
-            edges.forEach(({ source, target }) => {
-                const a = pos[source];
-                const b = pos[target];
-                if (!a || !b) return;
-                const dx = b.x - a.x;
-                const dy = b.y - a.y;
-                const dist = Math.sqrt(dx * dx + dy * dy) || 0.1;
-                const f = (dist - TARGET_D) * SPRING_K;
-                const ux = dx / dist, uy = dy / dist;
-                a.vx += ux * f; a.vy += uy * f;
-                b.vx -= ux * f; b.vy -= uy * f;
-            });
-
-            // --- Soft pull toward BFS layer Y ---
-            allNodes.forEach(id => {
-                const n = pos[id];
-                const d = bfsDepth[id] !== undefined ? bfsDepth[id] : 999;
-                if (layerY[d] !== undefined) {
-                    n.vy += (layerY[d] - n.y) * LAYER_K;
-                }
-            });
-
-            // --- Integrate + dampen + clamp to canvas bounds ---
-            allNodes.forEach(id => {
-                const n = pos[id];
-                n.x += n.vx;
-                n.y += n.vy;
-                n.vx *= 0.45;
-                n.vy *= 0.45;
-                n.x = Math.max(PAD, Math.min(this.width - PAD, n.x));
-                n.y = Math.max(PAD, Math.min(this.height - PAD, n.y));
-            });
-
-            // --- Hard separation pass: push apart any nodes closer than MIN_DIST ---
-            // Run multiple sub-passes per iteration for faster convergence
-            for (let sp = 0; sp < 3; sp++) {
-                for (let i = 0; i < allNodes.length; i++) {
-                    for (let j = i + 1; j < allNodes.length; j++) {
-                        const a = pos[allNodes[i]];
-                        const b = pos[allNodes[j]];
-                        const dx = a.x - b.x;
-                        const dy = a.y - b.y;
-                        const distSq = dx * dx + dy * dy;
-                        if (distSq < MIN_DIST * MIN_DIST && distSq > 0) {
-                            const dist = Math.sqrt(distSq);
-                            // How much to push each node (split equally)
-                            const push = (MIN_DIST - dist) * 0.5;
-                            const ux = dx / dist, uy = dy / dist;
-                            a.x += ux * push;
-                            a.y += uy * push;
-                            b.x -= ux * push;
-                            b.y -= uy * push;
-                            // Re-clamp after correction
-                            a.x = Math.max(PAD, Math.min(this.width - PAD, a.x));
-                            a.y = Math.max(PAD, Math.min(this.height - PAD, a.y));
-                            b.x = Math.max(PAD, Math.min(this.width - PAD, b.x));
-                            b.y = Math.max(PAD, Math.min(this.height - PAD, b.y));
-                        }
-                    }
-                }
-            }
-        }
 
         return { pos, edges, visited };
     }
