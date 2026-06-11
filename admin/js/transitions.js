@@ -1,9 +1,12 @@
-// Transition rendering and editor logic
+// Transition rendering and editor logic using ES6 Components
 import { state } from './state.js';
-import { getCategoryColor, getThumbPath, showToast } from './ui.js';
+import { getThumbPath, showToast } from './ui.js';
 import { fetchWorld, fetchMedia, saveTransition, deleteTransition as apiDeleteTransition } from './api.js';
 import { navigate } from './router.js';
 import { refreshCategorySelectors } from './rooms.js';
+import { el } from './dom.js';
+import { TransitionCard } from './components/TransitionCard.js';
+import { TextConfigRow } from './components/TextConfigRow.js';
 
 export function renderTransitionsList() {
     const list = document.getElementById('transitions-list');
@@ -18,32 +21,13 @@ export function renderTransitionsList() {
     });
 
     if (allTrans.length === 0) {
-        list.innerHTML = '<div class="empty">No expansion overlays found. Define the first one.</div>';
+        list.appendChild(el('div', { className: 'empty' }, 'No expansion overlays found. Define the first one.'));
         return;
     }
 
     allTrans.forEach(trans => {
-        const card = document.createElement('div');
-        card.className = 'room-card';
-
-        const transImages = state.imageIndex.transitions[trans.id] || [];
-        const thumbUrl = transImages.length > 0 ? `../${getThumbPath(transImages[0])}` : null;
-        const thumbHtml = thumbUrl ? `<div class="room-card-thumb"><img src="${thumbUrl}" alt=""></div>` : '<div class="room-card-thumb empty-thumb"><span>NO DATA</span></div>';
-
-        const catColor = getCategoryColor(trans.cat);
-
-        card.innerHTML = `
-            ${thumbHtml}
-            <div class="room-card-content">
-                <h3>${trans.label} <span class="small-dim">${trans.id}</span></h3>
-                <p>Category: <strong style="color: ${catColor}">${trans.cat}</strong></p>
-                <div class="room-meta">
-                    ${(trans.tags || []).map(tag => `<span class="tag">${tag}</span>`).join('')}
-                </div>
-            </div>
-        `;
-        card.onclick = () => openTransitionEditor(trans.id);
-        list.appendChild(card);
+        const cardComponent = new TransitionCard(trans, state.imageIndex, openTransitionEditor);
+        list.appendChild(cardComponent.render());
     });
 }
 
@@ -119,12 +103,14 @@ export function getTransitionDataFromForm() {
 }
 
 export function updateTransitionExportArea() {
+    const exportArea = document.getElementById('trans-json-export');
+    if (!exportArea) return;
     if (!state.currentEditId || state.currentContext !== 'transition') {
-        document.getElementById('trans-json-export').value = '';
+        exportArea.value = '';
         return;
     }
     const data = getTransitionDataFromForm();
-    document.getElementById('trans-json-export').value = JSON.stringify(data, null, 4);
+    exportArea.value = JSON.stringify(data, null, 4);
 }
 
 export function applyTransitionJSON() {
@@ -156,16 +142,24 @@ export function renderTransMediaPreview() {
     if (!container) return;
     container.innerHTML = '';
     const transMedia = state.mediaLibrary.filter(m => m.context_type === 'transition' && m.context_id === state.currentEditId);
+    
     transMedia.forEach(m => {
-        const thumb = document.createElement('div');
-        thumb.className = 'preview-thumb';
-        thumb.innerHTML = `
-            <img src="../${getThumbPath(m.filepath)}">
-            <div class="remove-overlay" onclick="event.stopPropagation(); window.unassignMediaItem(${m.id})">&times;</div>
-        `;
+        const thumb = el('div', { className: 'preview-thumb' }, [
+            el('img', { src: `../${getThumbPath(m.filepath)}` }),
+            el('div', {
+                className: 'remove-overlay',
+                onClick: (e) => {
+                    e.stopPropagation();
+                    window.unassignMediaItem(m.id);
+                }
+            }, '×')
+        ]);
         container.appendChild(thumb);
     });
-    if (transMedia.length === 0) container.innerHTML = '<div class="small-dim">No visuals assigned.</div>';
+
+    if (transMedia.length === 0) {
+        container.appendChild(el('div', { className: 'small-dim' }, 'No visuals assigned.'));
+    }
 }
 
 export async function handleTransitionSubmit(e) {
@@ -218,37 +212,20 @@ export async function handleDeleteTransition() {
 export function addTransTextField(item = {}) {
     const container = document.getElementById('trans-texts-list');
     if (!container) return;
-    const div = document.createElement('div');
-    div.className = 'text-config-row';
-    div.style.display = 'flex';
-    div.style.flexDirection = 'column';
-    div.style.gap = '5px';
-    div.style.padding = '10px';
-    div.style.border = '1px solid #333';
-    div.style.marginBottom = '10px';
-    div.style.background = 'rgba(255,255,255,0.05)';
 
-    const content = typeof item === 'string' ? item : (item.text || '');
-    const sMin = item.sanity_min !== undefined ? item.sanity_min : 0;
-    const sMax = item.sanity_max !== undefined ? item.sanity_max : 100;
-    const dId = item.dialogue_id || '';
+    const rowComponent = new TextConfigRow(item);
+    const rendered = rowComponent.render();
 
-    div.innerHTML = `
-        <div style="display:flex; gap:10px; align-items: center;">
-            <input type="text" class="text-content" value="${content}" placeholder="Atmospheric line..." style="flex-grow:1">
-            <button type="button" class="btn-remove" onclick="this.closest('.text-config-row').remove()">X</button>
-        </div>
-        <div style="display:flex; gap:10px; font-size: 0.8em; color: #aaa; margin-top: 5px;">
-            <div style="flex:1">
-                Sanity Min: <input type="number" class="text-smin" value="${sMin}" min="0" max="100" style="width: 100%; background:rgba(0,0,0,0.5); border: 1px solid #555; color: #fff; padding: 4px; border-radius: 4px;">
-            </div>
-            <div style="flex:1">
-                Sanity Max: <input type="number" class="text-smax" value="${sMax}" min="0" max="100" style="width: 100%; background:rgba(0,0,0,0.5); border: 1px solid #555; color: #fff; padding: 4px; border-radius: 4px;">
-            </div>
-            <div style="flex:2">
-                Dialog ID: <input type="text" class="text-did" value="${dId}" placeholder="None" style="width: 100%; background:rgba(0,0,0,0.5); border: 1px solid #555; color: #fff; padding: 4px; border-radius: 4px;">
-            </div>
-        </div>
-    `;
-    container.appendChild(div);
+    const removeBtn = rendered.querySelector('.btn-remove');
+    if (removeBtn) {
+        removeBtn.addEventListener('click', () => {
+            rendered.remove();
+            updateTransitionExportArea();
+        });
+    }
+
+    rendered.addEventListener('input', updateTransitionExportArea);
+
+    container.appendChild(rendered);
+    updateTransitionExportArea();
 }

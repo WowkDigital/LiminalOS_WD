@@ -1,7 +1,10 @@
-// SFX and BGM mappings logic
+// SFX and BGM mappings logic using ES6 Components
 import { state } from './state.js';
 import { showToast } from './ui.js';
 import { getAudio, deleteAudio, saveAudioMapping, uploadMedia } from './api.js';
+import { el } from './dom.js';
+import { AudioItem } from './components/AudioItem.js';
+import { MappingRow } from './components/MappingRow.js';
 
 export async function fetchAudioData() {
     try {
@@ -37,21 +40,8 @@ export function renderAudioLibrary() {
 
     const filtered = state.audioLibrary.filter(a => a.filename.toLowerCase().includes(search));
     filtered.forEach(a => {
-        const item = document.createElement('div');
-        item.className = 'audio-item';
-        item.innerHTML = `
-            <button class="audio-play-btn" onclick="window.previewAudio('${a.filepath}')">
-                <i data-lucide="play"></i>
-            </button>
-            <div class="audio-info">
-                <span class="audio-name">${a.filename}</span>
-                <span class="audio-meta">${a.category || 'sfx'}</span>
-            </div>
-            <button class="btn-remove-tiny audio-delete-btn" onclick="window.deleteAudioItem(${a.id})">
-                <i data-lucide="trash-2"></i>
-            </button>
-        `;
-        list.appendChild(item);
+        const itemComponent = new AudioItem(a, window.previewAudio, window.deleteAudioItem);
+        list.appendChild(itemComponent.render());
     });
     if (window.lucide) lucide.createIcons();
 }
@@ -120,26 +110,16 @@ export function renderAudioMappings() {
 
     contexts.forEach(ctx => {
         const mapping = state.audioMappings.find(m => m.mapping_type === state.currentSfxTab && m.context_id === ctx.id) || {};
-        const row = document.createElement('div');
-        row.className = 'mapping-row';
-
-        const options = state.audioLibrary.map(a => `<option value="${a.id}" ${mapping.audio_file_id == a.id ? 'selected' : ''}>${a.filename}</option>`).join('');
-
-        row.innerHTML = `
-            <div class="mapping-context">${ctx.label}</div>
-            <select class="mapping-select" onchange="window.updateMapping('${state.currentSfxTab}', '${ctx.id}', this.value)">
-                <option value="">None / Procedural</option>
-                ${options}
-            </select>
-            <div class="mapping-volume">
-                <i data-lucide="volume-2"></i>
-                <input type="range" min="0" max="1" step="0.1" value="${mapping.volume || 0.5}" onchange="window.updateMappingVolume('${state.currentSfxTab}', '${ctx.id}', this.value)">
-            </div>
-            <div class="mapping-loop">
-                <input type="checkbox" ${mapping.loop ? 'checked' : ''} onchange="window.updateMappingLoop('${state.currentSfxTab}', '${ctx.id}', this.checked)">
-            </div>
-        `;
-        container.appendChild(row);
+        const rowComponent = new MappingRow(
+            ctx,
+            mapping,
+            state.audioLibrary,
+            state.currentSfxTab,
+            window.updateMapping,
+            window.updateMappingVolume,
+            window.updateMappingLoop
+        );
+        container.appendChild(rowComponent.render());
     });
     if (window.lucide) lucide.createIcons();
 }

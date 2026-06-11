@@ -1,35 +1,25 @@
-// Interactables rendering and editor logic
+// Interactables rendering and editor logic using ES6 Components
 import { state } from './state.js';
-import { getThumbPath, showToast } from './ui.js';
+import { showToast } from './ui.js';
 import { fetchWorld, saveInteractable, deleteInteractable as apiDeleteInteractable } from './api.js';
 import { navigate } from './router.js';
 import { renderModalMediaList } from './media.js';
+import { el } from './dom.js';
+import { InteractableCard } from './components/InteractableCard.js';
+import { StateConfigRow } from './components/StateConfigRow.js';
 
 export function renderInteractablesList() {
     const list = document.getElementById('interactables-list');
     if (!list) return;
     list.innerHTML = '';
     if (Object.keys(state.allInteractables).length === 0) {
-        list.innerHTML = '<div class="empty">No interactables found. Define the first one.</div>';
+        list.appendChild(el('div', { className: 'empty' }, 'No interactables found. Define the first one.'));
         return;
     }
 
     Object.entries(state.allInteractables).forEach(([id, data]) => {
-        const card = document.createElement('div');
-        card.className = 'room-card';
-
-        const thumbUrl = data.states && data.states[0] && data.states[0].image ? `../${getThumbPath(data.states[0].image)}` : null;
-        const thumbHtml = thumbUrl ? `<div class="room-card-thumb"><img src="${thumbUrl}" alt=""></div>` : '<div class="room-card-thumb empty-thumb"><span>NO IMAGE</span></div>';
-
-        card.innerHTML = `
-            ${thumbHtml}
-            <div class="room-card-content">
-                <h3>${data.label} <span class="small-dim">${id}</span></h3>
-                <p>${data.states ? data.states.length : 0} states defined.</p>
-            </div>
-        `;
-        card.onclick = () => openInteractableEditor(id);
-        list.appendChild(card);
+        const cardComponent = new InteractableCard(id, data, openInteractableEditor);
+        list.appendChild(cardComponent.render());
     });
 }
 
@@ -82,12 +72,14 @@ export function getInteractableDataFromForm() {
 }
 
 export function updateInteractableExportArea() {
+    const exportArea = document.getElementById('inter-json-export');
+    if (!exportArea) return;
     if (!state.currentEditId || state.currentContext !== 'interactable') {
-        document.getElementById('inter-json-export').value = '';
+        exportArea.value = '';
         return;
     }
     const data = getInteractableDataFromForm();
-    document.getElementById('inter-json-export').value = JSON.stringify(data, null, 4);
+    exportArea.value = JSON.stringify(data, null, 4);
 }
 
 export function applyInteractableJSON() {
@@ -113,35 +105,40 @@ export function applyInteractableJSON() {
 export function addStateField(item = {}) {
     const container = document.getElementById('states-list');
     if (!container) return;
-    const div = document.createElement('div');
-    div.className = 'form-section';
-    div.style.marginBottom = '1rem';
-    div.innerHTML = `
-        <div style="display:flex; justify-content: space-between; margin-bottom: 0.5rem">
-            <strong>State Configuration</strong>
-            <button type="button" class="btn-remove" style="width:auto; height:auto; padding: 4px 8px" onclick="this.closest('.form-section').remove()">Remove State</button>
-        </div>
-        <div class="form-group" style="margin-bottom: 10px">
-            <label>State ID</label>
-            <input type="text" name="state_id[]" value="${item.id || ''}" placeholder="e.g. on" required>
-        </div>
-        <div class="form-group" style="margin-bottom: 10px">
-            <label>Description</label>
-            <textarea name="state_desc[]" rows="2" placeholder="...">${item.desc || ''}</textarea>
-        </div>
-        <div class="form-group" style="margin-bottom: 0">
-            <label>Visual Asset</label>
-            <div class="media-picker-row">
-                <input type="text" name="state_image[]" value="${item.image || ''}" placeholder="media/uploads/..." readonly>
-                <button type="button" class="btn-secondary" style="padding: 10px" onclick="window.pickStateImage(this)">Select from Library</button>
-            </div>
-            <div class="state-image-preview">
-                <img src="${item.image ? '../' + item.image : ''}" class="${item.image ? '' : 'hidden'}">
-                <div class="${item.image ? 'hidden' : 'no-image'}">No Asset Selected</div>
-            </div>
-        </div>
-    `;
-    container.appendChild(div);
+
+    const rowComponent = new StateConfigRow(
+        item,
+        null, // Handled below programmatically
+        (imageInput, previewImg, noImagePlaceholder) => {
+            state.mediaPickerCallback = (media) => {
+                imageInput.value = media.filepath;
+                previewImg.src = '../' + media.filepath;
+                previewImg.classList.remove('hidden');
+                noImagePlaceholder.classList.add('hidden');
+                updateInteractableExportArea();
+            };
+
+            const modal = document.getElementById('media-modal');
+            modal.classList.remove('hidden');
+            document.querySelector('.modal-header h3').innerText = 'Select Asset';
+            renderModalMediaList();
+        }
+    );
+
+    const rendered = rowComponent.render();
+
+    const removeBtn = rendered.querySelector('.btn-remove');
+    if (removeBtn) {
+        removeBtn.addEventListener('click', () => {
+            rendered.remove();
+            updateInteractableExportArea();
+        });
+    }
+
+    rendered.addEventListener('input', updateInteractableExportArea);
+
+    container.appendChild(rendered);
+    updateInteractableExportArea();
 }
 
 export async function handleInteractableSubmit(e) {
@@ -189,24 +186,3 @@ export async function handleDeleteInteractable() {
         showToast('Delete failed: ' + err.message, 'error');
     }
 }
-
-// Bind pickStateImage on window for dynamic HTML buttons
-window.pickStateImage = (btn) => {
-    const row = btn.closest('.media-picker-row');
-    const input = row.querySelector('input');
-    const preview = row.nextElementSibling;
-    const img = preview.querySelector('img');
-    const placeholder = preview.querySelector('.no-image');
-
-    state.mediaPickerCallback = (media) => {
-        input.value = media.filepath;
-        img.src = '../' + media.filepath;
-        img.classList.remove('hidden');
-        placeholder.classList.add('hidden');
-    };
-
-    const modal = document.getElementById('media-modal');
-    modal.classList.remove('hidden');
-    document.querySelector('.modal-header h3').innerText = 'Select Asset';
-    renderModalMediaList();
-};

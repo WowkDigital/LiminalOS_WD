@@ -1,7 +1,8 @@
-// Taxonomy (Tags and Categories configuration) logic
+// Taxonomy (Tags and Categories configuration) logic using ES6 Components
 import { state } from './state.js';
 import { getCategoryColor, showToast } from './ui.js';
 import { getTaxonomy, saveTaxonomyItem as apiSaveTaxonomyItem, deleteTaxonomyItem as apiDeleteTaxonomyItem, fetchWorld } from './api.js';
+import { el, icon } from './dom.js';
 
 export async function fetchTaxonomy() {
     try {
@@ -30,20 +31,26 @@ export function renderTaxList(containerId, items, type) {
     if (!container) return;
     container.innerHTML = '';
     Object.entries(items).forEach(([label, count]) => {
-        const div = document.createElement('div');
-        div.className = 'tax-item';
         const isTransCat = type === 'transition_category';
         const catColor = isTransCat ? getCategoryColor(label) : null;
 
-        div.innerHTML = `
-            <span class="${isTransCat ? 'accent' : ''}" style="${isTransCat ? `color: ${catColor} !important` : ''}">${label}</span>
-            <div style="display:flex; align-items:center; gap:12px">
-                <span class="tax-count" style="${isTransCat ? `border-color: ${catColor}; color: ${catColor}` : ''}">${count}</span>
-                <button class="btn-remove-tiny" onclick="window.deleteTaxonomyItem('${type}', '${label}')" title="Remove definition">
-                    <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
-                </button>
-            </div>
-        `;
+        const div = el('div', { className: 'tax-item' }, [
+            el('span', {
+                className: isTransCat ? 'accent' : '',
+                style: isTransCat ? { color: `${catColor}` } : {}
+            }, label),
+            el('div', { style: { display: 'flex', alignItems: 'center', gap: '12px' } }, [
+                el('span', {
+                    className: 'tax-count',
+                    style: isTransCat ? { borderColor: catColor, color: catColor } : {}
+                }, String(count)),
+                el('button', {
+                    className: 'btn-remove-tiny',
+                    title: 'Remove definition',
+                    onClick: () => window.deleteTaxonomyItem(type, label)
+                }, [icon('trash-2')])
+            ])
+        ]);
         container.appendChild(div);
     });
 

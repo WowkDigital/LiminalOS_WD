@@ -1,29 +1,23 @@
-// Room rendering, integrity check, and editor logic
+// Room rendering, integrity check, and editor logic using ES6 Components
 import { state } from './state.js';
 import { getCategoryColor, getThumbPath, showToast } from './ui.js';
 import { fetchWorld, fetchMedia, saveRoom, assignMedia } from './api.js';
 import { navigate } from './router.js';
+import { el, icon } from './dom.js';
+import { RoomCard } from './components/RoomCard.js';
+import { TextConfigRow } from './components/TextConfigRow.js';
 
 export function renderRoomsList() {
     const list = document.getElementById('rooms-list');
     if (!list) return;
     list.innerHTML = '';
     if (Object.keys(state.roomsData).length === 0) {
-        list.innerHTML = '<div class="empty">No active zones detected. Initiate new sequence.</div>';
+        list.appendChild(el('div', { className: 'empty' }, 'No active zones detected. Initiate new sequence.'));
         return;
     }
 
     Object.entries(state.roomsData).forEach(([id, room]) => {
-        const card = document.createElement('div');
-        card.className = 'room-card';
-
-        // Reachability logic
-        const hasExits = (room.transitions || []).some(t => {
-            const cat = typeof t === 'string' ? t : t.category;
-            return state.transitionTypes[cat] && state.transitionTypes[cat].length > 0;
-        });
-        const canExit = hasExits && Object.keys(state.roomsData).length > 1;
-
+        // Calculate reachability
         const canEnter = Object.entries(state.roomsData).some(([otherId, otherRoom]) => {
             if (otherId === id) return false;
             return (otherRoom.transitions || []).some(t => {
@@ -31,38 +25,17 @@ export function renderRoomsList() {
                 return state.transitionTypes[cat] && state.transitionTypes[cat].length > 0;
             });
         });
+        room.canEnter = canEnter;
 
-        const tagsHtml = (room.tags || []).map(tag => `<span class="tag">${tag}</span>`).join('');
-
-        const roomImages = state.imageIndex.rooms[id] || [];
-        const thumbUrl = roomImages.length > 0 ? `../${getThumbPath(roomImages[0])}` : null;
-        const thumbHtml = thumbUrl ? `<div class="room-card-thumb"><img src="${thumbUrl}" alt=""></div>` : '<div class="room-card-thumb empty-thumb"><span>NO SIGNAL</span></div>';
-
-        card.innerHTML = `
-            ${thumbHtml}
-            <div class="room-card-content">
-                <div class="room-card-header">
-                    <h3>${room.name} <span class="small-dim">${id}</span></h3>
-                    <div class="reachability-indicators">
-                        <span class="reach-icon ${canEnter ? 'active' : 'inactive'}" title="${canEnter ? 'Reachable' : 'Unreachable'}">
-                            <i data-lucide="log-in"></i>
-                        </span>
-                        <span class="reach-icon ${canExit ? 'active' : 'inactive'}" title="${canExit ? 'Has Exits' : 'Dead End'}">
-                            <i data-lucide="log-out"></i>
-                        </span>
-                    </div>
-                </div>
-                <p>${room.desc || 'No descriptions found.'}</p>
-                <div class="room-stats">
-                    <span>☍ ${(room.transitions || []).length}</span>
-                    <span>◉ ${(room.interactables || []).length}</span>
-                    <span>≡ ${(room.texts || []).length}</span>
-                </div>
-                <div class="room-meta">${tagsHtml}</div>
-            </div>
-        `;
-        card.onclick = () => openEditor(id);
-        list.appendChild(card);
+        const cardComponent = new RoomCard(
+            id, 
+            room, 
+            state.transitionTypes, 
+            state.imageIndex, 
+            Object.keys(state.roomsData).length, 
+            openEditor
+        );
+        list.appendChild(cardComponent.render());
     });
 
     if (window.lucide) {
@@ -75,12 +48,10 @@ export function renderRoomsList() {
 export function checkWorldIntegrity() {
     const container = document.getElementById('world-integrity-status');
     if (!container) return;
+    container.innerHTML = '';
 
     const rooms = Object.entries(state.roomsData);
-    if (rooms.length === 0) {
-        container.innerHTML = '';
-        return;
-    }
+    if (rooms.length === 0) return;
 
     const deadEnds = [];
     const orphans = [];
@@ -123,32 +94,42 @@ export function checkWorldIntegrity() {
         }
     });
 
-    let statusHtml = '';
+    let statusEl;
     if (deadEnds.length === 0 && orphans.length === 0 && state.roomsData[startRoomId]) {
-        statusHtml = `
-            <div class="integrity-badge valid">
-                <i data-lucide="check-circle"></i> Graph Connected
-            </div>
-            <div class="integrity-message">All nodes reachable via liminal paths.</div>
-        `;
+        statusEl = el('div', {}, [
+            el('div', { className: 'integrity-badge valid' }, [
+                icon('check-circle'),
+                ' Graph Connected'
+            ]),
+            el('div', { className: 'integrity-message' }, 'All nodes reachable via liminal paths.')
+        ]);
     } else {
         const isError = orphans.length > 0 || !state.roomsData[startRoomId];
         const badgeClass = isError ? 'error' : 'warning';
-        const icon = isError ? 'alert-octagon' : 'alert-triangle';
+        const iconName = isError ? 'alert-octagon' : 'alert-triangle';
         const label = isError ? 'Graph Fragmented' : 'World Instability';
 
-        statusHtml = `
-            <div class="integrity-badge ${badgeClass}">
-                <i data-lucide="${icon}"></i> ${label}
-            </div>
-        `;
+        const items = [
+            el('div', { className: `integrity-badge ${badgeClass}` }, [
+                icon(iconName),
+                ` ${label}`
+            ])
+        ];
 
-        if (!state.roomsData[startRoomId]) statusHtml += `<div class="integrity-message"><i data-lucide="x"></i> Missing 'lobby' sequence.</div>`;
-        if (orphans.length > 0) statusHtml += `<div class="integrity-message"><i data-lucide="x"></i> ${orphans.length} unreachable zones.</div>`;
-        if (deadEnds.length > 0) statusHtml += `<div class="integrity-message"><i data-lucide="alert-circle"></i> ${deadEnds.length} dead ends detected.</div>`;
+        if (!state.roomsData[startRoomId]) {
+            items.push(el('div', { className: 'integrity-message' }, [icon('x'), " Missing 'lobby' sequence."]));
+        }
+        if (orphans.length > 0) {
+            items.push(el('div', { className: 'integrity-message' }, [icon('x'), ` ${orphans.length} unreachable zones.`]));
+        }
+        if (deadEnds.length > 0) {
+            items.push(el('div', { className: 'integrity-message' }, [icon('alert-circle'), ` ${deadEnds.length} dead ends detected.`]));
+        }
+
+        statusEl = el('div', {}, items);
     }
 
-    container.innerHTML = statusHtml;
+    container.appendChild(statusEl);
     if (window.lucide) lucide.createIcons();
 }
 
@@ -157,16 +138,24 @@ export function renderRoomMediaPreview() {
     if (!container) return;
     container.innerHTML = '';
     const roomMedia = state.mediaLibrary.filter(m => m.context_type === 'room' && m.context_id === state.currentEditId);
+    
     roomMedia.forEach(m => {
-        const thumb = document.createElement('div');
-        thumb.className = 'preview-thumb';
-        thumb.innerHTML = `
-            <img src="../${getThumbPath(m.filepath)}">
-            <div class="remove-overlay" onclick="event.stopPropagation(); window.unassignMediaItem(${m.id})">&times;</div>
-        `;
+        const thumb = el('div', { className: 'preview-thumb' }, [
+            el('img', { src: `../${getThumbPath(m.filepath)}` }),
+            el('div', { 
+                className: 'remove-overlay',
+                onClick: (e) => {
+                    e.stopPropagation();
+                    window.unassignMediaItem(m.id);
+                }
+            }, '×')
+        ]);
         container.appendChild(thumb);
     });
-    if (roomMedia.length === 0) container.innerHTML = '<div class="small-dim">No images assigned.</div>';
+
+    if (roomMedia.length === 0) {
+        container.appendChild(el('div', { className: 'small-dim' }, 'No images assigned.'));
+    }
 }
 
 export function renderInteractablesCheckboxes(selectedItems) {
@@ -174,30 +163,35 @@ export function renderInteractablesCheckboxes(selectedItems) {
     if (!container) return;
     container.innerHTML = '';
     if (Object.keys(state.allInteractables).length === 0) {
-        container.innerHTML = '<small>No interactables defined in system.</small>';
+        container.appendChild(el('small', {}, 'No interactables defined in system.'));
         return;
     }
 
     const selectedIds = selectedItems.map(i => typeof i === 'string' ? i : i.id);
 
     Object.entries(state.allInteractables).forEach(([id, data]) => {
-        const row = document.createElement('div');
-        row.className = 'config-row';
         const isChecked = selectedIds.includes(id);
         const hasReq = !!state.editorRequirements.interactables[id];
 
-        row.innerHTML = `
-            <div class="inter-info">
-                <span class="inter-label">${data.label || id}</span>
-                <span class="inter-id">${id}</span>
-            </div>
-            <div class="config-row-actions">
-                <button type="button" class="btn-cfg ${hasReq ? 'has-req' : ''}" onclick="window.openRequirementsModal('interactables', '${id}')" title="Configure requirements">
-                    <i data-lucide="settings"></i>
-                </button>
-                <input type="checkbox" value="${id}" ${isChecked ? 'checked' : ''}>
-            </div>
-        `;
+        const row = el('div', { className: 'config-row' }, [
+            el('div', { className: 'inter-info' }, [
+                el('span', { className: 'inter-label' }, data.label || id),
+                el('span', { className: 'inter-id' }, id)
+            ]),
+            el('div', { className: 'config-row-actions' }, [
+                el('button', {
+                    type: 'button',
+                    className: `btn-cfg ${hasReq ? 'has-req' : ''}`,
+                    onClick: () => window.openRequirementsModal('interactables', id),
+                    title: 'Configure requirements'
+                }, [icon('settings')]),
+                el('input', {
+                    type: 'checkbox',
+                    value: id,
+                    checked: isChecked
+                })
+            ])
+        ]);
         container.appendChild(row);
     });
     if (window.lucide) lucide.createIcons();
@@ -234,35 +228,48 @@ export function refreshCategorySelectors(selectedValues = null) {
             return a.localeCompare(b);
         }).forEach(cat => {
             if (!cat) return;
-            const row = document.createElement('div');
-            row.className = 'config-row';
             const isChecked = currentSelected.includes(cat);
             const hasReq = !!state.editorRequirements.transitions[cat];
 
             if (groupName === 'room-editor') {
                 const catColor = getCategoryColor(cat);
-                row.innerHTML = `
-                    <div class="cat-info">
-                        <span class="cat-label" style="color: ${catColor}">${cat === 'universal' ? 'Universal' : cat.charAt(0).toUpperCase() + cat.slice(1)}</span>
-                        <span class="cat-id">category</span>
-                    </div>
-                    <div class="config-row-actions">
-                        <button type="button" class="btn-cfg ${hasReq ? 'has-req' : ''}" onclick="window.openRequirementsModal('transitions', '${cat}')" title="Configure requirements">
-                            <i data-lucide="settings"></i>
-                        </button>
-                        <input type="checkbox" value="${cat}" ${isChecked ? 'checked' : ''}>
-                    </div>
-                `;
+                const row = el('div', { className: 'config-row' }, [
+                    el('div', { className: 'cat-info' }, [
+                        el('span', { 
+                            className: 'cat-label',
+                            style: { color: catColor }
+                        }, cat === 'universal' ? 'Universal' : cat.charAt(0).toUpperCase() + cat.slice(1)),
+                        el('span', { className: 'cat-id' }, 'category')
+                    ]),
+                    el('div', { className: 'config-row-actions' }, [
+                        el('button', {
+                            type: 'button',
+                            className: `btn-cfg ${hasReq ? 'has-req' : ''}`,
+                            onClick: () => window.openRequirementsModal('transitions', cat),
+                            title: 'Configure requirements'
+                        }, [icon('settings')]),
+                        el('input', {
+                            type: 'checkbox',
+                            value: cat,
+                            checked: isChecked
+                        })
+                    ])
+                ]);
+                container.appendChild(row);
             } else {
                 const catColor = getCategoryColor(cat);
-                const label = document.createElement('label');
-                label.style.display = 'flex'; label.style.alignItems = 'center'; label.style.gap = '8px';
-                label.style.color = catColor;
-                label.innerHTML = `<input type="checkbox" value="${cat}" ${isChecked ? 'checked' : ''}> ${cat.charAt(0).toUpperCase() + cat.slice(1)}`;
+                const label = el('label', {
+                    style: { display: 'flex', alignItems: 'center', gap: '8px', color: catColor }
+                }, [
+                    el('input', {
+                        type: 'checkbox',
+                        value: cat,
+                        checked: isChecked
+                    }),
+                    cat.charAt(0).toUpperCase() + cat.slice(1)
+                ]);
                 container.appendChild(label);
-                return;
             }
-            container.appendChild(row);
         });
         if (window.lucide) lucide.createIcons();
     };
@@ -357,12 +364,14 @@ export function getRoomDataFromForm() {
 }
 
 export function updateRoomExportArea() {
+    const exportArea = document.getElementById('room-json-export');
+    if (!exportArea) return;
     if (!state.currentEditId || state.currentContext !== 'room') {
-        document.getElementById('room-json-export').value = '';
+        exportArea.value = '';
         return;
     }
     const data = getRoomDataFromForm();
-    document.getElementById('room-json-export').value = JSON.stringify(data, null, 4);
+    exportArea.value = JSON.stringify(data, null, 4);
 }
 
 export function applyRoomJSON() {
@@ -407,7 +416,6 @@ export async function handleRoomSubmit(e) {
         const result = await saveRoom(roomId, roomData);
         if (result.success) {
             showToast('Reality updated.', 'success');
-            // We need to re-fetch the world state
             const syncRes = await fetchWorld();
             state.roomsData = syncRes.rooms;
             state.transitionTypes = syncRes.transition_types || {};
@@ -426,40 +434,25 @@ export async function handleRoomSubmit(e) {
 export function addTextField(item = {}) {
     const container = document.getElementById('texts-list');
     if (!container) return;
-    const div = document.createElement('div');
-    div.className = 'text-config-row';
-    div.style.display = 'flex';
-    div.style.flexDirection = 'column';
-    div.style.gap = '5px';
-    div.style.padding = '10px';
-    div.style.border = '1px solid #333';
-    div.style.marginBottom = '10px';
-    div.style.background = 'rgba(255,255,255,0.05)';
 
-    const content = typeof item === 'string' ? item : (item.text || '');
-    const sMin = item.sanity_min !== undefined ? item.sanity_min : 0;
-    const sMax = item.sanity_max !== undefined ? item.sanity_max : 100;
-    const dId = item.dialogue_id || '';
+    const rowComponent = new TextConfigRow(item);
+    const rendered = rowComponent.render();
 
-    div.innerHTML = `
-        <div style="display:flex; gap:10px; align-items: center;">
-            <input type="text" class="text-content" value="${content}" placeholder="Atmospheric line..." style="flex-grow:1">
-            <button type="button" class="btn-remove" onclick="this.closest('.text-config-row').remove()">X</button>
-        </div>
-        <div style="display:flex; gap:10px; font-size: 0.8em; color: #aaa; margin-top: 5px;">
-            <div style="flex:1">
-                Sanity Min: <input type="number" class="text-smin" value="${sMin}" min="0" max="100" style="width: 100%; background:rgba(0,0,0,0.5); border: 1px solid #555; color: #fff; padding: 4px; border-radius: 4px;">
-            </div>
-            <div style="flex:1">
-                Sanity Max: <input type="number" class="text-smax" value="${sMax}" min="0" max="100" style="width: 100%; background:rgba(0,0,0,0.5); border: 1px solid #555; color: #fff; padding: 4px; border-radius: 4px;">
-            </div>
-            <div style="flex:2">
-                Dialog ID: <input type="text" class="text-did" value="${dId}" placeholder="None" style="width: 100%; background:rgba(0,0,0,0.5); border: 1px solid #555; color: #fff; padding: 4px; border-radius: 4px;">
-            </div>
-        </div>
-    `;
-    container.appendChild(div);
+    const removeBtn = rendered.querySelector('.btn-remove');
+    if (removeBtn) {
+        removeBtn.addEventListener('click', () => {
+            rendered.remove();
+            updateRoomExportArea();
+        });
+    }
+
+    // Capture changes to update exported JSON dynamically
+    rendered.addEventListener('input', updateRoomExportArea);
+
+    container.appendChild(rendered);
+    updateRoomExportArea();
 }
+
 // Attach unassignMediaItem globally for inline onclick execution
 window.unassignMediaItem = async (id) => {
     if (confirm("Disconnect this image?")) {

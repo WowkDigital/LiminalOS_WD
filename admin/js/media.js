@@ -1,9 +1,11 @@
-// Media management and modal controller logic
+// Media management and modal controller logic using ES6 Components
 import { state } from './state.js';
 import { getThumbPath, showToast } from './ui.js';
 import { fetchMedia, uploadMedia, assignMedia, deleteMedia as apiDeleteMedia, fetchWorld } from './api.js';
 import { renderRoomMediaPreview } from './rooms.js';
 import { renderTransMediaPreview } from './transitions.js';
+import { el } from './dom.js';
+import { MediaCard } from './components/MediaCard.js';
 
 export function renderMediaLibrary() {
     const list = document.getElementById('media-list');
@@ -22,53 +24,13 @@ export function renderMediaLibrary() {
     });
 
     if (filtered.length === 0) {
-        list.innerHTML = '<div class="empty">No matching records in the library.</div>';
+        list.appendChild(el('div', { className: 'empty' }, 'No matching records in the library.'));
         return;
     }
 
     filtered.forEach(item => {
-        const card = document.createElement('div');
-        card.className = 'media-card';
-
-        const usageText = item.context_type !== 'none'
-            ? `Used in: ${item.context_type.charAt(0).toUpperCase() + item.context_type.slice(1)} (${item.context_id})`
-            : 'Not assigned to any record';
-
-        card.innerHTML = `
-            <div class="media-thumb">
-                <img src="../${getThumbPath(item.filepath)}" alt="">
-                <button class="btn-delete-small" onclick="event.stopPropagation(); window.deleteMedia(${item.id})">&times;</button>
-            </div>
-            <div class="media-info">
-                <div class="media-filename">${item.filename}</div>
-                <div class="small-dim usage-info">${usageText}</div>
-                <div class="media-tags">
-                    ${(() => {
-                        let tags = item.tags.split(',').map(t => t.trim()).filter(t => t !== '');
-                        let isInteractable = item.context_type === 'interactable';
-                        let isRoom = item.context_type === 'room';
-                        let isTransition = item.context_type === 'transition';
-
-                        let isAssigned = tags.includes('assigned') || isInteractable || isRoom || isTransition;
-                        tags = tags.filter(t => t !== 'assigned');
-
-                        let html = '';
-                        if (isAssigned) {
-                            html += '<span class="tag assigned">assigned</span>';
-                        }
-                        if (isInteractable) html += '<span class="tag assigned">Interactable</span>';
-                        if (isRoom) html += '<span class="tag assigned">Location</span>';
-                        if (isTransition) html += '<span class="tag assigned">Transition</span>';
-
-                        tags.forEach(t => {
-                            html += `<span class="tag">${t}</span>`;
-                        });
-                        return html;
-                    })()}
-                </div>
-            </div>
-        `;
-        list.appendChild(card);
+        const cardComponent = new MediaCard(item, window.deleteMedia);
+        list.appendChild(cardComponent.render());
     });
 }
 
@@ -105,18 +67,22 @@ export function renderModalMediaList() {
             isSelected = m.context_type === state.currentContext && m.context_id === state.currentEditId;
         }
 
-        const thumb = document.createElement('div');
-        thumb.className = `selectable-thumb ${isSelected ? 'selected' : ''}`;
+        const thumb = el('div', { 
+            className: `selectable-thumb ${isSelected ? 'selected' : ''}`
+        }, [
+            el('img', { src: `../${getThumbPath(m.filepath)}` })
+        ]);
         thumb.dataset.id = m.id;
-        thumb.innerHTML = `<img src="../${getThumbPath(m.filepath)}">`;
-        thumb.onclick = () => {
+        
+        thumb.addEventListener('click', () => {
             if (state.mediaPickerCallback) {
                 document.querySelectorAll('.selectable-thumb').forEach(t => t.classList.remove('selected'));
                 thumb.classList.add('selected');
             } else {
                 thumb.classList.toggle('selected');
             }
-        };
+        });
+        
         list.appendChild(thumb);
     });
 }
