@@ -294,11 +294,9 @@ class BackroomsGame {
             this.elements.resetBtn = document.getElementById('reset-btn');
             if (this.elements.resetBtn) {
                 this.elements.resetBtn.addEventListener('click', () => {
-                    if (confirm("Are you sure you want to reset the game?")) {
-                        localStorage.removeItem('backrooms_session');
-                        window.location.hash = '';
-                        location.reload();
-                    }
+                    localStorage.removeItem('backrooms_session');
+                    window.location.hash = '';
+                    location.reload();
                 });
             }
 

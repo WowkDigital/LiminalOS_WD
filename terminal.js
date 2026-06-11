@@ -240,33 +240,77 @@ const TerminalSystem = {
             return;
         }
 
-        // Filter options based on requirements
-        const validOptions = options.filter(opt => {
-            if (!opt.requirements) return true;
-            if (window.game) {
-                let met = window.game.checkRequirements(opt.requirements);
+        // Filter options based on requirements (allowing sanity-gated options to remain visible as glitched)
+        const processedOptions = [];
+        options.forEach(opt => {
+            let failedSanity = false;
+            let sanityRequiredText = "";
+            let keep = true;
+
+            if (opt.requirements && window.game) {
+                let otherMet = true;
                 
-                // Extra conditions
-                if (met && opt.requirements.visited_room) {
-                    if (!window.game.state.visitedRooms.includes(opt.requirements.visited_room)) met = false;
+                // Check non-sanity requirements
+                if (opt.requirements.visited_room && !window.game.state.visitedRooms.includes(opt.requirements.visited_room)) {
+                    otherMet = false;
                 }
-                if (met && opt.requirements.unvisited_room) {
-                    if (window.game.state.visitedRooms.includes(opt.requirements.unvisited_room)) met = false;
+                if (opt.requirements.unvisited_room && window.game.state.visitedRooms.includes(opt.requirements.unvisited_room)) {
+                    otherMet = false;
                 }
-                if (met && opt.requirements.has_item) {
+                if (opt.requirements.has_item) {
                     const item = opt.requirements.has_item;
                     const count = opt.requirements.item_count || 1;
                     const inv = window.game.state.inventory || {};
-                    if ((inv[item] || 0) < count) met = false;
+                    if ((inv[item] || 0) < count) {
+                        otherMet = false;
+                    }
                 }
-                return met;
+                if (opt.requirements.interactable_id && opt.requirements.state_id) {
+                    const interId = opt.requirements.interactable_id;
+                    const targetStateId = opt.requirements.state_id;
+                    const interactable = window.game.world.interactables[interId];
+                    if (!interactable) {
+                        otherMet = false;
+                    } else {
+                        const currentIndex = window.game.state.worldStates[interId] || 0;
+                        const currentState = interactable.states[currentIndex];
+                        if (!currentState || (currentState.id !== targetStateId && currentState.state_id !== targetStateId)) {
+                            otherMet = false;
+                        }
+                    }
+                }
+
+                if (!otherMet) {
+                    keep = false;
+                } else {
+                    // Check sanity requirements
+                    let sanityMet = true;
+                    if (opt.requirements.sanity_min !== undefined && window.game.state.sanity < parseInt(opt.requirements.sanity_min)) {
+                        sanityMet = false;
+                        sanityRequiredText = `MIN SANITY ${opt.requirements.sanity_min}%`;
+                    }
+                    if (opt.requirements.sanity_max !== undefined && window.game.state.sanity > parseInt(opt.requirements.sanity_max)) {
+                        sanityMet = false;
+                        sanityRequiredText = `MAX SANITY ${opt.requirements.sanity_max}%`;
+                    }
+                    if (!sanityMet) {
+                        failedSanity = true;
+                    }
+                }
             }
-            return true;
+
+            if (keep) {
+                processedOptions.push({
+                    ...opt,
+                    failedSanity,
+                    sanityRequiredText
+                });
+            }
         });
 
-        this.activeChoices = validOptions;
+        this.activeChoices = processedOptions;
 
-        if (validOptions.length === 0) {
+        if (processedOptions.length === 0) {
             return;
         }
 
@@ -276,9 +320,12 @@ const TerminalSystem = {
         separator.innerHTML = `<span class="options-label-line"></span><span class="options-label-text">AVAILABLE ACTIONS</span><span class="options-label-line"></span>`;
         this.terminalOptionsEl.appendChild(separator);
 
-        validOptions.forEach((opt, index) => {
+        processedOptions.forEach((opt, index) => {
             const item = document.createElement('div');
             item.className = 'terminal-option-item';
+            if (opt.failedSanity) {
+                item.className += ' opt-failed-sanity';
+            }
             item.setAttribute('data-index', index);
             item.setAttribute('role', 'button');
             item.setAttribute('tabindex', '0');
@@ -286,10 +333,15 @@ const TerminalSystem = {
             // Determine icon based on option label
             const icon = this._getOptionIcon(opt.label);
 
+            let displayLabel = opt.label.toUpperCase();
+            if (opt.failedSanity) {
+                displayLabel = this._glitchText(displayLabel);
+            }
+
             item.innerHTML = `
                 <span class="opt-key">${index + 1}</span>
                 <span class="opt-icon">${icon}</span>
-                <span class="opt-label">${opt.label.toUpperCase()}</span>
+                <span class="opt-label">${displayLabel}</span>
                 <span class="opt-arrow">›</span>
             `;
 
@@ -317,6 +369,14 @@ const TerminalSystem = {
 
             this.terminalOptionsEl.appendChild(item);
         });
+    },
+
+    _glitchText(text) {
+        const chars = "░▒▓█▄▌▐▀ ☠☣⚡☢⚠";
+        return text.split('').map(char => {
+            if (char === ' ') return ' ';
+            return Math.random() < 0.25 ? chars[Math.floor(Math.random() * chars.length)] : char;
+        }).join('');
     },
 
     _getOptionIcon(label) {
@@ -354,6 +414,21 @@ const TerminalSystem = {
     },
 
     selectChoice(option) {
+        // If option failed sanity check, show feedback and warning text, play error sound, and return
+        if (option.failedSanity) {
+            if (window.game && window.game.audio) {
+                window.game.audio.playUiSound('error');
+            }
+            const prevText = this.terminalTextEl.innerText;
+            if (prevText) this.addToHistory(prevText, this.currentLogType, '⊟');
+            
+            let displayLabel = option.label.toUpperCase();
+            this.addToHistory("» " + displayLabel, 'user-input', '▸');
+            this.terminalTextEl.innerText = "";
+            this.typeResponse(`ERROR: SANITY DEVIATION DETECTED. REQUIRED: ${option.sanityRequiredText}`, null, 'error', '✕');
+            return;
+        }
+
         // Add current prompt response to history
         const prevText = this.terminalTextEl.innerText;
         if (prevText) this.addToHistory(prevText, this.currentLogType, '⊟');
