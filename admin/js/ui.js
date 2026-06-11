@@ -16,6 +16,35 @@ export function getCategoryColor(category) {
 }
 
 /**
+ * Map transition category names to appropriate Lucide icons
+ */
+export function getCategoryIcon(category) {
+    const cat = (category || '').toLowerCase().trim();
+    
+    // Primary taxonomy categories
+    if (cat === 'universal') return 'infinity';
+    if (cat === 'formal') return 'briefcase';
+    if (cat === 'aquatic') return 'waves';
+    if (cat === 'concrete') return 'layers';
+    if (cat === 'technology') return 'cpu';
+    if (cat === 'noclip') return 'ghost';
+    
+    // Subcategory / description keywords helper matches
+    if (cat.includes('elevator') || cat.includes('lift')) return 'chevrons-up-down';
+    if (cat.includes('stair') || cat.includes('escalator')) return 'stairs';
+    if (cat.includes('door')) return 'door-open';
+    if (cat.includes('gate') || cat.includes('portal') || cat.includes('rift')) return 'sparkles';
+    if (cat.includes('hallway') || cat.includes('corridor') || cat.includes('passage') || cat.includes('hall')) return 'route';
+    if (cat.includes('ladder')) return 'chevrons-up';
+    if (cat.includes('window')) return 'eye';
+    if (cat.includes('vent') || cat.includes('shaft')) return 'wind';
+    if (cat.includes('tunnel')) return 'aperture';
+    if (cat.includes('secret') || cat.includes('hidden')) return 'eye-off';
+    
+    return 'route'; // Default path connection icon
+}
+
+/**
  * Get the path to a thumbnail image
  */
 export function getThumbPath(path) {

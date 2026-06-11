@@ -1,6 +1,6 @@
 // Room rendering, integrity check, and editor logic using ES6 Components
 import { state } from './state.js';
-import { getCategoryColor, getThumbPath, showToast } from './ui.js';
+import { getCategoryColor, getThumbPath, showToast, getCategoryIcon } from './ui.js';
 import { fetchWorld, fetchMedia, saveRoom, assignMedia, deleteRoom } from './api.js';
 import { navigate } from './router.js';
 import { el, icon } from './dom.js';
@@ -232,14 +232,12 @@ export function refreshCategorySelectors(selectedValues = null) {
             const hasReq = !!state.editorRequirements.transitions[cat];
 
             if (groupName === 'room-editor') {
-                const catColor = getCategoryColor(cat);
                 const row = el('div', { className: 'config-row' }, [
-                    el('div', { className: 'cat-info' }, [
+                    el('div', { className: 'cat-info-row' }, [
+                        icon(getCategoryIcon(cat), { style: { width: '16px', height: '16px', color: 'var(--accent-primary)' } }),
                         el('span', { 
-                            className: 'cat-label',
-                            style: { color: catColor }
-                        }, cat === 'universal' ? 'Universal' : cat.charAt(0).toUpperCase() + cat.slice(1)),
-                        el('span', { className: 'cat-id' }, 'category')
+                            className: 'cat-label'
+                        }, cat === 'universal' ? 'Universal' : cat.charAt(0).toUpperCase() + cat.slice(1))
                     ]),
                     el('div', { className: 'config-row-actions' }, [
                         el('button', {
@@ -257,15 +255,15 @@ export function refreshCategorySelectors(selectedValues = null) {
                 ]);
                 container.appendChild(row);
             } else {
-                const catColor = getCategoryColor(cat);
                 const label = el('label', {
-                    style: { display: 'flex', alignItems: 'center', gap: '8px', color: catColor }
+                    style: { display: 'flex', alignItems: 'center', gap: '8px' }
                 }, [
                     el('input', {
                         type: 'checkbox',
                         value: cat,
                         checked: isChecked
                     }),
+                    icon(getCategoryIcon(cat), { style: { width: '14px', height: '14px', color: 'var(--accent-primary)' } }),
                     cat.charAt(0).toUpperCase() + cat.slice(1)
                 ]);
                 container.appendChild(label);

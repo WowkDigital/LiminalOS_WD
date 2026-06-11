@@ -1,6 +1,6 @@
 // TransitionCard component to display liminal paths in the transitions overview
-import { el } from '../dom.js';
-import { getCategoryColor, getThumbPath } from '../ui.js';
+import { el, icon } from '../dom.js';
+import { getCategoryColor, getThumbPath, getCategoryIcon } from '../ui.js';
 
 export class TransitionCard {
     constructor(trans, imageIndex, onClick) {
@@ -36,9 +36,10 @@ export class TransitionCard {
                     this.trans.label + ' ',
                     el('span', { className: 'small-dim' }, this.trans.id)
                 ]),
-                el('p', {}, [
+                el('p', { style: { display: 'flex', alignItems: 'center', gap: '6px' } }, [
                     'Category: ',
-                    el('strong', { style: { color: catColor } }, this.trans.cat)
+                    icon(getCategoryIcon(this.trans.cat), { style: { width: '14px', height: '14px', color: 'var(--accent-primary)' } }),
+                    el('strong', {}, this.trans.cat.charAt(0).toUpperCase() + this.trans.cat.slice(1))
                 ]),
                 el('div', { className: 'room-meta' }, 
                     (this.trans.tags || []).map(tag => el('span', { className: 'tag' }, tag))

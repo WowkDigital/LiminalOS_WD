@@ -831,6 +831,12 @@ small {
     flex-direction: column;
 }
 
+.config-row .cat-info-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
 .config-row .inter-label,
 .config-row .cat-label {
     font-size: 0.95rem;
