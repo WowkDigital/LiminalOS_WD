@@ -219,6 +219,11 @@ body {
     max-height: 42px; /* Collapsed: just header */
 }
 
+#terminal-line-container,
+#terminal-line-container * {
+    font-family: var(--font-mono) !important;
+}
+
 #terminal-line-container:hover {
     background: rgba(12, 12, 18, 0.85);
     border-color: rgba(255, 255, 255, 0.1);

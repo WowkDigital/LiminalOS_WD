@@ -18,7 +18,7 @@ const TerminalSystem = {
     activeChoices: [], // Currently shown options
     cmdHistory: [],
     cmdHistoryIndex: -1,
-    availableCommands: ['HELP', 'CLEAR', 'CLS', 'RESET', 'MAP', 'SANITY', 'DIAGNOSTICS', 'SYS', 'SCAN', 'PING', 'GO', 'MOVE', 'ACT', 'USE'],
+    availableCommands: ['HELP', 'CLEAR', 'CLS', 'RESET', 'MAP', 'SANITY', 'DIAGNOSTICS', 'SYS', 'SCAN', 'PING', 'GO', 'MOVE', 'ACT', 'USE', 'INVENTORY', 'INV', 'DRINK'],
     currentLogType: '', // Current response log type ('success', 'error', 'warning', 'info', '')
     selectedOptionIndex: -1, // For keyboard navigation of options
 
@@ -219,6 +219,14 @@ const TerminalSystem = {
             }
         }
 
+        // Check if there is a room-specific dialogue node as fallback if stateId is INITIAL
+        if (stateId === "INITIAL" && window.game && window.game.state && window.game.state.currentRoom) {
+            const roomDialogueId = "ROOM_" + window.game.state.currentRoom.toUpperCase();
+            if (this.dialogueTree[roomDialogueId]) {
+                stateId = roomDialogueId;
+            }
+        }
+
         const state = this.dialogueTree[stateId] || this.dialogueTree["INITIAL"];
         this.activeChoices = state.options || [];
         this.renderOptions(this.activeChoices);
@@ -232,13 +240,43 @@ const TerminalSystem = {
             return;
         }
 
+        // Filter options based on requirements
+        const validOptions = options.filter(opt => {
+            if (!opt.requirements) return true;
+            if (window.game) {
+                let met = window.game.checkRequirements(opt.requirements);
+                
+                // Extra conditions
+                if (met && opt.requirements.visited_room) {
+                    if (!window.game.state.visitedRooms.includes(opt.requirements.visited_room)) met = false;
+                }
+                if (met && opt.requirements.unvisited_room) {
+                    if (window.game.state.visitedRooms.includes(opt.requirements.unvisited_room)) met = false;
+                }
+                if (met && opt.requirements.has_item) {
+                    const item = opt.requirements.has_item;
+                    const count = opt.requirements.item_count || 1;
+                    const inv = window.game.state.inventory || {};
+                    if ((inv[item] || 0) < count) met = false;
+                }
+                return met;
+            }
+            return true;
+        });
+
+        this.activeChoices = validOptions;
+
+        if (validOptions.length === 0) {
+            return;
+        }
+
         // Add separator label
         const separator = document.createElement('div');
         separator.className = 'terminal-options-label';
         separator.innerHTML = `<span class="options-label-line"></span><span class="options-label-text">AVAILABLE ACTIONS</span><span class="options-label-line"></span>`;
         this.terminalOptionsEl.appendChild(separator);
 
-        options.forEach((opt, index) => {
+        validOptions.forEach((opt, index) => {
             const item = document.createElement('div');
             item.className = 'terminal-option-item';
             item.setAttribute('data-index', index);
@@ -324,10 +362,20 @@ const TerminalSystem = {
         this.addToHistory("» " + option.label.toUpperCase(), 'user-input', '▸');
         this.terminalTextEl.innerText = "";
 
+        // Execute side effects if they are defined on the choice
+        if (option.effects && window.game) {
+            window.game.processEffects(option.effects);
+        }
+
         this.currentState = option.next;
         this.updateHeaderStatus('busy');
         const nextState = this.dialogueTree[this.currentState];
         if (nextState) {
+            // Execute side effects if they are defined on the dialogue state itself
+            if (nextState.effects && window.game) {
+                window.game.processEffects(nextState.effects);
+            }
+
             this.typeResponse(nextState.text, () => {
                 this.showActiveDialogueOptions();
                 this.updateHeaderStatus('active');
@@ -374,6 +422,8 @@ const TerminalSystem = {
                 "║       TERMINAL COMMAND REFERENCE      ║",
                 "╠══════════════════════════════════════╣",
                 "║  HELP      — Show this reference      ║",
+                "║  INVENTORY — List inventory items     ║",
+                "║  DRINK     — Consume Almond Water     ║",
                 "║  GO [EXIT] — Move to an exit           ║",
                 "║  ACT [OBJ] — Interact with object      ║",
                 "║  SCAN      — Scan for exits            ║",
@@ -398,6 +448,51 @@ const TerminalSystem = {
                 localStorage.removeItem('backrooms_session');
                 window.location.hash = '';
                 location.reload();
+            }
+        } else if (cmd === 'INVENTORY' || cmd === 'INV') {
+            if (window.game) {
+                playSuccess();
+                const inv = window.game.state.inventory || {};
+                const items = Object.entries(inv).filter(([_, count]) => count > 0);
+                if (items.length === 0) {
+                    this.typeResponse("INVENTORY IS EMPTY.", null, 'warning', '◆');
+                } else {
+                    let lines = ["┌─ CURRENT INVENTORY ──────────────┐"];
+                    items.forEach(([item, count]) => {
+                        lines.push(`│  ◆ ${item.replace('_', ' ').toUpperCase()}: x${count}`);
+                    });
+                    lines.push("└──────────────────────────────────┘");
+                    this.typeResponse(lines.join("\n"), null, 'info', '◆');
+                }
+            } else {
+                this.typeResponse("INVENTORY SYSTEM OFFLINE.", null, 'error', '✕');
+                playError();
+            }
+        } else if (cmd.startsWith('DRINK')) {
+            if (window.game) {
+                const parts = cmd.split(' ');
+                const itemArg = parts.length > 1 ? parts.slice(1).join('_').toLowerCase() : 'almond_water';
+                const inv = window.game.state.inventory || {};
+                
+                if (inv[itemArg] && inv[itemArg] > 0) {
+                    if (itemArg === 'almond_water') {
+                        inv[itemArg]--;
+                        window.game.state.sanity = Math.min(100, window.game.state.sanity + 25);
+                        window.game.saveSession();
+                        window.game.render();
+                        playSuccess();
+                        this.typeResponse("YOU DRANK ALMOND WATER. SANITY RESTORED (+25%).", null, 'success', '▶');
+                    } else {
+                        this.typeResponse(`ITEM '${itemArg.replace('_', ' ').toUpperCase()}' IS NOT CONSUMABLE.`, null, 'warning', '✕');
+                        playError();
+                    }
+                } else {
+                    this.typeResponse(`YOU DO NOT HAVE ANY '${itemArg.replace('_', ' ').toUpperCase()}'.`, null, 'error', '✕');
+                    playError();
+                }
+            } else {
+                this.typeResponse("INVENTORY SYSTEM OFFLINE.", null, 'error', '✕');
+                playError();
             }
         } else if (cmd === 'MAP') {
             const mapPanel = document.getElementById('map-panel');
@@ -553,8 +648,16 @@ const TerminalSystem = {
                         }, 500);
                     }
                 } else {
-                    this.typeResponse(`TARGET '${interSearch}' NOT FOUND.`, null, 'error', '✕');
-                    playError();
+                    // Fallback to check inventory items
+                    const inv = window.game.state.inventory || {};
+                    const itemKey = interSearch.toLowerCase().replace(' ', '_');
+                    if (inv[itemKey] !== undefined && inv[itemKey] > 0) {
+                        playSuccess();
+                        this.typeResponse(`ITEM '${interSearch}' IS IN YOUR INVENTORY (x${inv[itemKey]}). USE IT ON A ROOM OBJECT OR TYPE A SPECIFIC ACTION.`, null, 'info', '◆');
+                    } else {
+                        this.typeResponse(`TARGET '${interSearch}' NOT FOUND.`, null, 'error', '✕');
+                        playError();
+                    }
                 }
             } else {
                 this.typeResponse("CONTROL SYSTEM OFFLINE.", null, 'error', '✕');
@@ -568,7 +671,8 @@ const TerminalSystem = {
     },
 
     addToHistory(text, type = '', icon = '') {
-        this.history.push({ text, type, icon });
+        const formattedText = this.formatText(text);
+        this.history.push({ text: formattedText, type, icon });
         if (this.history.length > 30) {
             this.history.shift();
         }
@@ -605,14 +709,55 @@ const TerminalSystem = {
         return div.innerHTML;
     },
 
+    formatText(text) {
+        if (!text) return "";
+        let formatted = text;
+        if (window.game) {
+            formatted = formatted.replace(/{SANITY}/gi, Math.floor(window.game.state.sanity) + "%");
+            
+            const loc = window.game.getCurrentLocation();
+            if (loc) {
+                formatted = formatted.replace(/{ROOM}/gi, loc.getName().toUpperCase());
+            }
+            
+            if (window.game.state.visitedRooms) {
+                formatted = formatted.replace(/{VISITED}/gi, window.game.state.visitedRooms.length);
+            }
+            
+            if (window.game.world && window.game.world.rooms) {
+                const totalRooms = Object.keys(window.game.world.rooms).length;
+                formatted = formatted.replace(/{TOTAL}/gi, totalRooms);
+            }
+            
+            if (window.game.state.currentRoom) {
+                const seedHash = Math.abs(window.game.state.currentRoom.split('').reduce((a,b)=>{a=((a<<5)-a)+b.charCodeAt(0);return a&a},0)) % 10000;
+                formatted = formatted.replace(/{SEED}/gi, "0x" + seedHash.toString(16).toUpperCase());
+            }
+
+            // Inventory replacement
+            if (window.game.state.inventory) {
+                const invLines = Object.entries(window.game.state.inventory)
+                    .filter(([_, count]) => count > 0)
+                    .map(([item, count]) => ` - ${item.replace('_', ' ').toUpperCase()}: x${count}`)
+                    .join('\n');
+                formatted = formatted.replace(/{INVENTORY}/gi, invLines || "(INVENTORY EMPTY)");
+            } else {
+                formatted = formatted.replace(/{INVENTORY}/gi, "(INVENTORY EMPTY)");
+            }
+        }
+        return formatted;
+    },
+
     typeResponse(text, callback, logType = '', icon = '') {
         this.currentLogType = logType;
         this.terminalTextEl.className = 'terminal-response-text' + (logType ? ' log-' + logType : '');
         this.updateHeaderStatus('busy');
         
+        const formattedText = this.formatText(text);
+
         if (window.game) {
             // Forward typing animation to the game to use its glitchy visual typing animation
-            window.game.typeTerminalText(text, () => {
+            window.game.typeTerminalText(formattedText, () => {
                 this.updateHeaderStatus(this.terminalContainer.classList.contains('expanded') ? 'active' : 'online');
                 if (callback) callback();
             });
@@ -622,12 +767,12 @@ const TerminalSystem = {
             this.terminalTextEl.innerText = "";
             let i = 0;
             const type = () => {
-                if (i < text.length) {
-                    this.terminalTextEl.innerText = text.substring(0, i + 1) + "█";
+                if (i < formattedText.length) {
+                    this.terminalTextEl.innerText = formattedText.substring(0, i + 1) + "█";
                     i++;
                     setTimeout(type, 18);
                 } else {
-                    this.terminalTextEl.innerText = text;
+                    this.terminalTextEl.innerText = formattedText;
                     this.isTyping = false;
                     this.updateHeaderStatus(this.terminalContainer.classList.contains('expanded') ? 'active' : 'online');
                     if (callback) callback();

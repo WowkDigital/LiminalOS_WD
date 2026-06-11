@@ -16,6 +16,155 @@
             }
         ]
     },
+    "ROOM_LOBBY": {
+        "text": "LOCATION: {ROOM}\nAMBIENCE: THE HUMMING OF FLUORESCENT LIGHTS IS DEAFENING.\nSYSTEM DETECTS AN ACTIVE TERMINAL WORKSTATION AND A LOOSE VENT COVER.",
+        "options": [
+            {
+                "label": "EXAMINE WORKSTATION",
+                "next": "LOBBY_WORKSTATION"
+            },
+            {
+                "label": "SEARCH LOOSE VENT",
+                "next": "LOBBY_VENT",
+                "requirements": {
+                    "sanity_min": 30
+                }
+            },
+            {
+                "label": "LISTEN INTENTLY TO HUMMING",
+                "next": "LOBBY_HUMMING"
+            },
+            {
+                "label": "DRINK ALMOND WATER",
+                "next": "LOBBY_DRINK",
+                "requirements": {
+                    "has_item": "almond_water",
+                    "item_count": 1
+                }
+            },
+            {
+                "label": "RUN SYSTEM PING",
+                "next": "STATUS"
+            }
+        ]
+    },
+    "LOBBY_WORKSTATION": {
+        "text": "WORKSTATION: ACTIVE.\nCONSOLE READING: 'RECOVERY KEY REQUIRED FOR ACCESS'.\nTHE KEY SLOTS MATCH A HIGH-FREQUENCY FLASH DRIVE.",
+        "options": [
+            {
+                "label": "INSERT FLASH DRIVE",
+                "next": "LOBBY_WORKSTATION_HACKED",
+                "requirements": {
+                    "has_item": "flash_drive",
+                    "item_count": 1
+                }
+            },
+            {
+                "label": "SEARCH DESK DRAWERS",
+                "next": "LOBBY_DESK_SEARCH"
+            },
+            {
+                "label": "BACK",
+                "next": "ROOM_LOBBY"
+            }
+        ]
+    },
+    "LOBBY_DESK_SEARCH": {
+        "text": "YOU RUMMAGE THROUGH THE PLASTIC DRAWERS.\nFOUND: 1x FLASH DRIVE DUSTED IN YELLOW POWDER.",
+        "options": [
+            {
+                "label": "TAKE FLASH DRIVE",
+                "next": "ROOM_LOBBY",
+                "effects": [
+                    { "type": "item", "item": "flash_drive", "amount": 1 },
+                    { "type": "sfx", "value": "success" }
+                ]
+            },
+            {
+                "label": "LEAVE IT",
+                "next": "ROOM_LOBBY"
+            }
+        ]
+    },
+    "LOBBY_WORKSTATION_HACKED": {
+        "text": "FLASH DRIVE DETECTED. BYPASSING SECURITY LOCKS...\nSYS_STATUS: COMPROMISED.\nTHE VENTILATION GRID MAIN CONTROL SYSTEM HAS CYCLED.",
+        "options": [
+            {
+                "label": "TRIGGER VENT OVERRIDE",
+                "next": "ROOM_LOBBY",
+                "effects": [
+                    { "type": "item", "item": "flash_drive", "amount": -1 },
+                    { "type": "act", "id": "lobby_vent", "state": 1 },
+                    { "type": "sfx", "value": "success" },
+                    { "type": "sanity", "value": 10 }
+                ]
+            },
+            {
+                "label": "BACK",
+                "next": "ROOM_LOBBY"
+            }
+        ]
+    },
+    "LOBBY_VENT": {
+        "text": "THE STEEL VENT IS SCREWED TIGHTLY, BUT ONE CORNER IS BENT OUTWARD.\nYOU CAN HEAR WIND RUSHING DEEPER IN.",
+        "options": [
+            {
+                "label": "PRY IT OPEN WITH FORCE",
+                "next": "LOBBY_VENT_PRY",
+                "requirements": {
+                    "sanity_min": 50
+                }
+            },
+            {
+                "label": "BACK",
+                "next": "ROOM_LOBBY"
+            }
+        ]
+    },
+    "LOBBY_VENT_PRY": {
+        "text": "YOU GRAB THE BENT CORNER AND PULL. THE METAL SCREECHES LOUDLY, GIVING WAY.",
+        "options": [
+            {
+                "label": "CRAWL INTO VENTILATION SHAFT",
+                "next": "ROOM_LOBBY",
+                "effects": [
+                    { "type": "move", "room": "corridor" },
+                    { "type": "sfx", "value": "arrival" }
+                ]
+            },
+            {
+                "label": "STAY HERE",
+                "next": "ROOM_LOBBY"
+            }
+        ]
+    },
+    "LOBBY_HUMMING": {
+        "text": "THE ELECTRIC HUM VIBRATES IN YOUR TEETH.\nYOU STARE BLANKLY AT THE YELLOW WALLPAPER.\nIT FEELS LIKE IT IS CLOSING IN ON YOU.",
+        "options": [
+            {
+                "label": "PULL AWAY",
+                "next": "ROOM_LOBBY",
+                "effects": [
+                    { "type": "sanity", "value": -15 },
+                    { "type": "sfx", "value": "error" }
+                ]
+            }
+        ]
+    },
+    "LOBBY_DRINK": {
+        "text": "YOU OPEN THE COLD CAN OF ALMOND WATER AND DRINK IT DOWN.\nITS SWEET, NUTTY FLAVOR CALMS YOUR FRAZZLED NERVES.",
+        "options": [
+            {
+                "label": "DISCARD EMPTY CAN",
+                "next": "ROOM_LOBBY",
+                "effects": [
+                    { "type": "item", "item": "almond_water", "amount": -1 },
+                    { "type": "sanity", "value": 25 },
+                    { "type": "sfx", "value": "success" }
+                ]
+            }
+        ]
+    },
     "STATUS": {
         "text": "CONNECTIVITY: 12% | INTEGRITY: MARGINAL | OXYGEN: -ERR-",
         "options": [

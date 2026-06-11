@@ -222,7 +222,10 @@ class BackroomsGame {
             roomImages: {},
             transitionImages: {},
             roomTransitions: {},
-            bfsDepth: {}       // Głębokość BFS każdego pokoju od startu (dla układu mapy)
+            bfsDepth: {},       // Głębokość BFS każdego pokoju od startu (dla układu mapy)
+            inventory: {
+                almond_water: 1 // Start with 1 Almond Water
+            }
         };
 
         // DOM Elements
@@ -443,6 +446,9 @@ class BackroomsGame {
             const parsed = JSON.parse(saved);
             this.state = { ...this.state, ...parsed };
         }
+        if (!this.state.inventory) {
+            this.state.inventory = { almond_water: 1 };
+        }
     }
 
     saveSession() {
@@ -640,14 +646,45 @@ class BackroomsGame {
 
         effects.forEach(eff => {
             console.log("Effect trigger:", eff);
-            if (eff.type === 'sfx') {
-                // Placeholder for sfx triggering
-                // this.audio.playSfx(eff.asset);
+            if (eff.type === 'sfx' || eff.type === 'sound') {
+                const soundName = eff.value || eff.asset || eff.id;
+                if (soundName && this.audio) {
+                    const uiSounds = ['click', 'keypress', 'success', 'error', 'arrival', 'glitch'];
+                    if (uiSounds.includes(soundName)) {
+                        this.audio.playUiSound(soundName);
+                    } else {
+                        this.audio.playSfx(soundName);
+                    }
+                }
             } else if (eff.type === 'sanity') {
                 this.state.sanity = Math.max(0, Math.min(100, this.state.sanity + eff.value));
             } else if (eff.type === 'glitch') {
                 this.updateGlitchEffects(this.state.sanity - (eff.intensity || 0));
                 setTimeout(() => this.updateGlitchEffects(this.state.sanity), eff.duration || 500);
+            } else if (eff.type === 'move') {
+                const targetRoom = eff.value || eff.room;
+                if (targetRoom) {
+                    this.handleAction('mov', targetRoom);
+                }
+            } else if (eff.type === 'act' || eff.type === 'interactable') {
+                const interId = eff.id || eff.interactable_id;
+                const stateIdx = eff.state !== undefined ? eff.state : eff.value;
+                if (interId !== undefined && stateIdx !== undefined) {
+                    this.handleAction('act', interId, stateIdx);
+                }
+            } else if (eff.type === 'item') {
+                const itemName = eff.item || eff.name || eff.value;
+                const amount = eff.amount !== undefined ? eff.amount : (eff.value !== undefined ? eff.value : 1);
+                if (itemName) {
+                    if (!this.state.inventory) this.state.inventory = {};
+                    this.state.inventory[itemName] = Math.max(0, (this.state.inventory[itemName] || 0) + amount);
+                    this.saveSession();
+                    if (window.TerminalSystem) {
+                        const sign = amount > 0 ? "+" : "";
+                        const logMsg = `INVENTORY: ${sign}${amount} ${itemName.replace('_', ' ').toUpperCase()}`;
+                        window.TerminalSystem.addToHistory(logMsg, amount > 0 ? 'success' : 'warning', '◆');
+                    }
+                }
             }
         });
     }
@@ -682,6 +719,21 @@ class BackroomsGame {
         }
         if (req.sanity_max !== undefined) {
             if (this.state.sanity > parseInt(req.sanity_max)) return false;
+        }
+
+        // Check visited room requirements
+        if (req.visited_room) {
+            if (!this.state.visitedRooms.includes(req.visited_room)) return false;
+        }
+        if (req.unvisited_room) {
+            if (this.state.visitedRooms.includes(req.unvisited_room)) return false;
+        }
+
+        // Check items in inventory
+        if (req.has_item) {
+            const count = req.item_count || 1;
+            const inv = this.state.inventory || {};
+            if ((inv[req.has_item] || 0) < count) return false;
         }
 
         return true;
