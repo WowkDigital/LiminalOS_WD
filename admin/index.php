@@ -677,7 +677,7 @@ if (isset($_SESSION['admin_auth']) && $_SESSION['admin_auth'] === true):
     <!-- Toast Notification Container -->
     <div id="toast-container"></div>
 
-    <script src="script.js"></script>
+    <script type="module" src="js/main.js"></script>
     <script>
         // Initialize lucide icons for elements created dynamically/late
         if (typeof lucide !== 'undefined') {
