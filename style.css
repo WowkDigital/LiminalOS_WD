@@ -1339,6 +1339,12 @@ button.continue-btn {
     padding: 1rem;
 }
 
+@media (min-width: 600px) {
+    button.continue-btn {
+        flex: 1 1 calc(100% - 190px);
+    }
+}
+
 button.continue-btn::before {
     background: var(--accent-primary);
 }
@@ -1347,6 +1353,48 @@ button.continue-btn:hover {
     border-color: var(--accent-primary);
     box-shadow: 0 4px 15px rgba(234, 179, 8, 0.15);
     color: #fff;
+}
+
+/* Auto-walk button */
+button.autowalk-btn {
+    flex: 1 1 100%;
+    border-color: var(--glass-border);
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.02);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+@media (min-width: 600px) {
+    button.autowalk-btn {
+        flex: 0 0 170px;
+    }
+}
+
+button.autowalk-btn::before {
+    background: var(--accent-primary);
+}
+
+button.autowalk-btn:hover {
+    border-color: var(--accent-primary);
+    color: var(--text-main);
+    background: rgba(234, 179, 8, 0.03);
+}
+
+button.autowalk-btn.active {
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+    background: rgba(234, 179, 8, 0.04);
+    box-shadow: 0 0 10px var(--accent-glow);
+}
+
+button.autowalk-btn.active:hover {
+    color: #fff;
+    box-shadow: 0 4px 15px rgba(234, 179, 8, 0.15);
 }
 
 /* Custom Category Colors */

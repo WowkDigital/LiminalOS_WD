@@ -227,7 +227,8 @@ class BackroomsGame {
             bfsDepth: {},       // Głębokość BFS każdego pokoju od startu (dla układu mapy)
             inventory: {
                 almond_water: 1 // Start with 1 Almond Water
-            }
+            },
+            autoWalk: true      // Enable auto walk on transition
         };
 
         // DOM Elements
@@ -486,6 +487,9 @@ class BackroomsGame {
         }
         if (!this.state.inventory) {
             this.state.inventory = { almond_water: 1 };
+        }
+        if (this.state.autoWalk === undefined) {
+            this.state.autoWalk = true;
         }
     }
 
@@ -1012,17 +1016,24 @@ class BackroomsGame {
 
                 // Przycisk "Continue" w trakcie przejścia — auto-timer
                 if (act.type === 'mov' && this.state.isTransitioning) {
-                    const progress = document.createElement('div');
-                    progress.className = 'btn-progress animate';
-                    if (act.category) {
-                        progress.style.background = 'currentColor';
-                    }
-                    btn.appendChild(progress);
+                    if (this.state.autoWalk) {
+                        const progress = document.createElement('div');
+                        progress.className = 'btn-progress animate';
+                        if (act.category) {
+                            progress.style.background = 'currentColor';
+                        }
+                        btn.appendChild(progress);
 
-                    if (!this.transitionTimeout) {
-                        this.transitionTimeout = setTimeout(() => {
-                            this.handleAction(act.type, act.value, act.extra);
-                        }, 11000);
+                        if (!this.transitionTimeout) {
+                            this.transitionTimeout = setTimeout(() => {
+                                this.handleAction(act.type, act.value, act.extra);
+                            }, 11000);
+                        }
+                    } else {
+                        if (this.transitionTimeout) {
+                            clearTimeout(this.transitionTimeout);
+                            this.transitionTimeout = null;
+                        }
                     }
                 }
             } else {
@@ -1032,6 +1043,32 @@ class BackroomsGame {
 
             btn.onclick = (e) => this.handleAction(act.type, act.value, act.extra, e);
             this.elements.actionsContainer.appendChild(btn);
+
+            if (act.type === 'mov' && this.state.isTransitioning) {
+                const autoWalkBtn = document.createElement('button');
+                autoWalkBtn.className = 'autowalk-btn';
+                if (this.state.autoWalk) {
+                    autoWalkBtn.classList.add('active');
+                    autoWalkBtn.innerHTML = `<i data-lucide="play-circle"></i> AUTO-WALK: ON`;
+                } else {
+                    autoWalkBtn.innerHTML = `<i data-lucide="pause-circle"></i> AUTO-WALK: OFF`;
+                }
+
+                autoWalkBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    this.state.autoWalk = !this.state.autoWalk;
+                    if (!this.state.autoWalk) {
+                        if (this.transitionTimeout) {
+                            clearTimeout(this.transitionTimeout);
+                            this.transitionTimeout = null;
+                        }
+                    }
+                    this.saveSession();
+                    this.render();
+                };
+
+                this.elements.actionsContainer.appendChild(autoWalkBtn);
+            }
         });
 
         // Update map layout
