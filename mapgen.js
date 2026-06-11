@@ -203,8 +203,22 @@ class MapGraph {
         const mapPanel = document.getElementById('map-panel');
         if (mapPanel && mapPanel.classList.contains('collapsed')) return;
 
+        // Update technical header statistics
+        const totalRooms = Object.keys(this.game.world.rooms).length;
+        const visitedRooms = this.game.state.visitedRooms.length;
+        
+        const exploredEl = document.getElementById('map-stat-explored');
+        if (exploredEl) {
+            exploredEl.textContent = `${visitedRooms}/${totalRooms}`;
+        }
+        
+        const stabilityEl = document.getElementById('map-stat-stability');
+        if (stabilityEl) {
+            stabilityEl.textContent = `${this.game.state.sanity}%`;
+        }
+
         const rect = this.svg.getBoundingClientRect();
-        this.width = rect.width || 280;
+        this.width = rect.width || 330;
         this.height = rect.height || 460;
 
         this._draw();
@@ -385,23 +399,45 @@ class MapGraph {
 
         const { pos, edges, visited } = this._computeLayout();
 
-        // --- SVG defs: arrowhead marker ---
+        // --- SVG defs: grid pattern & arrowhead marker ---
         const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-        // Generic semi-transparent marker (colour is set per-line via stroke)
+        
+        // Dotted grid pattern matching LiminalOS aesthetic
+        const pattern = document.createElementNS('http://www.w3.org/2000/svg', 'pattern');
+        pattern.setAttribute('id', 'map-grid');
+        pattern.setAttribute('width', '24');
+        pattern.setAttribute('height', '24');
+        pattern.setAttribute('patternUnits', 'userSpaceOnUse');
+        const gridCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        gridCircle.setAttribute('cx', '12');
+        gridCircle.setAttribute('cy', '12');
+        gridCircle.setAttribute('r', '1');
+        gridCircle.setAttribute('fill', 'rgba(234, 179, 8, 0.12)'); // Subtle amber dot
+        pattern.appendChild(gridCircle);
+        defs.appendChild(pattern);
+
+        // Tech arrowhead marker
         const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
         marker.setAttribute('id', 'arrowhead');
-        marker.setAttribute('markerWidth', '7');
-        marker.setAttribute('markerHeight', '5');
-        marker.setAttribute('refX', '6');
-        marker.setAttribute('refY', '2.5');
+        marker.setAttribute('markerWidth', '6');
+        marker.setAttribute('markerHeight', '4');
+        marker.setAttribute('refX', '5');
+        marker.setAttribute('refY', '2');
         marker.setAttribute('orient', 'auto');
         marker.setAttribute('markerUnits', 'strokeWidth');
         const arrowPoly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-        arrowPoly.setAttribute('points', '0 0, 7 2.5, 0 5');
+        arrowPoly.setAttribute('points', '0 0, 6 2, 0 4');
         arrowPoly.setAttribute('fill', 'currentColor');
         marker.appendChild(arrowPoly);
         defs.appendChild(marker);
         this.svg.appendChild(defs);
+
+        // Background Grid Pattern
+        const bgGrid = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        bgGrid.setAttribute('width', '100%');
+        bgGrid.setAttribute('height', '100%');
+        bgGrid.setAttribute('fill', 'url(#map-grid)');
+        this.svg.appendChild(bgGrid);
 
         const NODE_R_VISITED = 7;
         const NODE_R_UNKNOWN = 4.5;
@@ -419,7 +455,6 @@ class MapGraph {
             const p2 = pos[target];
             if (!p1 || !p2) return;
 
-            // Avoid duplicate bidirectional rendering of the same pair
             const key = source + '→' + target;
             if (drawn.has(key)) return;
             drawn.add(key);
@@ -438,17 +473,34 @@ class MapGraph {
             const ex = p2.x - ux * rEnd;
             const ey = p2.y - uy * rEnd;
 
+            // Base connection path
             const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line.setAttribute('class', 'map-edge');
             line.setAttribute('x1', p1.x);
             line.setAttribute('y1', p1.y);
             line.setAttribute('x2', ex);
             line.setAttribute('y2', ey);
             line.setAttribute('stroke', strokeColor);
-            line.setAttribute('stroke-width', isTargetVisited ? '2' : '1.2');
+            line.setAttribute('stroke-width', isTargetVisited ? '2' : '1');
             line.setAttribute('color', strokeColor); // makes arrowhead currentColor
-            if (!isTargetVisited) line.setAttribute('stroke-dasharray', '4 4');
+            if (!isTargetVisited) line.setAttribute('stroke-dasharray', '3 3');
             line.setAttribute('marker-end', 'url(#arrowhead)');
             this.svg.appendChild(line);
+
+            // Flow overlay (animated scanner pulse) for visited paths
+            if (isTargetVisited) {
+                const lineFlow = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                lineFlow.setAttribute('class', 'map-edge-flow');
+                lineFlow.setAttribute('x1', p1.x);
+                lineFlow.setAttribute('y1', p1.y);
+                lineFlow.setAttribute('x2', ex);
+                lineFlow.setAttribute('y2', ey);
+                
+                const flowColor = color.replace('hsl', 'hsla').replace(')', `, 0.7)`);
+                lineFlow.setAttribute('stroke', flowColor);
+                lineFlow.setAttribute('stroke-width', '2');
+                this.svg.appendChild(lineFlow);
+            }
         });
 
         // --- Draw nodes (unvisited first, then visited, current last) ---
@@ -469,24 +521,60 @@ class MapGraph {
 
     _renderNode(id, pos, isCurrent, isVisited) {
         const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        group.setAttribute('class', 'map-node');
+        group.setAttribute('data-id', id);
 
-        // Glow ring for current position
+        // Interaction event listeners
+        group.addEventListener('mouseenter', () => this.showNodeTelemetry(id, isCurrent, isVisited));
+        group.addEventListener('mouseleave', () => this.resetNodeTelemetry());
+
+        // Target target ring / scanner glow for current location
         if (isCurrent) {
+            // Pulsing glow outer ring
             const glow = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
             glow.setAttribute('cx', pos.x);
             glow.setAttribute('cy', pos.y);
-            glow.setAttribute('r', 15);
-            glow.setAttribute('fill', 'rgba(255,255,255,0.03)');
-            glow.setAttribute('stroke', 'rgba(255, 255, 255, 0.25)');
-            glow.setAttribute('stroke-width', '1');
-            // Adding subtle animation to glow
-            const animate = document.createElementNS('http://www.w3.org/2000/svg', 'animate');
-            animate.setAttribute('attributeName', 'r');
-            animate.setAttribute('values', '13;17;13');
-            animate.setAttribute('dur', '2s');
-            animate.setAttribute('repeatCount', 'indefinite');
-            glow.appendChild(animate);
+            glow.setAttribute('r', 16);
+            glow.setAttribute('fill', 'none');
+            glow.setAttribute('stroke', 'var(--accent-glow)');
+            glow.setAttribute('stroke-width', '2');
+            
+            const animateR = document.createElementNS('http://www.w3.org/2000/svg', 'animate');
+            animateR.setAttribute('attributeName', 'r');
+            animateR.setAttribute('values', '11;17;11');
+            animateR.setAttribute('dur', '2s');
+            animateR.setAttribute('repeatCount', 'indefinite');
+            glow.appendChild(animateR);
+            
+            const animateO = document.createElementNS('http://www.w3.org/2000/svg', 'animate');
+            animateO.setAttribute('attributeName', 'opacity');
+            animateO.setAttribute('values', '0.8;0.2;0.8');
+            animateO.setAttribute('dur', '2s');
+            animateO.setAttribute('repeatCount', 'indefinite');
+            glow.appendChild(animateO);
+            
             group.appendChild(glow);
+
+            // Technical target brackets
+            const targetRing = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            targetRing.setAttribute('cx', pos.x);
+            targetRing.setAttribute('cy', pos.y);
+            targetRing.setAttribute('r', '13');
+            targetRing.setAttribute('fill', 'none');
+            targetRing.setAttribute('stroke', 'var(--accent-primary)');
+            targetRing.setAttribute('stroke-width', '0.75');
+            targetRing.setAttribute('stroke-dasharray', '5 3');
+            
+            const animateRot = document.createElementNS('http://www.w3.org/2000/svg', 'animateTransform');
+            animateRot.setAttribute('attributeName', 'transform');
+            animateRot.setAttribute('type', 'rotate');
+            animateRot.setAttribute('from', `0 ${pos.x} ${pos.y}`);
+            animateRot.setAttribute('to', `360 ${pos.x} ${pos.y}`);
+            animateRot.setAttribute('dur', '10s');
+            animateRot.setAttribute('repeatCount', 'indefinite');
+            targetRing.appendChild(animateRot);
+            
+            group.appendChild(targetRing);
         }
 
         const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
@@ -494,21 +582,22 @@ class MapGraph {
         circle.setAttribute('cy', pos.y);
 
         if (isCurrent) {
-            circle.setAttribute('r', '9');
-            circle.setAttribute('fill', '#ffffff');
-            circle.setAttribute('stroke', '#33ff33');
-            circle.setAttribute('stroke-width', '2.5');
+            circle.setAttribute('r', '8');
+            circle.setAttribute('fill', 'var(--accent-primary)');
+            circle.setAttribute('stroke', '#ffffff');
+            circle.setAttribute('stroke-width', '2');
         } else if (isVisited) {
-            circle.setAttribute('r', '7');
-            circle.setAttribute('fill', 'rgba(51, 255, 51, 0.15)');
-            circle.setAttribute('stroke', '#33ff33');
+            circle.setAttribute('r', '6');
+            circle.setAttribute('fill', 'rgba(16, 185, 129, 0.15)');
+            circle.setAttribute('stroke', 'var(--success)');
             circle.setAttribute('stroke-width', '2');
         } else {
             // Unknown room
-            circle.setAttribute('r', '4.5');
-            circle.setAttribute('fill', 'rgba(255, 255, 255, 0.05)');
+            circle.setAttribute('r', '4');
+            circle.setAttribute('fill', 'rgba(5, 5, 5, 0.8)');
             circle.setAttribute('stroke', 'rgba(255, 255, 255, 0.2)');
             circle.setAttribute('stroke-width', '1');
+            circle.setAttribute('stroke-dasharray', '2 2');
         }
         group.appendChild(circle);
 
@@ -516,28 +605,94 @@ class MapGraph {
         if (isVisited || isCurrent) {
             const name = this.game.world.rooms[id]?.name || id;
             const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            text.setAttribute('x', pos.x + 13);
-            text.setAttribute('y', pos.y + 4);
-            text.setAttribute('fill', isCurrent ? '#ffffff' : 'rgba(255, 255, 255, 0.85)');
-            text.setAttribute('font-size', isCurrent ? '10px' : '9px');
-            text.setAttribute('font-family', 'var(--font-tech)');
-            text.setAttribute('font-weight', isCurrent ? 'bold' : '500');
+            text.setAttribute('x', pos.x + 12);
+            text.setAttribute('y', pos.y + 3.5);
+            text.setAttribute('fill', isCurrent ? 'var(--accent-primary)' : 'var(--text-main)');
+            text.setAttribute('font-size', isCurrent ? '9px' : '8.5px');
+            text.setAttribute('font-family', 'var(--font-mono)');
+            text.setAttribute('font-weight', isCurrent ? 'bold' : 'normal');
+            text.setAttribute('letter-spacing', '0.05em');
             text.textContent = name.toUpperCase().substring(0, 16);
             group.appendChild(text);
         } else {
             // Question mark for undiscovered nodes
             const q = document.createElementNS('http://www.w3.org/2000/svg', 'text');
             q.setAttribute('x', pos.x);
-            q.setAttribute('y', pos.y + 3);
-            q.setAttribute('fill', 'rgba(255, 255, 255, 0.35)');
-            q.setAttribute('font-size', '7px');
-            q.setAttribute('font-family', 'var(--font-tech)');
+            q.setAttribute('y', pos.y + 2.5);
+            q.setAttribute('fill', 'var(--text-muted)');
+            q.setAttribute('font-size', '6px');
+            q.setAttribute('font-family', 'var(--font-mono)');
             q.setAttribute('text-anchor', 'middle');
             q.textContent = '?';
             group.appendChild(q);
         }
 
         this.svg.appendChild(group);
+    }
+
+    showNodeTelemetry(id, isCurrent, isVisited) {
+        const detailsContainer = document.getElementById('map-node-details');
+        if (!detailsContainer) return;
+
+        const roomData = this.game.world.rooms[id];
+        const roomName = roomData ? roomData.name : id;
+        
+        let statusText = 'UNKNOWN';
+        let statusClass = 'node-details-status--unknown';
+        if (isCurrent) {
+            statusText = 'YOU ARE HERE';
+            statusClass = 'node-details-status--current';
+        } else if (isVisited) {
+            statusText = 'VISITED';
+            statusClass = 'node-details-status--visited';
+        }
+
+        // Calculate deterministic coordinates based on room ID string
+        let hash = 0;
+        for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) | 0;
+        const coordX = Math.abs((hash % 180) + 10);
+        const coordY = Math.abs(((hash >> 4) % 180) + 10);
+
+        // Find exits/connections from this room
+        const exits = this.game.state.roomTransitions[id] || [];
+        const exitNames = exits.map(e => {
+            const targetRoom = this.game.world.rooms[e.target];
+            const name = targetRoom ? targetRoom.name : e.target;
+            const visited = this.game.state.visitedRooms.includes(e.target);
+            return visited ? name.toUpperCase() : '???';
+        });
+        const exitsStr = exitNames.length > 0 ? exitNames.join(', ') : 'NONE';
+
+        // Play feedback UI sound if possible
+        if (this.game.audio && typeof this.game.audio.playUiSound === 'function') {
+            this.game.audio.playUiSound('keypress');
+        }
+
+        detailsContainer.classList.add('node-details-active');
+        detailsContainer.innerHTML = `
+            <div class="node-details-header">
+                <div class="node-details-name">${roomName}</div>
+                <div class="node-details-status ${statusClass}">${statusText}</div>
+            </div>
+            <div class="node-details-row">
+                <div class="node-details-key">SECTOR:</div>
+                <div class="node-details-val">SEC_${coordX}-${coordY}</div>
+            </div>
+            <div class="node-details-row">
+                <div class="node-details-key">EXITS:</div>
+                <div class="node-details-val">${exitsStr}</div>
+            </div>
+        `;
+    }
+
+    resetNodeTelemetry() {
+        const detailsContainer = document.getElementById('map-node-details');
+        if (!detailsContainer) return;
+        detailsContainer.classList.remove('node-details-active');
+        detailsContainer.innerHTML = `
+            <div class="node-details-placeholder">// TELEMETRY SCANNER INITIALIZED</div>
+            <div class="node-details-hint">Hover over node to tap visual feed</div>
+        `;
     }
 }
 

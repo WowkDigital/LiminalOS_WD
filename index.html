@@ -117,13 +117,39 @@
 
         <!-- Map Panel -->
         <div id="map-panel" class="map-panel collapsed">
-            <button id="map-toggle-btn" class="map-toggle-btn">MAP</button>
+            <button id="map-toggle-btn" class="map-toggle-btn">
+                <span class="map-toggle-text">MAP</span>
+            </button>
             <div class="map-content" id="map-content">
-                <svg id="map-svg" width="100%" height="100%"></svg>
+                <div class="map-panel-header">
+                    <div class="map-header-title">
+                        <span class="map-dot-pulse"></span>
+                        <span class="map-header-tech">SYS.LOCATOR_DUMP_v5.2</span>
+                    </div>
+                    <div class="map-header-sub">SYSTEM STABILITY // RADAR ACTIVE</div>
+                </div>
+                <div class="map-stats">
+                    <div class="map-stat-box">
+                        <div class="map-stat-label">DISCOVERED</div>
+                        <div class="map-stat-value" id="map-stat-explored">0/0</div>
+                    </div>
+                    <div class="map-stat-box">
+                        <div class="map-stat-label">SANITY INDEX</div>
+                        <div class="map-stat-value" id="map-stat-stability">100%</div>
+                    </div>
+                </div>
+                <div class="map-svg-container">
+                    <svg id="map-svg" width="100%" height="100%"></svg>
+                </div>
+                <!-- Interactive Selected Node Info -->
+                <div class="map-node-details" id="map-node-details">
+                    <div class="node-details-placeholder">// TELEMETRY SCANNER INITIALIZED</div>
+                    <div class="node-details-hint">Hover over node to tap visual feed</div>
+                </div>
                 <div class="map-legend">
                     <div class="map-legend-item">
                         <div class="map-legend-dot map-legend-dot--current"></div>
-                        <span>YOU ARE HERE</span>
+                        <span>YOU</span>
                     </div>
                     <div class="map-legend-item">
                         <div class="map-legend-dot map-legend-dot--visited"></div>
