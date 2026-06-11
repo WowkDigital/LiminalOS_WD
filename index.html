@@ -11,8 +11,9 @@
     <!-- Open Graph / Facebook Metadata -->
     <meta property="og:type" content="website">
     <meta property="og:title" content="LIMINAL OS - Backrooms Explorer">
-    <meta property="og:description" content="A vanilla JS adventure game set in the Backrooms. Survive the liminal space.">
-    <meta property="og:image" content="media/images/og_image.png">
+    <meta property="og:description"
+        content="A vanilla JS adventure game set in the Backrooms. Survive the liminal space.">
+    <meta property="og:image" content="https://wowkdigital.dkonto.pl/LiminalOS/media/images/og_image.png">
     <meta property="og:image:type" content="image/png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
@@ -23,8 +24,16 @@
     <!-- Twitter Card Metadata -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="LIMINAL OS - Backrooms Explorer">
-    <meta name="twitter:description" content="A vanilla JS adventure game set in the Backrooms. Survive the liminal space.">
+    <meta name="twitter:description"
+        content="A vanilla JS adventure game set in the Backrooms. Survive the liminal space.">
     <meta name="twitter:image" content="media/images/og_image.png">
+
+    <!-- Favicon and Web App Manifest -->
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+    <link rel="manifest" href="site.webmanifest">
+    <link rel="shortcut icon" href="favicon.ico">
 
     <link rel="stylesheet" href="style.css">
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -94,7 +103,8 @@
             </div>
             <div class="terminal-input-line" id="terminal-active-line">
                 <span id="terminal-prompt">›</span>
-                <input type="text" id="terminal-input" autocomplete="off" spellcheck="false" placeholder="type command...">
+                <input type="text" id="terminal-input" autocomplete="off" spellcheck="false"
+                    placeholder="type command...">
             </div>
             <div id="terminal-options-list"></div>
         </div>
