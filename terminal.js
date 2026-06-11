@@ -11,9 +11,13 @@ const TerminalSystem = {
     terminalInputEl: null,
     terminalOptionsEl: null,
     currentState: "INITIAL",
-    history: [], // Stores last few commands/responses
+    history: [], // Stores last few commands/responses as objects { text, type }
     dialogueTree: {},
     activeChoices: [], // Currently shown options
+    cmdHistory: [],
+    cmdHistoryIndex: -1,
+    availableCommands: ['HELP', 'CLEAR', 'CLS', 'RESET', 'MAP', 'SANITY', 'DIAGNOSTICS', 'SYS', 'SCAN', 'PING', 'GO', 'MOVE', 'ACT', 'USE'],
+    currentLogType: '', // Current response log type ('success', 'error', 'warning', 'info', '')
 
     async init() {
         this.terminalTextEl = document.getElementById('terminal-text');
@@ -44,15 +48,77 @@ const TerminalSystem = {
         });
 
         // Setup input events
+        this.cmdHistory = [];
+        this.cmdHistoryIndex = -1;
+
         this.terminalInputEl.addEventListener('keydown', (e) => {
+            // Play keypress sound
+            if (window.game && window.game.audio) {
+                window.game.audio.playUiSound('keypress');
+            }
+
+            // Low sanity typing glitch
+            if (window.game && window.game.state && window.game.state.sanity < 40 && Math.random() < 0.08) {
+                if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                    e.preventDefault();
+                    const glitches = "!@#$%^&*()_+-=[]{}|;':\",./<>?/\\░▒▓█";
+                    const randChar = glitches[Math.floor(Math.random() * glitches.length)];
+                    const start = this.terminalInputEl.selectionStart;
+                    const end = this.terminalInputEl.selectionEnd;
+                    const val = this.terminalInputEl.value;
+                    this.terminalInputEl.value = val.substring(0, start) + randChar + val.substring(end);
+                    this.terminalInputEl.selectionStart = this.terminalInputEl.selectionEnd = start + 1;
+                    return;
+                }
+            }
+
             if (e.key === 'Enter') {
                 const val = this.terminalInputEl.value.trim();
                 if (val) {
                     this.handleInput(val);
+                    if (this.cmdHistory.length === 0 || this.cmdHistory[this.cmdHistory.length - 1] !== val) {
+                        this.cmdHistory.push(val);
+                    }
+                    this.cmdHistoryIndex = this.cmdHistory.length;
                 }
                 this.terminalInputEl.value = "";
             } else if (e.key === 'Escape') {
                 this.blurInput();
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (this.cmdHistory.length > 0) {
+                    if (this.cmdHistoryIndex > 0) {
+                        this.cmdHistoryIndex--;
+                    } else {
+                        this.cmdHistoryIndex = 0;
+                    }
+                    this.terminalInputEl.value = this.cmdHistory[this.cmdHistoryIndex];
+                }
+            } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (this.cmdHistory.length > 0) {
+                    if (this.cmdHistoryIndex < this.cmdHistory.length - 1) {
+                        this.cmdHistoryIndex++;
+                        this.terminalInputEl.value = this.cmdHistory[this.cmdHistoryIndex];
+                    } else {
+                        this.cmdHistoryIndex = this.cmdHistory.length;
+                        this.terminalInputEl.value = "";
+                    }
+                }
+            } else if (e.key === 'Tab') {
+                e.preventDefault();
+                const val = this.terminalInputEl.value.trim().toUpperCase();
+                if (val) {
+                    const matches = this.availableCommands.filter(c => c.startsWith(val));
+                    if (matches.length === 1) {
+                        this.terminalInputEl.value = matches[0] + " ";
+                    } else if (matches.length > 1) {
+                        this.typeResponse("SUGGESTIONS: " + matches.join(', '), null, 'info');
+                        if (window.game && window.game.audio) {
+                            window.game.audio.playUiSound('click');
+                        }
+                    }
+                }
             }
         });
 
@@ -70,9 +136,8 @@ const TerminalSystem = {
             }
         });
 
-
         // Initial welcome
-        this.typeResponse("TERMINAL INITIALIZED. CLICK TO ENTER COMMANDS.");
+        this.typeResponse("TERMINAL INITIALIZED. CLICK TO ENTER COMMANDS.", null, 'success');
     },
 
     focusInput() {
@@ -129,7 +194,7 @@ const TerminalSystem = {
     selectChoice(option) {
         // Add current prompt response to history
         const prevText = this.terminalTextEl.innerText;
-        if (prevText) this.addToHistory(prevText);
+        if (prevText) this.addToHistory(prevText, this.currentLogType);
 
         // Add selected option label to history
         this.addToHistory("> " + option.label.toUpperCase());
@@ -166,13 +231,19 @@ const TerminalSystem = {
             return;
         }
 
+        // Play feedback sounds
+        const playSuccess = () => { if (window.game && window.game.audio) window.game.audio.playUiSound('success'); };
+        const playError = () => { if (window.game && window.game.audio) window.game.audio.playUiSound('error'); };
+
         // 4. Otherwise, parse standard terminal commands:
         if (cmd === 'HELP' || cmd === '?') {
-            this.typeResponse("COMMANDS: HELP, GO [EXIT], ACT [ITEM] [STATE], MAP, SANITY, CLEAR, RESET");
+            playSuccess();
+            this.typeResponse("COMMANDS: HELP, GO [EXIT], ACT [ITEM] [STATE], MAP, SANITY, DIAGNOSTICS, SCAN, CLEAR, RESET", null, 'info');
         } else if (cmd === 'CLEAR' || cmd === 'CLS') {
             this.history = [];
             this.renderHistory();
-            this.typeResponse("TERMINAL HISTORY CLEARED.");
+            this.typeResponse("TERMINAL HISTORY CLEARED.", null, 'success');
+            playSuccess();
         } else if (cmd === 'RESET') {
             if (confirm("REBOOT SYSTEM? ALL SESSION DATA WILL BE WIPED.")) {
                 localStorage.removeItem('backrooms_session');
@@ -185,22 +256,77 @@ const TerminalSystem = {
                 mapPanel.classList.toggle('collapsed');
                 if (!mapPanel.classList.contains('collapsed')) {
                     window.game.mapGraph.update();
-                    this.typeResponse("MAP INTERFACE ACTIVATED.");
+                    this.typeResponse("MAP INTERFACE ACTIVATED.", null, 'success');
                 } else {
-                    this.typeResponse("MAP INTERFACE DEACTIVATED.");
+                    this.typeResponse("MAP INTERFACE DEACTIVATED.", null, 'warning');
                 }
+                playSuccess();
             } else {
-                this.typeResponse("MAP SYSTEM OFFLINE.");
+                this.typeResponse("MAP SYSTEM OFFLINE.", null, 'error');
+                playError();
             }
         } else if (cmd === 'SANITY') {
             const sanity = window.game ? window.game.state.sanity : 100;
             const barWidth = Math.round(sanity / 10);
             const bar = "[" + "=".repeat(barWidth) + " ".repeat(10 - barWidth) + "]";
             let level = "STABLE";
-            if (sanity < 30) level = "CRITICAL";
-            else if (sanity < 60) level = "UNSTABLE";
+            let type = 'success';
+            if (sanity < 30) {
+                level = "CRITICAL";
+                type = 'error';
+                playError();
+            } else if (sanity < 60) {
+                level = "UNSTABLE";
+                type = 'warning';
+                playError();
+            } else {
+                playSuccess();
+            }
 
-            this.typeResponse(`SANITY STATUS: ${bar} ${Math.floor(sanity)}% | LEVEL: ${level}`);
+            this.typeResponse(`SANITY STATUS: ${bar} ${Math.floor(sanity)}% | LEVEL: ${level}`, null, type);
+        } else if (cmd === 'DIAGNOSTICS' || cmd === 'SYS') {
+            if (window.game) {
+                playSuccess();
+                const sanity = window.game.state.sanity;
+                const loc = window.game.getCurrentLocation();
+                const explored = window.game.state.visitedRooms.length;
+                const total = Object.keys(window.game.world.rooms).length;
+                const seedHash = Math.abs(window.game.state.currentRoom.split('').reduce((a,b)=>{a=((a<<5)-a)+b.charCodeAt(0);return a&a},0)) % 10000;
+                
+                const stats = [
+                    "SYSTEM DIAGNOSTICS:",
+                    ` - POSITION: ${loc.getName().toUpperCase()}`,
+                    ` - VECTOR MATRIX SEED: CMD-0x${seedHash.toString(16).toUpperCase()}`,
+                    ` - SANITY LEVEL: ${Math.floor(sanity)}%`,
+                    ` - MAPPED AREA: ${explored}/${total} SECTORS REGISTERED`,
+                    ` - LOGIC MATRIX LOAD: ${(100 - sanity).toFixed(1)}%`,
+                    "SYSTEM INTEGRITY: STABLE"
+                ].join("\n");
+                
+                this.typeResponse(stats, null, 'info');
+            } else {
+                this.typeResponse("DIAGNOSTICS SERVICE OFFLINE.", null, 'error');
+                playError();
+            }
+        } else if (cmd === 'SCAN' || cmd === 'PING') {
+            if (window.game) {
+                playSuccess();
+                const exits = window.game.getCurrentLocation().getActions();
+                if (exits.length === 0) {
+                    this.typeResponse("SCANNING SENSORS... NO EXIT VECTORS DETECTED IN THIS VECTOR FIELD.", null, 'warning');
+                } else {
+                    let lines = ["SCANNING LOCAL SPACE MANIFOLD...", "EXITS DETECTED:"];
+                    exits.forEach(e => {
+                        const status = e.isUnknown ? "UNKNOWN" : "VISITED";
+                        const recommend = e.isRecommended ? " ⭐ [RECOMMENDED]" : "";
+                        lines.push(` - ${e.label.toUpperCase()} -> [${status}]${recommend}`);
+                    });
+                    this.typeResponse(lines.join("\n"), null, 'info');
+                }
+            } else {
+                this.typeResponse("ENVIRONMENTAL SCANNER OFFLINE.", null, 'error');
+                playError();
+            }
         } else if (cmd.startsWith('GO ') || cmd.startsWith('MOVE ')) {
             const exitLabel = rawCmd.substring(cmd.indexOf(' ')).trim().toUpperCase();
             if (window.game) {
@@ -211,15 +337,18 @@ const TerminalSystem = {
                     (e.extra && window.game.world.rooms[e.extra] && window.game.world.rooms[e.extra].name.toUpperCase().includes(exitLabel))
                 );
                 if (found) {
-                    this.typeResponse(`INITIATING SPACE VECTOR SHIFT TO: ${found.label.toUpperCase()}...`);
+                    playSuccess();
+                    this.typeResponse(`INITIATING SPACE VECTOR SHIFT TO: ${found.label.toUpperCase()}...`, null, 'success');
                     setTimeout(() => {
                         window.game.handleAction('tra', found.id, found.extra);
                     }, 500);
                 } else {
-                    this.typeResponse(`PATH ERROR: TRANSITION DIRECTIVE '${exitLabel}' BLOCKED OR INVALID.`);
+                    this.typeResponse(`PATH ERROR: TRANSITION DIRECTIVE '${exitLabel}' BLOCKED OR INVALID.`, null, 'error');
+                    playError();
                 }
             } else {
-                this.typeResponse("NAVIGATION ENGINE OFFLINE.");
+                this.typeResponse("NAVIGATION ENGINE OFFLINE.", null, 'error');
+                playError();
             }
         } else if (cmd.startsWith('ACT ') || cmd.startsWith('USE ')) {
             const params = rawCmd.substring(cmd.indexOf(' ')).trim().split(' ');
@@ -245,36 +374,42 @@ const TerminalSystem = {
                     if (stateSearch) {
                         const stateIdx = foundInteractable.states.findIndex(s => (s.label || s.id).toUpperCase().includes(stateSearch));
                         if (stateIdx !== -1) {
-                            this.typeResponse(`COMMAND EXECUTED: ${foundInteractable.label.toUpperCase()} STATE -> ${stateSearch}`);
+                            playSuccess();
+                            this.typeResponse(`COMMAND EXECUTED: ${foundInteractable.label.toUpperCase()} STATE -> ${stateSearch}`, null, 'success');
                             setTimeout(() => {
                                 window.game.handleAction('act', foundInterId, stateIdx);
                             }, 500);
                         } else {
                             const statesStr = foundInteractable.states.map(s => (s.label || s.id).toUpperCase()).join(', ');
-                            this.typeResponse(`STATE ERROR: VALID STATES FOR ${foundInteractable.label.toUpperCase()}: ${statesStr}`);
+                            this.typeResponse(`STATE ERROR: VALID STATES FOR ${foundInteractable.label.toUpperCase()}: ${statesStr}`, null, 'warning');
+                            playError();
                         }
                     } else {
                         // Cycle if no state specified
-                        this.typeResponse(`CYCLING CONTROL MATRIX FOR: ${foundInteractable.label.toUpperCase()}`);
+                        playSuccess();
+                        this.typeResponse(`CYCLING CONTROL MATRIX FOR: ${foundInteractable.label.toUpperCase()}`, null, 'success');
                         setTimeout(() => {
                             window.game.handleAction('act', foundInterId, null);
                         }, 500);
                     }
                 } else {
-                    this.typeResponse(`OBJECT ERROR: TARGET '${interSearch}' NOT IDENTIFIED IN LOCAL VIEW.`);
+                    this.typeResponse(`OBJECT ERROR: TARGET '${interSearch}' NOT IDENTIFIED IN LOCAL VIEW.`, null, 'error');
+                    playError();
                 }
             } else {
-                this.typeResponse("CONTROL SYSTEM OFFLINE.");
+                this.typeResponse("CONTROL SYSTEM OFFLINE.", null, 'error');
+                playError();
             }
         } else {
             // Invalid command / fallback
-            this.typeResponse(`SYNTAX ERROR: COMMAND '${cmd}' NOT FOUND. TYPE 'HELP' FOR DETAILS.`);
+            this.typeResponse(`SYNTAX ERROR: COMMAND '${cmd}' NOT FOUND. TYPE 'HELP' FOR DETAILS.`, null, 'error');
+            playError();
         }
     },
 
-    addToHistory(text) {
-        this.history.push(text);
-        if (this.history.length > 3) {
+    addToHistory(text, type = '') {
+        this.history.push({ text, type });
+        if (this.history.length > 25) {
             this.history.shift();
         }
         this.renderHistory();
@@ -283,16 +418,21 @@ const TerminalSystem = {
     renderHistory() {
         if (!this.terminalHistoryEl) return;
         this.terminalHistoryEl.innerHTML = "";
-        this.history.forEach(line => {
+        this.history.forEach(lineObj => {
             const div = document.createElement('div');
-            div.className = 'terminal-history-line';
-            div.innerText = line;
+            const type = (typeof lineObj === 'string') ? '' : lineObj.type;
+            const text = (typeof lineObj === 'string') ? lineObj : lineObj.text;
+            div.className = 'terminal-history-line' + (type ? ' log-' + type : '');
+            div.innerText = text;
             this.terminalHistoryEl.appendChild(div);
         });
         this.terminalHistoryEl.scrollTop = this.terminalHistoryEl.scrollHeight;
     },
 
-    typeResponse(text, callback) {
+    typeResponse(text, callback, logType = '') {
+        this.currentLogType = logType;
+        this.terminalTextEl.className = logType ? 'log-' + logType : '';
+        
         if (window.game) {
             // Forward typing animation to the game to use its glitchy visual typing animation
             window.game.typeTerminalText(text, callback);

@@ -324,6 +324,37 @@ class AudioEngine {
                 osc.start(now);
                 osc.stop(now + 0.05);
                 break;
+            case 'keypress':
+                // Retro mechanical keyboard click sound
+                osc.type = 'triangle';
+                const keyFreq = 600 + Math.random() * 800;
+                osc.frequency.setValueAtTime(keyFreq, now);
+                osc.frequency.exponentialRampToValueAtTime(keyFreq / 4, now + 0.03);
+                gain.gain.setValueAtTime(0.04, now);
+                gain.gain.linearRampToValueAtTime(0.001, now + 0.03);
+                osc.start(now);
+                osc.stop(now + 0.03);
+                break;
+            case 'error':
+                // Low retro beep for syntax/action error
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(120, now);
+                gain.gain.setValueAtTime(0.25, now);
+                gain.gain.linearRampToValueAtTime(0.001, now + 0.2);
+                osc.start(now);
+                osc.stop(now + 0.2);
+                break;
+            case 'success':
+                // Classic ascending retro success sound
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(400, now);
+                osc.frequency.setValueAtTime(600, now + 0.08);
+                osc.frequency.setValueAtTime(800, now + 0.16);
+                gain.gain.setValueAtTime(0.12, now);
+                gain.gain.linearRampToValueAtTime(0.001, now + 0.35);
+                osc.start(now);
+                osc.stop(now + 0.35);
+                break;
             case 'transition':
                 const transBase = 200 + (Math.random() * 60 - 30);
                 const transEnd = 50 + (Math.random() * 20 - 10);
