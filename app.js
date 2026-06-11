@@ -1108,7 +1108,7 @@ class BackroomsGame {
                         index++;
                     }
 
-                    this.terminalTimeout = setTimeout(type, Math.random() * 30 + 15);
+                    this.terminalTimeout = setTimeout(type, Math.random() * 10 + 5);
                 } else {
                     this.elements.terminalText.innerText = fullText;
                     if (window.TerminalSystem) window.TerminalSystem.isTyping = false;

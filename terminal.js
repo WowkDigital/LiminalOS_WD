@@ -493,24 +493,24 @@ const TerminalSystem = {
         if (cmd === 'HELP' || cmd === '?') {
             playSuccess();
             const helpLines = [
-                "╔══════════════════════════════════════╗",
-                "║       TERMINAL COMMAND REFERENCE      ║",
-                "╠══════════════════════════════════════╣",
-                "║  HELP      — Show this reference      ║",
-                "║  INVENTORY — List inventory items     ║",
-                "║  DRINK     — Consume Almond Water     ║",
-                "║  GO [EXIT] — Move to an exit           ║",
-                "║  ACT [OBJ] — Interact with object      ║",
-                "║  SCAN      — Scan for exits            ║",
-                "║  MAP       — Toggle map view           ║",
-                "║  SANITY    — Check sanity status       ║",
-                "║  SYS       — System diagnostics        ║",
-                "║  CLEAR     — Clear terminal history    ║",
-                "║  RESET     — Reboot system             ║",
-                "╠══════════════════════════════════════╣",
-                "║  TIP: Click options or type numbers    ║",
-                "║  KEYS: ↑↓ History · Tab Autocomplete   ║",
-                "╚══════════════════════════════════════╝"
+                "+----------------------------------------+",
+                "|     TERMINAL COMMAND REFERENCE          |",
+                "+----------------------------------------+",
+                "|  HELP      - Show this reference        |",
+                "|  INVENTORY - List inventory items       |",
+                "|  DRINK     - Consume Almond Water       |",
+                "|  GO [EXIT] - Move to an exit            |",
+                "|  ACT [OBJ] - Interact with object       |",
+                "|  SCAN      - Scan for exits             |",
+                "|  MAP       - Toggle map view            |",
+                "|  SANITY    - Check sanity status        |",
+                "|  SYS       - System diagnostics         |",
+                "|  CLEAR     - Clear terminal history     |",
+                "|  RESET     - Reboot system              |",
+                "+----------------------------------------+",
+                "|  TIP: Click options or type numbers     |",
+                "|  KEYS: Up/Dn History - Tab Autocomplete |",
+                "+----------------------------------------+"
             ];
             this.typeResponse(helpLines.join("\n"), null, 'info', '?');
         } else if (cmd === 'CLEAR' || cmd === 'CLS') {
@@ -845,7 +845,7 @@ const TerminalSystem = {
                 if (i < formattedText.length) {
                     this.terminalTextEl.innerText = formattedText.substring(0, i + 1) + "█";
                     i++;
-                    setTimeout(type, 18);
+                    setTimeout(type, 8);
                 } else {
                     this.terminalTextEl.innerText = formattedText;
                     this.isTyping = false;

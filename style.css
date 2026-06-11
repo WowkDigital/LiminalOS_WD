@@ -233,7 +233,7 @@ body {
 }
 
 #terminal-line-container.expanded {
-    max-height: 70vh;
+    max-height: 60vh;
     cursor: default;
     border-color: rgba(234, 179, 8, 0.2);
     background: rgba(6, 6, 10, 0.92);
@@ -241,10 +241,22 @@ body {
         0 8px 40px -4px rgba(0, 0, 0, 0.8),
         0 0 20px rgba(234, 179, 8, 0.06),
         inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    overflow-y: auto;
 }
 
 #terminal-line-container.focused {
     border-color: rgba(234, 179, 8, 0.3) !important;
+}
+
+#terminal-line-container::-webkit-scrollbar {
+    width: 3px;
+}
+#terminal-line-container::-webkit-scrollbar-track {
+    background: transparent;
+}
+#terminal-line-container::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 2px;
 }
 
 /* ---- Terminal Header ---- */
@@ -395,8 +407,8 @@ body {
 .terminal-history-line {
     opacity: 0.8;
     font-size: 0.72rem;
-    white-space: pre-wrap;
-    word-break: break-word;
+    white-space: pre;
+    overflow-x: auto;
     color: var(--text-secondary);
     margin-bottom: 0.35rem;
     line-height: 1.4;
@@ -405,6 +417,17 @@ body {
     gap: 0.4rem;
     padding: 0.15rem 0;
     animation: historyFadeIn 0.2s ease;
+}
+
+.terminal-history-line::-webkit-scrollbar {
+    height: 2px;
+}
+.terminal-history-line::-webkit-scrollbar-track {
+    background: transparent;
+}
+.terminal-history-line::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 2px;
 }
 
 @keyframes historyFadeIn {
@@ -457,10 +480,24 @@ body {
     gap: 0.5rem;
     padding: 0.4rem 0.85rem;
     min-height: 0;
+    flex-shrink: 0;
+    max-height: 10rem;
+    overflow-y: auto;
 }
 
 #terminal-line-container.expanded .terminal-output-line {
     display: flex;
+}
+
+.terminal-output-line::-webkit-scrollbar {
+    width: 3px;
+}
+.terminal-output-line::-webkit-scrollbar-track {
+    background: transparent;
+}
+.terminal-output-line::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 2px;
 }
 
 .output-prompt {
@@ -473,11 +510,22 @@ body {
 
 #terminal-text {
     flex: 1;
-    white-space: pre-wrap;
-    word-break: break-word;
+    white-space: pre;
+    overflow-x: auto;
     color: var(--text-main);
     line-height: 1.4;
     font-size: 0.75rem;
+}
+
+#terminal-text::-webkit-scrollbar {
+    height: 3px;
+}
+#terminal-text::-webkit-scrollbar-track {
+    background: transparent;
+}
+#terminal-text::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 2px;
 }
 
 #terminal-text:empty + .output-prompt,
@@ -524,12 +572,14 @@ body {
     overflow: hidden;
     transition: max-height 0.35s ease, opacity 0.3s ease;
     padding: 0 0.6rem;
+    flex-shrink: 0;
 }
 
 #terminal-line-container.expanded #terminal-options-list {
-    max-height: 20rem;
+    max-height: 16rem;
     opacity: 1;
     padding-bottom: 0.6rem;
+    overflow-y: auto;
 }
 
 /* Options separator label */
