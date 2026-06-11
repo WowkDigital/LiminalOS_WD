@@ -38,7 +38,7 @@ class Location {
 class RoomLocation extends Location {
     constructor(game, id) {
         super(game, id);
-        this.data = this.game.world.rooms[id] || {};
+        this.data = (this.game.world && this.game.world.rooms) ? (this.game.world.rooms[id] || {}) : {};
 
         // Transitions are now global and generated at start
     }
@@ -141,9 +141,11 @@ class TransitionLocation extends Location {
         this.definition = null;
 
         // Resolve Definition
-        for (const category in this.game.world.transition_types) {
-            const t = this.game.world.transition_types[category].find(item => item.id === this.id);
-            if (t) { this.definition = { ...t, category }; break; }
+        if (this.game.world && this.game.world.transition_types) {
+            for (const category in this.game.world.transition_types) {
+                const t = this.game.world.transition_types[category].find(item => item.id === this.id);
+                if (t) { this.definition = { ...t, category }; break; }
+            }
         }
     }
 
@@ -539,6 +541,7 @@ class BackroomsGame {
      * Factory method to get the current abstract Location object
      */
     getCurrentLocation() {
+        if (!this.world) return null;
         if (this.state.isTransitioning && this.state.transitionContext) {
             return new TransitionLocation(this, this.state.transitionContext);
         } else {

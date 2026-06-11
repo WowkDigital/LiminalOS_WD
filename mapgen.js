@@ -186,15 +186,12 @@ class MapGenerator {
         const roomIds = Object.keys(this.game.world.rooms);
         const bfsDepth = this._computeBFSDepth(startId, transitions);
 
-        // Group nodes by BFS depth layer
-        const byDepth = {};
+        // Find max depth to scale layout height
+        let maxDepth = 1;
         roomIds.forEach(id => {
-            const d = bfsDepth[id] !== undefined ? bfsDepth[id] : 999;
-            (byDepth[d] = byDepth[d] || []).push(id);
+            const d = bfsDepth[id] !== undefined ? bfsDepth[id] : 0;
+            if (d > maxDepth) maxDepth = d;
         });
-
-        const depths = Object.keys(byDepth).map(Number).sort((a, b) => a - b);
-        const layerCount = depths.length;
 
         // Logical space size
         const width = 800;
@@ -203,130 +200,171 @@ class MapGenerator {
         const usableW = width - PAD * 2;
         const usableH = height - PAD * 2;
 
-        // Target Y per layer
-        const layerY = {};
-        depths.forEach((d, i) => {
-            layerY[d] = layerCount === 1
-                ? PAD + usableH / 2
-                : PAD + (i / (layerCount - 1)) * usableH;
-        });
-
-        // Initial positions: spread within each layer
+        // Initialize positions: hierarchy-based top-to-bottom layout with random horizontal scatter
         const pos = {};
-        depths.forEach(d => {
-            const nodes = byDepth[d];
-            nodes.forEach((id, colIdx) => {
-                const count = nodes.length;
-                const segW = count > 1 ? usableW / (count - 1) : 0;
-                const baseX = count === 1
-                    ? PAD + usableW / 2
-                    : PAD + colIdx * segW;
-                
-                // Tiny deterministic jitter
-                let hash = 0;
-                for (let k = 0; k < id.length; k++) hash = (hash * 31 + id.charCodeAt(k)) | 0;
-                const jitter = (Math.abs(hash % 20) - 10);
-                pos[id] = { x: baseX + jitter, y: layerY[d], vx: 0, vy: 0 };
-            });
+        roomIds.forEach(id => {
+            const d = bfsDepth[id] !== undefined ? bfsDepth[id] : maxDepth + 1;
+            // Target layer Y
+            const targetY = PAD + (d / (maxDepth + 1)) * usableH;
+            
+            // Generate deterministic offset based on roomId string hash
+            let hash = 0;
+            for (let k = 0; k < id.length; k++) {
+                hash = (hash * 31 + id.charCodeAt(k)) | 0;
+            }
+            const offsetFraction = ((Math.abs(hash) % 100) / 100) - 0.5; // -0.5 to 0.5
+            const startX = (width / 2) + offsetFraction * (usableW * 0.4);
+
+            pos[id] = {
+                x: startX,
+                y: targetY,
+                vx: 0,
+                vy: 0,
+                depth: d
+            };
         });
 
-        // Collect all edges in the world
+        // Extract unique edges in the graph
         const edges = [];
+        const seenEdges = new Set();
         roomIds.forEach(source => {
             (transitions[source] || []).forEach(exit => {
-                edges.push({ source, target: exit.target });
+                const target = exit.target;
+                const edgeKey = source < target ? `${source}-${target}` : `${target}-${source}`;
+                if (!seenEdges.has(edgeKey)) {
+                    edges.push({ source, target });
+                    seenEdges.add(edgeKey);
+                }
             });
         });
 
-        // Run force simulation: 300 iterations for highly polished layout
-        const TARGET_D = 180;  // ideal spring length
-        const REPEL_D = 160;   // soft repulsion radius
-        const MIN_DIST = 110;  // hard minimum distance
-        const SPRING_K = 0.12;
-        const REPEL_K = 600;
-        const LAYER_K = 0.1;
+        // Simulation parameters
+        const totalIterations = 600;
+        const idealLength = 160;     // Ideal link distance
+        const kAttraction = 0.08;   // Spring constant
+        const kRepulsion = 150000;  // Node repulsion strength (charge)
+        const kGravityX = 0.03;     // Pull toward horizontal center
+        const kGravityY = 0.08;     // Pull toward target hierarchical Y
+        const minDistance = 110;    // Hard collision limit
+        const damping = 0.85;
 
-        for (let iter = 0; iter < 300; iter++) {
-            // --- Soft repulsion between all pairs ---
+        for (let iter = 0; iter < totalIterations; iter++) {
+            // Cool down the system temperature from 1.0 to 0.05
+            const temp = 1.0 - (iter / totalIterations) * 0.95;
+
+            // 1. Repulsive forces (all pairs repel)
             for (let i = 0; i < roomIds.length; i++) {
                 for (let j = i + 1; j < roomIds.length; j++) {
-                    const a = pos[roomIds[i]];
-                    const b = pos[roomIds[j]];
-                    const dx = a.x - b.x;
-                    const dy = a.y - b.y;
-                    const dist = Math.sqrt(dx * dx + dy * dy) || 0.1;
-                    if (dist < REPEL_D) {
-                        const f = REPEL_K / (dist * dist);
-                        const ux = dx / dist, uy = dy / dist;
-                        a.vx += ux * f; a.vy += uy * f;
-                        b.vx -= ux * f; b.vy -= uy * f;
-                    }
+                    const idA = roomIds[i];
+                    const idB = roomIds[j];
+                    const nodeA = pos[idA];
+                    const nodeB = pos[idB];
+
+                    const dx = nodeA.x - nodeB.x;
+                    const dy = nodeA.y - nodeB.y;
+                    const distSq = dx * dx + dy * dy || 1;
+                    const dist = Math.sqrt(distSq);
+
+                    // Repulsion force inversely proportional to distance squared
+                    const force = kRepulsion / Math.max(100, distSq);
+                    const ux = dx / dist;
+                    const uy = dy / dist;
+
+                    nodeA.vx += ux * force;
+                    nodeA.vy += uy * force;
+                    nodeB.vx -= ux * force;
+                    nodeB.vy -= uy * force;
                 }
             }
 
-            // --- Spring attraction between connected nodes ---
+            // 2. Attractive forces (links pull connected nodes)
             edges.forEach(({ source, target }) => {
-                const a = pos[source];
-                const b = pos[target];
-                if (!a || !b) return;
-                const dx = b.x - a.x;
-                const dy = b.y - a.y;
-                const dist = Math.sqrt(dx * dx + dy * dy) || 0.1;
-                const f = (dist - TARGET_D) * SPRING_K;
-                const ux = dx / dist, uy = dy / dist;
-                a.vx += ux * f; a.vy += uy * f;
-                b.vx -= ux * f; b.vy -= uy * f;
+                const nodeA = pos[source];
+                const nodeB = pos[target];
+                if (!nodeA || !nodeB) return;
+
+                const dx = nodeB.x - nodeA.x;
+                const dy = nodeB.y - nodeA.y;
+                const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+
+                // Hooke's Law spring force
+                const force = (dist - idealLength) * kAttraction;
+                const ux = dx / dist;
+                const uy = dy / dist;
+
+                nodeA.vx += ux * force;
+                nodeA.vy += uy * force;
+                nodeB.vx -= ux * force;
+                nodeB.vy -= uy * force;
             });
 
-            // --- Soft pull toward BFS layer Y ---
+            // 3. Gravity and target depth pull (hierarchical guidance)
             roomIds.forEach(id => {
-                const n = pos[id];
-                const d = bfsDepth[id] !== undefined ? bfsDepth[id] : 999;
-                if (layerY[d] !== undefined) {
-                    n.vy += (layerY[d] - n.y) * LAYER_K;
-                }
+                const node = pos[id];
+                const targetY = PAD + (node.depth / (maxDepth + 1)) * usableH;
+
+                // Soft pull toward x = 400 (horizontal center)
+                node.vx += (400 - node.x) * kGravityX;
+
+                // Soft pull toward hierarchical target Y
+                node.vy += (targetY - node.y) * kGravityY;
             });
 
-            // --- Integrate + dampen + clamp to logical bounds ---
+            // 4. Update positions, apply temperature damping, clamp to canvas bounds
             roomIds.forEach(id => {
-                const n = pos[id];
-                n.x += n.vx;
-                n.y += n.vy;
-                n.vx *= 0.45;
-                n.vy *= 0.45;
-                n.x = Math.max(PAD, Math.min(width - PAD, n.x));
-                n.y = Math.max(PAD, Math.min(height - PAD, n.y));
+                const node = pos[id];
+
+                // Apply velocity scaled by temperature
+                node.x += node.vx * temp;
+                node.y += node.vy * temp;
+
+                // Apply damping
+                node.vx *= damping;
+                node.vy *= damping;
+
+                // Keep inside canvas bounds
+                node.x = Math.max(PAD, Math.min(width - PAD, node.x));
+                node.y = Math.max(PAD, Math.min(height - PAD, node.y));
             });
 
-            // --- Hard separation pass ---
-            for (let sp = 0; sp < 4; sp++) {
+            // 5. Post-pass collision prevention (hard separation push)
+            for (let pushPass = 0; pushPass < 3; pushPass++) {
                 for (let i = 0; i < roomIds.length; i++) {
                     for (let j = i + 1; j < roomIds.length; j++) {
-                        const a = pos[roomIds[i]];
-                        const b = pos[roomIds[j]];
-                        const dx = a.x - b.x;
-                        const dy = a.y - b.y;
-                        const distSq = dx * dx + dy * dy;
-                        if (distSq < MIN_DIST * MIN_DIST && distSq > 0) {
-                            const dist = Math.sqrt(distSq);
-                            const push = (MIN_DIST - dist) * 0.5;
-                            const ux = dx / dist, uy = dy / dist;
-                            a.x += ux * push;
-                            a.y += uy * push;
-                            b.x -= ux * push;
-                            b.y -= uy * push;
-                            
-                            a.x = Math.max(PAD, Math.min(width - PAD, a.x));
-                            a.y = Math.max(PAD, Math.min(height - PAD, a.y));
-                            b.x = Math.max(PAD, Math.min(width - PAD, b.x));
-                            b.y = Math.max(PAD, Math.min(height - PAD, b.y));
+                        const nodeA = pos[roomIds[i]];
+                        const nodeB = pos[roomIds[j]];
+
+                        let dx = nodeA.x - nodeB.x;
+                        let dy = nodeA.y - nodeB.y;
+                        let dist = Math.sqrt(dx * dx + dy * dy);
+
+                        if (dist < minDistance) {
+                            if (dist === 0) {
+                                dx = (Math.random() - 0.5) * 2;
+                                dy = (Math.random() - 0.5) * 2;
+                                dist = Math.sqrt(dx * dx + dy * dy) || 0.1;
+                            }
+                            const push = (minDistance - dist) * 0.5;
+                            const ux = dx / dist;
+                            const uy = dy / dist;
+
+                            nodeA.x += ux * push;
+                            nodeA.y += uy * push;
+                            nodeB.x -= ux * push;
+                            nodeB.y -= uy * push;
+
+                            // Keep inside canvas bounds
+                            nodeA.x = Math.max(PAD, Math.min(width - PAD, nodeA.x));
+                            nodeA.y = Math.max(PAD, Math.min(height - PAD, nodeA.y));
+                            nodeB.x = Math.max(PAD, Math.min(width - PAD, nodeB.x));
+                            nodeB.y = Math.max(PAD, Math.min(height - PAD, nodeB.y));
                         }
                     }
                 }
             }
         }
 
-        // Return coordinates mapped by ID
+        // Return final optimized layout positions
         const result = {};
         roomIds.forEach(id => {
             result[id] = { x: pos[id].x, y: pos[id].y };
@@ -402,25 +440,180 @@ class MapGraph {
             (state.roomTransitions[roomId] || []).forEach(e => visible.add(e.target));
         });
 
+        // Determine current room
+        const currentRoom = state.isTransitioning
+            ? state.transitionContext?.target
+            : state.currentRoom;
+
+        if (currentRoom) {
+            visible.add(currentRoom);
+        }
+
+        // Center coordinates
+        const cx = this.width / 2;
+        const cy = this.height / 2;
+
         // Get precalculated logical positions
         const mapPositions = state.mapPositions || {};
+        const currentLogical = mapPositions[currentRoom] || { x: 400, y: 600 };
 
-        // Scale factors: map from logical 800x1200 to actual this.width x this.height
-        const padX = 35;
-        const padY = 40;
-        const scaleX = (x) => padX + (x / 800) * (this.width - padX * 2);
-        const scaleY = (y) => padY + (y / 1200) * (this.height - padY * 2);
+        // Scale factors to map logical offset to screen coordinates
+        const scaleX = (this.width - 70) / 800;
+        const scaleY = (this.height - 80) / 1200;
 
+        // Initialize positions: offset relative to the centered current room
         const pos = {};
         visible.forEach(id => {
-            const logicalPos = mapPositions[id] || { x: 400, y: 600 };
-            pos[id] = {
-                x: scaleX(logicalPos.x),
-                y: scaleY(logicalPos.y)
-            };
+            if (id === currentRoom) {
+                pos[id] = { x: cx, y: cy, vx: 0, vy: 0, fixed: true };
+            } else {
+                const logicalPos = mapPositions[id] || { x: 400, y: 600 };
+                let dx = (logicalPos.x - currentLogical.x) * scaleX;
+                let dy = (logicalPos.y - currentLogical.y) * scaleY;
+
+                // Cap initial distance to prevent extreme offsets
+                const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+                const maxOffset = Math.min(this.width, this.height) * 0.45;
+                if (dist > maxOffset) {
+                    dx = (dx / dist) * maxOffset;
+                    dy = (dy / dist) * maxOffset;
+                }
+
+                pos[id] = {
+                    x: cx + dx,
+                    y: cy + dy,
+                    vx: 0,
+                    vy: 0,
+                    fixed: false
+                };
+            }
         });
 
         const edges = this._buildEdges(visited);
+
+        // Run a fast, localized force simulation (150 iterations)
+        const allNodes = Object.keys(pos);
+        const idealLength = 95;
+        const kAttraction = 0.15;
+        const kRepulsion = 22000;
+        const kGravity = 0.06;
+        const minDistance = 72;
+        const damping = 0.8;
+
+        for (let iter = 0; iter < 150; iter++) {
+            const temp = 1.0 - (iter / 150) * 0.9; // simulated cooling
+
+            // 1. Repulsion forces
+            for (let i = 0; i < allNodes.length; i++) {
+                for (let j = i + 1; j < allNodes.length; j++) {
+                    const nodeA = pos[allNodes[i]];
+                    const nodeB = pos[allNodes[j]];
+
+                    const dx = nodeA.x - nodeB.x;
+                    const dy = nodeA.y - nodeB.y;
+                    const distSq = dx * dx + dy * dy || 1;
+                    const dist = Math.sqrt(distSq);
+
+                    const force = kRepulsion / Math.max(25, distSq);
+                    const ux = dx / dist;
+                    const uy = dy / dist;
+
+                    if (!nodeA.fixed) { nodeA.vx += ux * force; nodeA.vy += uy * force; }
+                    if (!nodeB.fixed) { nodeB.vx -= ux * force; nodeB.vy -= uy * force; }
+                }
+            }
+
+            // 2. Attraction forces along connections
+            edges.forEach(({ source, target }) => {
+                const nodeA = pos[source];
+                const nodeB = pos[target];
+                if (!nodeA || !nodeB) return;
+
+                const dx = nodeB.x - nodeA.x;
+                const dy = nodeB.y - nodeA.y;
+                const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+
+                const force = (dist - idealLength) * kAttraction;
+                const ux = dx / dist;
+                const uy = dy / dist;
+
+                if (!nodeA.fixed) { nodeA.vx += ux * force; nodeA.vy += uy * force; }
+                if (!nodeB.fixed) { nodeB.vx -= ux * force; nodeB.vy -= uy * force; }
+            });
+
+            // 3. Gravity toward center for non-fixed nodes
+            allNodes.forEach(id => {
+                const node = pos[id];
+                if (node.fixed) return;
+
+                node.vx += (cx - node.x) * kGravity;
+                node.vy += (cy - node.y) * kGravity;
+            });
+
+            // 4. Update coordinates, damping, and viewport clamping
+            const padX = 30;
+            const padY = 35;
+            allNodes.forEach(id => {
+                const node = pos[id];
+                if (node.fixed) return;
+
+                node.x += node.vx * temp;
+                node.y += node.vy * temp;
+
+                node.vx *= damping;
+                node.vy *= damping;
+
+                node.x = Math.max(padX, Math.min(this.width - padX, node.x));
+                node.y = Math.max(padY, Math.min(this.height - padY, node.y));
+            });
+
+            // 5. Collision resolution push pass
+            for (let i = 0; i < allNodes.length; i++) {
+                for (let j = i + 1; j < allNodes.length; j++) {
+                    const nodeA = pos[allNodes[i]];
+                    const nodeB = pos[allNodes[j]];
+                    if (!nodeA || !nodeB) continue;
+
+                    let dx = nodeA.x - nodeB.x;
+                    let dy = nodeA.y - nodeB.y;
+                    let dist = Math.sqrt(dx * dx + dy * dy);
+
+                    if (dist < minDistance) {
+                        if (dist === 0) {
+                            dx = (Math.random() - 0.5) * 2;
+                            dy = (Math.random() - 0.5) * 2;
+                            dist = Math.sqrt(dx * dx + dy * dy) || 0.1;
+                        }
+                        const push = minDistance - dist;
+                        const ux = dx / dist;
+                        const uy = dy / dist;
+
+                        if (nodeA.fixed) {
+                            nodeB.x -= ux * push;
+                            nodeB.y -= uy * push;
+                        } else if (nodeB.fixed) {
+                            nodeA.x += ux * push;
+                            nodeA.y += uy * push;
+                        } else {
+                            nodeA.x += ux * push * 0.5;
+                            nodeA.y += uy * push * 0.5;
+                            nodeB.x -= ux * push * 0.5;
+                            nodeB.y -= uy * push * 0.5;
+                        }
+
+                        // Re-clamp
+                        if (!nodeA.fixed) {
+                            nodeA.x = Math.max(padX, Math.min(this.width - padX, nodeA.x));
+                            nodeA.y = Math.max(padY, Math.min(this.height - padY, nodeA.y));
+                        }
+                        if (!nodeB.fixed) {
+                            nodeB.x = Math.max(padX, Math.min(this.width - padX, nodeB.x));
+                            nodeB.y = Math.max(padY, Math.min(this.height - padY, nodeB.y));
+                        }
+                    }
+                }
+            }
+        }
 
         return { pos, edges, visited };
     }
