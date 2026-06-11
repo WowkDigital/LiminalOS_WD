@@ -124,6 +124,9 @@ if (isset($_SESSION['admin_auth']) && $_SESSION['admin_auth'] === true):
                     <input type="file" id="all-import-input" accept=".json" style="display:none">
                 </label>
                 <div class="separator"></div>
+                <div class="nav-title">Diagnostics</div>
+                <button id="btn-tests" class="nav-btn"><i data-lucide="shield-check"></i> Unit Tests</button>
+                <div class="separator"></div>
                 <a href="../index.html" target="_blank" class="nav-link"><i data-lucide="external-link"></i> Open
                     Game</a>
                 <a href="?logout=1" class="nav-link" style="color: var(--error);"><i data-lucide="log-out"></i> Log Out</a>
@@ -590,6 +593,58 @@ if (isset($_SESSION['admin_auth']) && $_SESSION['admin_auth'] === true):
                         <div id="sfx-tab-ui" class="sfx-tab-content hidden">
                             <p class="small-dim">Sounds for button clicks and UI events.</p>
                             <div id="ui-mapping-list" class="mapping-container"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Unit Tests / Diagnostics View -->
+            <section id="view-tests" class="view hidden">
+                <header class="section-header">
+                    <div>
+                        <h2>Diagnostics & Unit Tests</h2>
+                        <p class="subtitle">Run validation suites to verify backend integrity, schema alignment, and dynamic API endpoints.</p>
+                    </div>
+                    <div class="header-actions">
+                        <button id="btn-run-tests" class="btn-primary">
+                            <i data-lucide="play" style="width: 16px; height: 16px; display: inline-block; vertical-align: middle; margin-right: 5px;"></i>
+                            Run Test Suite
+                        </button>
+                    </div>
+                </header>
+
+                <div class="tests-layout">
+                    <!-- Test Results Panel -->
+                    <div class="tests-card">
+                        <div class="box-header">
+                            <i data-lucide="shield-check" class="accent"></i>
+                            <div>
+                                <h3>Test Runner Results</h3>
+                                <p class="small-dim">System assertions status.</p>
+                            </div>
+                        </div>
+
+                        <!-- Summary Counters -->
+                        <div id="tests-summary-bar" class="tests-summary-container hidden">
+                            <div class="summary-metric">
+                                <span class="metric-val" id="tests-count-total">0</span>
+                                <span class="metric-lbl">Total Tests</span>
+                            </div>
+                            <div class="summary-metric success">
+                                <span class="metric-val" id="tests-count-passed">0</span>
+                                <span class="metric-lbl">Passed</span>
+                            </div>
+                            <div class="summary-metric error">
+                                <span class="metric-val" id="tests-count-failed">0</span>
+                                <span class="metric-lbl">Failed</span>
+                            </div>
+                        </div>
+
+                        <div id="tests-results-list" class="tests-results-list">
+                            <div class="empty">
+                                <i data-lucide="play-circle" style="width: 32px; height: 32px; opacity: 0.5; margin-bottom: 8px;"></i>
+                                <p>Initiate diagnostic scan to execute backend assertions.</p>
+                            </div>
                         </div>
                     </div>
                 </div>

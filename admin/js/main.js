@@ -59,6 +59,7 @@ import {
     clearRequirements, 
     saveRequirementsToState 
 } from './requirements.js';
+import { runDiagnosticsSuite } from './tests.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     // Initialize static icons
@@ -76,12 +77,13 @@ document.addEventListener('DOMContentLoaded', () => {
         interactables: renderInteractablesList,
         transitions: renderTransitionsList,
         taxonomy: fetchTaxonomy,
-        sfx: fetchAudioData
+        sfx: fetchAudioData,
+        tests: () => {}
     };
 
     const validViews = [
         'dashboard', 'media', 'interactables', 'transitions', 
-        'taxonomy', 'sfx', 'editor', 'interEditor', 'transEditor'
+        'taxonomy', 'sfx', 'editor', 'interEditor', 'transEditor', 'tests'
     ];
 
     // Navigation - Hash Based
@@ -99,6 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-transitions').addEventListener('click', () => navigate('transitions'));
     document.getElementById('btn-taxonomy').addEventListener('click', () => navigate('taxonomy'));
     document.getElementById('btn-sfx').addEventListener('click', () => navigate('sfx'));
+    document.getElementById('btn-tests').addEventListener('click', () => navigate('tests'));
 
     // Create New Record bindings
     document.getElementById('btn-add-room').addEventListener('click', () => { navigate('editor'); openEditor(); });
@@ -119,6 +122,9 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-delete-room').addEventListener('click', handleDeleteRoom);
     document.getElementById('btn-delete-interactable').addEventListener('click', handleDeleteInteractable);
     document.getElementById('btn-delete-transition').addEventListener('click', handleDeleteTransition);
+
+    // Diagnostics bindings
+    document.getElementById('btn-run-tests').addEventListener('click', runDiagnosticsSuite);
 
     // JSON export/copy helper bindings
     document.getElementById('btn-copy-room-json').addEventListener('click', () => {

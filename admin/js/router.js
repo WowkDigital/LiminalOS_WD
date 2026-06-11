@@ -9,7 +9,8 @@ const views = {
     transitions: document.getElementById('view-transitions'),
     transEditor: document.getElementById('view-transition-editor'),
     taxonomy: document.getElementById('view-taxonomy'),
-    sfx: document.getElementById('view-sfx')
+    sfx: document.getElementById('view-sfx'),
+    tests: document.getElementById('view-tests')
 };
 
 export const navigate = (view) => window.location.hash = view;
