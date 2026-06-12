@@ -211,10 +211,115 @@ class TransitionLocation extends Location {
     }
 }
 
+/* === EFFECT STRATEGIES === */
+
+class EffectStrategyRegistry {
+    constructor(game) {
+        this.game = game;
+        this.strategies = new Map();
+    }
+
+    register(type, strategy) {
+        this.strategies.set(type, strategy);
+    }
+
+    execute(effect) {
+        const strategy = this.strategies.get(effect.type);
+        if (strategy) {
+            return strategy.execute(effect, this.game);
+        } else {
+            console.warn(`LIMINAL OS: Unhandled effect type: ${effect.type}`);
+            return false;
+        }
+    }
+}
+
+class SfxEffectStrategy {
+    execute(eff, game) {
+        const soundName = eff.value || eff.asset || eff.id;
+        if (soundName && game.audio) {
+            const uiSounds = ['click', 'keypress', 'success', 'error', 'arrival', 'glitch'];
+            if (uiSounds.includes(soundName)) {
+                game.audio.playUiSound(soundName);
+            } else {
+                game.audio.playSfx(soundName);
+            }
+        }
+        return false;
+    }
+}
+
+class SanityEffectStrategy {
+    execute(eff, game) {
+        const change = parseInt(eff.value);
+        if (!isNaN(change)) {
+            game.state.sanity = Math.max(0, Math.min(100, game.state.sanity + change));
+            return true;
+        }
+        return false;
+    }
+}
+
+class GlitchEffectStrategy {
+    execute(eff, game) {
+        game.updateGlitchEffects(game.state.sanity - (eff.intensity || 0));
+        setTimeout(() => game.updateGlitchEffects(game.state.sanity), eff.duration || 500);
+        return false;
+    }
+}
+
+class MoveEffectStrategy {
+    execute(eff, game) {
+        const targetRoom = eff.value || eff.room;
+        if (targetRoom) {
+            game.handleAction('mov', targetRoom);
+        }
+        return false;
+    }
+}
+
+class ActEffectStrategy {
+    execute(eff, game) {
+        const interId = eff.id || eff.interactable_id;
+        const stateIdx = eff.state !== undefined ? eff.state : eff.value;
+        if (interId !== undefined && stateIdx !== undefined) {
+            game.handleAction('act', interId, stateIdx);
+        }
+        return false;
+    }
+}
+
+class ItemEffectStrategy {
+    execute(eff, game) {
+        const itemName = eff.item || eff.name || eff.value;
+        const amount = eff.amount !== undefined ? eff.amount : (eff.value !== undefined ? eff.value : 1);
+        if (itemName) {
+            if (!game.state.inventory) game.state.inventory = {};
+            game.state.inventory[itemName] = Math.max(0, (game.state.inventory[itemName] || 0) + amount);
+            if (window.TerminalSystem) {
+                const sign = amount > 0 ? "+" : "";
+                const logMsg = `INVENTORY: ${sign}${amount} ${itemName.replace('_', ' ').toUpperCase()}`;
+                window.TerminalSystem.addToHistory(logMsg, amount > 0 ? 'success' : 'warning', '◆');
+            }
+            return true;
+        }
+        return false;
+    }
+}
+
 class BackroomsGame {
     constructor() {
         this.world = null;
         this.audio = new AudioEngine();
+
+        // Setup effect strategies
+        this.effectRegistry = new EffectStrategyRegistry(this);
+        this.effectRegistry.register('sfx', new SfxEffectStrategy());
+        this.effectRegistry.register('sanity', new SanityEffectStrategy());
+        this.effectRegistry.register('glitch', new GlitchEffectStrategy());
+        this.effectRegistry.register('move', new MoveEffectStrategy());
+        this.effectRegistry.register('act', new ActEffectStrategy());
+        this.effectRegistry.register('item', new ItemEffectStrategy());
 
         // Background display parameters
         this.bgMargin = 20; // Default margin in pixels (top and bottom)
@@ -295,6 +400,17 @@ class BackroomsGame {
                 interactables: data.interactables
             };
             this.imageIndex = data.image_index;
+
+            // Load sfx manifest
+            try {
+                const sfxRes = await fetch('media/sound_effects/sfx_manifest.json');
+                if (sfxRes.ok) {
+                    this.sfxManifest = await sfxRes.json();
+                    console.log("LIMINAL OS: SFX Manifest loaded successfully");
+                }
+            } catch (e) {
+                console.warn("Failed to load sfx_manifest.json:", e);
+            }
 
             // Initialize interactable states
             Object.keys(this.world.interactables).forEach(interId => {
@@ -676,6 +792,18 @@ class BackroomsGame {
             this.state.isTransitioning = true;
             this.state.transitionContext = { id: value, target: extra };
 
+            // Trigger transition effects!
+            let transitionDef = null;
+            if (this.world && this.world.transition_types) {
+                for (const category in this.world.transition_types) {
+                    const t = this.world.transition_types[category].find(item => item.id === value);
+                    if (t) { transitionDef = t; break; }
+                }
+            }
+            if (transitionDef && transitionDef.effects) {
+                this.processEffects(transitionDef.effects);
+            }
+
             // Update terminal for transition (use inline texts from transition data)
             this.updateTerminalText(value);
         } else if (type === 'mov') {
@@ -703,6 +831,11 @@ class BackroomsGame {
             const roomData = this.world.rooms[this.state.currentRoom];
             if (roomData && roomData.tags) {
                 this.playMatchingSfx(roomData.tags);
+            }
+
+            // Trigger room entry effects!
+            if (roomData && roomData.effects) {
+                this.processEffects(roomData.effects);
             }
 
             // Update terminal text for the room
@@ -749,46 +882,13 @@ class BackroomsGame {
 
         effects.forEach(eff => {
             console.log("Effect trigger:", eff);
-            if (eff.type === 'sfx' || eff.type === 'sound') {
-                const soundName = eff.value || eff.asset || eff.id;
-                if (soundName && this.audio) {
-                    const uiSounds = ['click', 'keypress', 'success', 'error', 'arrival', 'glitch'];
-                    if (uiSounds.includes(soundName)) {
-                        this.audio.playUiSound(soundName);
-                    } else {
-                        this.audio.playSfx(soundName);
-                    }
-                }
-            } else if (eff.type === 'sanity') {
-                this.state.sanity = Math.max(0, Math.min(100, this.state.sanity + eff.value));
+            // Support alternate spellings
+            const type = eff.type === 'sound' ? 'sfx' : (eff.type === 'interactable' ? 'act' : eff.type);
+            const normalizedEff = { ...eff, type };
+            
+            const changed = this.effectRegistry.execute(normalizedEff);
+            if (changed) {
                 hasChange = true;
-            } else if (eff.type === 'glitch') {
-                this.updateGlitchEffects(this.state.sanity - (eff.intensity || 0));
-                setTimeout(() => this.updateGlitchEffects(this.state.sanity), eff.duration || 500);
-            } else if (eff.type === 'move') {
-                const targetRoom = eff.value || eff.room;
-                if (targetRoom) {
-                    this.handleAction('mov', targetRoom);
-                }
-            } else if (eff.type === 'act' || eff.type === 'interactable') {
-                const interId = eff.id || eff.interactable_id;
-                const stateIdx = eff.state !== undefined ? eff.state : eff.value;
-                if (interId !== undefined && stateIdx !== undefined) {
-                    this.handleAction('act', interId, stateIdx);
-                }
-            } else if (eff.type === 'item') {
-                const itemName = eff.item || eff.name || eff.value;
-                const amount = eff.amount !== undefined ? eff.amount : (eff.value !== undefined ? eff.value : 1);
-                if (itemName) {
-                    if (!this.state.inventory) this.state.inventory = {};
-                    this.state.inventory[itemName] = Math.max(0, (this.state.inventory[itemName] || 0) + amount);
-                    hasChange = true;
-                    if (window.TerminalSystem) {
-                        const sign = amount > 0 ? "+" : "";
-                        const logMsg = `INVENTORY: ${sign}${amount} ${itemName.replace('_', ' ').toUpperCase()}`;
-                        window.TerminalSystem.addToHistory(logMsg, amount > 0 ? 'success' : 'warning', '◆');
-                    }
-                }
             }
         });
 

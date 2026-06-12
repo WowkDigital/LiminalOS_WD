@@ -114,7 +114,7 @@ class AudioEngine {
      * stateId is the string ID from interactables.json (e.g. "on", "flickering", "off", "closed", etc.)
      * If stateId is null, stop the sound.
      */
-    setEnvironmentSound(id, stateId) {
+    async setEnvironmentSound(id, stateId) {
         if (!this.ctx || !this.enabled) return;
 
         // Stop existing sound for this id
@@ -123,10 +123,13 @@ class AudioEngine {
         // Check for mapped SFX
         const contextId = `${id}.${stateId}`;
         const mapping = this.mappings.states[contextId];
-        if (mapping && this.buffers.has(mapping.audio_file_id)) {
-            const sfx = this.playBuffer(mapping.audio_file_id, this.sfxGain, mapping.volume || 0.5, mapping.loop);
-            if (sfx) {
-                this.loops.set(id, { source: sfx.source, gain: sfx.gain });
+        if (mapping) {
+            const buffer = await this.ensureBuffer(mapping.audio_file_id);
+            if (buffer) {
+                const sfx = this.playBuffer(mapping.audio_file_id, this.sfxGain, mapping.volume || 0.5, mapping.loop);
+                if (sfx) {
+                    this.loops.set(id, { source: sfx.source, gain: sfx.gain });
+                }
             }
             return;
         }
@@ -299,16 +302,19 @@ class AudioEngine {
         this.loops.set(id, { source, gain, ...extraNodes });
     }
 
-    playUiSound(type) {
+    async playUiSound(type) {
         if (!this.ctx || !this.enabled) return;
 
         const now = this.ctx.currentTime;
 
         // Check if there's a mapped sound for this UI type
         const mapped = this.mappings.ui[type];
-        if (mapped && this.buffers.has(mapped.audio_file_id)) {
-            this.playBuffer(mapped.audio_file_id, this.sfxGain, mapped.volume);
-            return;
+        if (mapped) {
+            const buffer = await this.ensureBuffer(mapped.audio_file_id);
+            if (buffer) {
+                this.playBuffer(mapped.audio_file_id, this.sfxGain, mapped.volume);
+                return;
+            }
         }
 
         const osc = this.ctx.createOscillator();
@@ -391,16 +397,20 @@ class AudioEngine {
         gain.connect(this.sfxGain);
     }
 
-    playTransitionSound(transitionId) {
+    async playTransitionSound(transitionId) {
         if (!this.ctx || !this.enabled) return;
 
         const mapping = this.mappings.transitions[transitionId];
-        if (mapping && this.buffers.has(mapping.audio_file_id)) {
-            this.playBuffer(mapping.audio_file_id, this.sfxGain, mapping.volume);
-        } else {
-            // Default procedural transition sound
-            this.playUiSound('transition');
+        if (mapping) {
+            const buffer = await this.ensureBuffer(mapping.audio_file_id);
+            if (buffer) {
+                this.playBuffer(mapping.audio_file_id, this.sfxGain, mapping.volume);
+                return;
+            }
         }
+        
+        // Default procedural transition sound
+        this.playUiSound('transition');
     }
 
     async fetchMappings() {
@@ -415,15 +425,43 @@ class AudioEngine {
                 }
             });
 
-            const loadPromises = (data.library || []).map(async (a) => {
-                const buffer = await this.loadBuffer(a.filepath);
-                if (buffer) this.buffers.set(a.id, buffer);
+            // Populate the library map with ID -> Filepath mappings for lazy loading
+            this.library = new Map();
+            (data.library || []).forEach(a => {
+                this.library.set(a.id, a.filepath);
             });
-            await Promise.all(loadPromises);
-            console.log(`AUDIO ENGINE: Mapped ${data.mappings.length} sounds, Loaded ${this.buffers.size} assets.`);
+
+            // Preload only UI sounds to ensure zero-latency UI feedback
+            const uiAssetIds = Object.values(this.mappings.ui).map(m => m.audio_file_id);
+            const preloadPromises = (data.library || [])
+                .filter(a => uiAssetIds.includes(a.id))
+                .map(async (a) => {
+                    const buffer = await this.loadBuffer(a.filepath);
+                    if (buffer) this.buffers.set(a.id, buffer);
+                });
+            await Promise.all(preloadPromises);
+            console.log(`AUDIO ENGINE: Mapped ${data.mappings.length} sounds, preloaded ${this.buffers.size} UI assets.`);
         } catch (e) {
             console.error("Failed to fetch audio mappings:", e);
         }
+    }
+
+    async ensureBuffer(id) {
+        if (!id) return null;
+        if (this.buffers.has(id)) {
+            return this.buffers.get(id);
+        }
+        const filepath = this.library?.get(id);
+        if (!filepath) {
+            console.warn(`AUDIO ENGINE: Filepath not found for audio asset ID ${id}`);
+            return null;
+        }
+        console.log(`AUDIO ENGINE: Lazy-loading audio asset: ${filepath} (ID: ${id})`);
+        const buffer = await this.loadBuffer(filepath);
+        if (buffer) {
+            this.buffers.set(id, buffer);
+        }
+        return buffer;
     }
 
     async loadBuffer(url) {
@@ -456,7 +494,7 @@ class AudioEngine {
         return { source, gain };
     }
 
-    updateBgm(roomId) {
+    async updateBgm(roomId) {
         if (!this.ctx || !this.enabled) return;
 
         const mapping = this.mappings.bgm[roomId];
@@ -478,13 +516,16 @@ class AudioEngine {
         this.bgmSource = null;
         this.bgmGain = null;
 
-        if (nextBgmId && this.buffers.has(nextBgmId)) {
-            const bgm = this.playBuffer(nextBgmId, this.masterGain, mapping.volume || 0.3, true);
-            if (bgm) {
-                this.bgmSource = bgm.source;
-                this.bgmGain = bgm.gain;
-                this.bgmGain.gain.setValueAtTime(0, this.ctx.currentTime);
-                this.bgmGain.gain.setTargetAtTime(mapping.volume || 0.3, this.ctx.currentTime, 2.0);
+        if (nextBgmId) {
+            const buffer = await this.ensureBuffer(nextBgmId);
+            if (buffer && this.currentBgmId === nextBgmId) { // Check race condition
+                const bgm = this.playBuffer(nextBgmId, this.masterGain, mapping.volume || 0.3, true);
+                if (bgm) {
+                    this.bgmSource = bgm.source;
+                    this.bgmGain = bgm.gain;
+                    this.bgmGain.gain.setValueAtTime(0, this.ctx.currentTime);
+                    this.bgmGain.gain.setTargetAtTime(mapping.volume || 0.3, this.ctx.currentTime, 2.0);
+                }
             }
         }
     }

@@ -109,13 +109,15 @@ function migrateDatabase($pdo) {
     $pdo->exec("CREATE TABLE IF NOT EXISTS rooms (
         id TEXT PRIMARY KEY,
         name TEXT,
-        desc TEXT
+        desc TEXT,
+        effects TEXT
     )");
     $pdo->exec("CREATE TABLE IF NOT EXISTS transitions (
         id TEXT PRIMARY KEY,
         category TEXT,
         label TEXT,
-        desc TEXT
+        desc TEXT,
+        effects TEXT
     )");
     $pdo->exec("CREATE TABLE IF NOT EXISTS interactables (
         id TEXT PRIMARY KEY,
@@ -315,6 +317,43 @@ function migrateDatabase($pdo) {
             $pdo->exec("PRAGMA foreign_keys = ON;");
         }
     }
+
+    // Version 3: Add effects column to rooms and transitions tables if missing
+    $version = 0;
+    try {
+        $stmt = $pdo->query("SELECT value FROM global_definitions WHERE type = 'db_version'");
+        if ($stmt) {
+            $val = $stmt->fetchColumn();
+            if ($val !== false) {
+                $version = (int)$val;
+            }
+        }
+    } catch (PDOException $e) {}
+
+    if ($version < 3) {
+        $pdo->beginTransaction();
+        try {
+            // Check if column already exists in rooms, if not add it
+            $stmt = $pdo->query("PRAGMA table_info(rooms)");
+            $columns = $stmt->fetchAll(PDO::FETCH_COLUMN, 1);
+            if (!in_array('effects', $columns)) {
+                $pdo->exec("ALTER TABLE rooms ADD COLUMN effects TEXT");
+            }
+
+            // Check if column already exists in transitions, if not add it
+            $stmt = $pdo->query("PRAGMA table_info(transitions)");
+            $columns = $stmt->fetchAll(PDO::FETCH_COLUMN, 1);
+            if (!in_array('effects', $columns)) {
+                $pdo->exec("ALTER TABLE transitions ADD COLUMN effects TEXT");
+            }
+
+            $pdo->exec("INSERT OR REPLACE INTO global_definitions (type, value) VALUES ('db_version', '3')");
+            $pdo->commit();
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+    }
 }
 
 try {
@@ -361,6 +400,7 @@ function getFullWorld($pdo)
         $rooms[$id] = [
             'name' => $row['name'],
             'desc' => $row['desc'],
+            'effects' => !empty($row['effects']) ? json_decode($row['effects'], true) : null,
             'tags' => [],
             'transitions' => [],
             'interactables' => [],
@@ -421,6 +461,7 @@ function getFullWorld($pdo)
             'id' => $tId,
             'label' => $row['label'],
             'desc' => $row['desc'],
+            'effects' => !empty($row['effects']) ? json_decode($row['effects'], true) : null,
             'tags' => [],
             'texts' => [],
             'categories' => $catMap[$tId] ?? []
@@ -687,8 +728,9 @@ elseif ($method === 'POST') {
         $pdo->beginTransaction();
         try {
             // Update/Insert Room
-            $stmt = $pdo->prepare("INSERT INTO rooms (id, name, desc) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, desc=excluded.desc");
-            $stmt->execute([$id, $room['name'], $room['desc']]);
+            $stmt = $pdo->prepare("INSERT INTO rooms (id, name, desc, effects) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, desc=excluded.desc, effects=excluded.effects");
+            $effectsJson = !empty($room['effects']) ? (is_string($room['effects']) ? $room['effects'] : json_encode($room['effects'])) : null;
+            $stmt->execute([$id, $room['name'], $room['desc'], $effectsJson]);
 
             // Clear and rewrite relations
             $pdo->prepare("DELETE FROM room_tags WHERE room_id = ?")->execute([$id]);
@@ -912,8 +954,9 @@ elseif ($method === 'POST') {
         $pdo->beginTransaction();
         try {
             // Upsert Transition
-            $stmt = $pdo->prepare("INSERT INTO transitions (id, label, desc) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET label=excluded.label, desc=excluded.desc");
-            $stmt->execute([$id, $trans['label'], $trans['desc']]);
+            $stmt = $pdo->prepare("INSERT INTO transitions (id, label, desc, effects) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET label=excluded.label, desc=excluded.desc, effects=excluded.effects");
+            $effectsJson = !empty($trans['effects']) ? (is_string($trans['effects']) ? $trans['effects'] : json_encode($trans['effects'])) : null;
+            $stmt->execute([$id, $trans['label'], $trans['desc'], $effectsJson]);
 
             // Rewrite Categories
             $pdo->prepare("DELETE FROM transition_category_links WHERE transition_id = ?")->execute([$id]);

@@ -106,6 +106,389 @@ function generateGlitchText(text, options = {}) {
 
 window.generateGlitchText = generateGlitchText;
 
+/* === CLI COMMAND PATTERN === */
+
+class TerminalCommandRegistry {
+    constructor(terminal) {
+        this.terminal = terminal;
+        this.commands = new Map();
+    }
+
+    register(cmd) {
+        cmd.names.forEach(name => {
+            this.commands.set(name.toUpperCase(), cmd);
+        });
+    }
+
+    execute(cmdName, args, inputVal) {
+        const cmd = this.commands.get(cmdName.toUpperCase());
+        if (cmd) {
+            cmd.execute(this.terminal, args, inputVal);
+            return true;
+        }
+        return false;
+    }
+}
+
+class HelpCommand {
+    constructor() {
+        this.names = ['HELP', '?'];
+    }
+    execute(ts) {
+        const playSuccess = () => { if (window.game && window.game.audio) window.game.audio.playUiSound('success'); };
+        playSuccess();
+        const helpLines = [
+            "+----------------------------------------+",
+            "|     TERMINAL COMMAND REFERENCE          |",
+            "+----------------------------------------+",
+            "|  HELP      - Show this reference        |",
+            "|  INVENTORY - List inventory items       |",
+            "|  DRINK     - Consume Almond Water       |",
+            "|  GO [EXIT] - Move to an exit            |",
+            "|  ACT [OBJ] - Interact with object       |",
+            "|  SCAN      - Scan for exits             |",
+            "|  MAP       - Toggle map view            |",
+            "|  SANITY    - Check sanity status        |",
+            "|  SYS       - System diagnostics         |",
+            "|  CLEAR     - Clear terminal history     |",
+            "|  RESET     - Reboot system              |",
+            "+----------------------------------------+",
+            "|  TIP: Click options or type numbers     |",
+            "|  KEYS: Up/Dn History - Tab Autocomplete |",
+            "+----------------------------------------+"
+        ];
+        ts.typeResponse(helpLines.join("\n"), null, 'info', '?');
+    }
+}
+
+class ClearCommand {
+    constructor() {
+        this.names = ['CLEAR', 'CLS'];
+    }
+    execute(ts) {
+        const playSuccess = () => { if (window.game && window.game.audio) window.game.audio.playUiSound('success'); };
+        ts.history = [];
+        ts.renderHistory();
+        ts.typeResponse("TERMINAL HISTORY CLEARED.", null, 'success', '✓');
+        playSuccess();
+    }
+}
+
+class ResetCommand {
+    constructor() {
+        this.names = ['RESET'];
+    }
+    execute(ts) {
+        if (confirm("REBOOT SYSTEM? ALL SESSION DATA WILL BE WIPED.")) {
+            localStorage.removeItem('backrooms_session');
+            window.location.hash = '';
+            location.reload();
+        }
+    }
+}
+
+class InventoryCommand {
+    constructor() {
+        this.names = ['INVENTORY', 'INV'];
+    }
+    execute(ts) {
+        const playSuccess = () => { if (window.game && window.game.audio) window.game.audio.playUiSound('success'); };
+        const playError = () => { if (window.game && window.game.audio) window.game.audio.playUiSound('error'); };
+        if (window.game) {
+            playSuccess();
+            const inv = window.game.state.inventory || {};
+            const items = Object.entries(inv).filter(([_, count]) => count > 0);
+            if (items.length === 0) {
+                ts.typeResponse("INVENTORY IS EMPTY.", null, 'warning', '◆');
+            } else {
+                let lines = ["┌─ CURRENT INVENTORY ──────────────┐"];
+                items.forEach(([item, count]) => {
+                    lines.push(`│  ◆ ${item.replace('_', ' ').toUpperCase()}: x${count}`);
+                });
+                lines.push("└──────────────────────────────────┘");
+                ts.typeResponse(lines.join("\n"), null, 'info', '◆');
+            }
+        } else {
+            ts.typeResponse("INVENTORY SYSTEM OFFLINE.", null, 'error', '✕');
+            playError();
+        }
+    }
+}
+
+class DrinkCommand {
+    constructor() {
+        this.names = ['DRINK'];
+    }
+    execute(ts, args, inputVal) {
+        const playSuccess = () => { if (window.game && window.game.audio) window.game.audio.playUiSound('success'); };
+        const playError = () => { if (window.game && window.game.audio) window.game.audio.playUiSound('error'); };
+        if (window.game) {
+            const parts = inputVal.trim().toUpperCase().split(' ');
+            const itemArg = parts.length > 1 ? parts.slice(1).join('_').toLowerCase() : 'almond_water';
+            const inv = window.game.state.inventory || {};
+            
+            if (inv[itemArg] && inv[itemArg] > 0) {
+                if (itemArg === 'almond_water') {
+                    inv[itemArg]--;
+                    window.game.state.sanity = Math.min(100, window.game.state.sanity + 25);
+                    window.game.saveSession();
+                    window.game.render();
+                    playSuccess();
+                    ts.typeResponse("YOU DRANK ALMOND WATER. SANITY RESTORED (+25%).", null, 'success', '▶');
+                } else {
+                    ts.typeResponse(`ITEM '${itemArg.replace('_', ' ').toUpperCase()}' IS NOT CONSUMABLE.`, null, 'warning', '✕');
+                    playError();
+                }
+            } else {
+                ts.typeResponse(`YOU DO NOT HAVE ANY '${itemArg.replace('_', ' ').toUpperCase()}'.`, null, 'error', '✕');
+                playError();
+            }
+        } else {
+            ts.typeResponse("INVENTORY SYSTEM OFFLINE.", null, 'error', '✕');
+            playError();
+        }
+    }
+}
+
+class MapCommand {
+    constructor() {
+        this.names = ['MAP'];
+    }
+    execute(ts) {
+        const playSuccess = () => { if (window.game && window.game.audio) window.game.audio.playUiSound('success'); };
+        const playError = () => { if (window.game && window.game.audio) window.game.audio.playUiSound('error'); };
+        const mapPanel = document.getElementById('map-panel');
+        if (mapPanel && window.game && window.game.mapGraph) {
+            mapPanel.classList.toggle('collapsed');
+            if (!mapPanel.classList.contains('collapsed')) {
+                window.game.mapGraph.update();
+                ts.typeResponse("MAP INTERFACE ACTIVATED.", null, 'success', '◈');
+            } else {
+                ts.typeResponse("MAP INTERFACE DEACTIVATED.", null, 'warning', '◈');
+            }
+            playSuccess();
+        } else {
+            ts.typeResponse("MAP SYSTEM OFFLINE.", null, 'error', '✕');
+            playError();
+        }
+    }
+}
+
+class SanityCommand {
+    constructor() {
+        this.names = ['SANITY'];
+    }
+    execute(ts) {
+        const playSuccess = () => { if (window.game && window.game.audio) window.game.audio.playUiSound('success'); };
+        const playError = () => { if (window.game && window.game.audio) window.game.audio.playUiSound('error'); };
+        const sanity = window.game ? window.game.state.sanity : 100;
+        const barLen = 20;
+        const filled = Math.round(sanity / 100 * barLen);
+        const bar = "█".repeat(filled) + "░".repeat(barLen - filled);
+        let level = "STABLE";
+        let type = 'success';
+        if (sanity < 30) {
+            level = "CRITICAL";
+            type = 'error';
+            playError();
+        } else if (sanity < 60) {
+            level = "UNSTABLE";
+            type = 'warning';
+            playError();
+        } else {
+            playSuccess();
+        }
+
+        const sanityReport = [
+            "┌─ SANITY REPORT ─────────────────┐",
+            `│  LEVEL:  ${Math.floor(sanity)}%`,
+            `│  STATUS: ${level}`,
+            `│  ▐${bar}▌`,
+            "└─────────────────────────────────┘"
+        ].join("\n");
+        ts.typeResponse(sanityReport, null, type, '◈');
+    }
+}
+
+class DiagnosticsCommand {
+    constructor() {
+        this.names = ['DIAGNOSTICS', 'SYS'];
+    }
+    execute(ts) {
+        const playSuccess = () => { if (window.game && window.game.audio) window.game.audio.playUiSound('success'); };
+        const playError = () => { if (window.game && window.game.audio) window.game.audio.playUiSound('error'); };
+        if (window.game) {
+            playSuccess();
+            const sanity = window.game.state.sanity;
+            const loc = window.game.getCurrentLocation();
+            const explored = window.game.state.visitedRooms.length;
+            const total = Object.keys(window.game.world.rooms).length;
+            const seedHash = Math.abs(window.game.state.currentRoom.split('').reduce((a,b)=>{a=((a<<5)-a)+b.charCodeAt(0);return a&a},0)) % 10000;
+            
+            const stats = [
+                "┌─ SYSTEM DIAGNOSTICS ─────────────┐",
+                `│  POSITION .... ${loc.getName().toUpperCase()}`,
+                `│  SEED ....... CMD-0x${seedHash.toString(16).toUpperCase()}`,
+                `│  SANITY ..... ${Math.floor(sanity)}%`,
+                `│  MAPPED ..... ${explored}/${total} SECTORS`,
+                `│  CPU LOAD ... ${(100 - sanity).toFixed(1)}%`,
+                `│  INTEGRITY .. STABLE`,
+                "└──────────────────────────────────┘"
+            ].join("\n");
+            
+            ts.typeResponse(stats, null, 'info', '◈');
+        } else {
+            ts.typeResponse("DIAGNOSTICS SERVICE OFFLINE.", null, 'error', '✕');
+            playError();
+        }
+    }
+}
+
+class ScanCommand {
+    constructor() {
+        this.names = ['SCAN', 'PING'];
+    }
+    execute(ts) {
+        const playSuccess = () => { if (window.game && window.game.audio) window.game.audio.playUiSound('success'); };
+        const playError = () => { if (window.game && window.game.audio) window.game.audio.playUiSound('error'); };
+        if (window.game) {
+            playSuccess();
+            const exits = window.game.getCurrentLocation().getActions();
+            if (exits.length === 0) {
+                ts.typeResponse("SCAN COMPLETE — NO EXIT VECTORS DETECTED.", null, 'warning', '◉');
+            } else {
+                let lines = ["┌─ ENVIRONMENT SCAN ───────────────┐"];
+                exits.forEach((e, i) => {
+                    const status = e.isUnknown ? "NEW" : "KNOWN";
+                    const recommend = e.isRecommended ? " ★" : "";
+                    const statusIcon = e.isUnknown ? "◆" : "◇";
+                    lines.push(`│  ${statusIcon} ${e.label.toUpperCase()} [${status}]${recommend}`);
+                });
+                lines.push("└──────────────────────────────────┘");
+                ts.typeResponse(lines.join("\n"), null, 'info', '◉');
+            }
+        } else {
+            ts.typeResponse("SCANNER OFFLINE.", null, 'error', '✕');
+            playError();
+        }
+    }
+}
+
+class GoCommand {
+    constructor() {
+        this.names = ['GO', 'MOVE'];
+    }
+    execute(ts, args, inputVal) {
+        const playSuccess = () => { if (window.game && window.game.audio) window.game.audio.playUiSound('success'); };
+        const playError = () => { if (window.game && window.game.audio) window.game.audio.playUiSound('error'); };
+        const cmdUpper = inputVal.trim().toUpperCase();
+        const spaceIdx = cmdUpper.indexOf(' ');
+        const exitLabel = spaceIdx !== -1 ? inputVal.trim().substring(spaceIdx).trim().toUpperCase() : '';
+        
+        if (!exitLabel) {
+            ts.typeResponse("USAGE: GO [EXIT_NAME_OR_ROOM_NAME]", null, 'warning', '✕');
+            playError();
+            return;
+        }
+
+        if (window.game) {
+            const exits = window.game.getCurrentLocation().getActions();
+            const found = exits.find(e => 
+                e.label.toUpperCase().includes(exitLabel) || 
+                (e.extra && window.game.world.rooms[e.extra] && window.game.world.rooms[e.extra].name.toUpperCase().includes(exitLabel))
+            );
+            if (found) {
+                playSuccess();
+                ts.typeResponse(`NAVIGATING → ${found.label.toUpperCase()}...`, null, 'success', '→');
+                setTimeout(() => {
+                    window.game.handleAction('tra', found.id, found.extra);
+                }, 500);
+            } else {
+                ts.typeResponse(`PATH ERROR: '${exitLabel}' NOT FOUND.`, null, 'error', '✕');
+                playError();
+            }
+        } else {
+            ts.typeResponse("NAVIGATION ENGINE OFFLINE.", null, 'error', '✕');
+            playError();
+        }
+    }
+}
+
+class ActCommand {
+    constructor() {
+        this.names = ['ACT', 'USE'];
+    }
+    execute(ts, args, inputVal) {
+        const playSuccess = () => { if (window.game && window.game.audio) window.game.audio.playUiSound('success'); };
+        const playError = () => { if (window.game && window.game.audio) window.game.audio.playUiSound('error'); };
+        const cmdUpper = inputVal.trim().toUpperCase();
+        const spaceIdx = cmdUpper.indexOf(' ');
+        const rawParams = spaceIdx !== -1 ? inputVal.trim().substring(spaceIdx).trim() : '';
+        
+        if (!rawParams) {
+            ts.typeResponse("USAGE: ACT [OBJECT_NAME] [STATE_NAME]", null, 'warning', '✕');
+            playError();
+            return;
+        }
+
+        const params = rawParams.split(' ');
+        const interSearch = params[0].toUpperCase();
+        const stateSearch = params.slice(1).join(' ').toUpperCase();
+
+        if (window.game) {
+            const loc = window.game.getCurrentLocation();
+            const interIds = loc.getInteractables();
+            let foundInterId = null;
+            let foundInteractable = null;
+
+            for (const id of interIds) {
+                const item = window.game.world.interactables[id];
+                if (item && item.label.toUpperCase().includes(interSearch)) {
+                    foundInterId = id;
+                    foundInteractable = item;
+                    break;
+                }
+            }
+
+            if (foundInteractable) {
+                if (stateSearch) {
+                    const stateIdx = foundInteractable.states.findIndex(s => (s.label || s.id).toUpperCase().includes(stateSearch));
+                    if (stateIdx !== -1) {
+                        playSuccess();
+                        ts.typeResponse(`EXECUTING: ${foundInteractable.label.toUpperCase()} → ${stateSearch}`, null, 'success', '⚡');
+                        setTimeout(() => {
+                            window.game.handleAction('act', foundInterId, stateIdx);
+                        }, 500);
+                    } else {
+                        const statesStr = foundInteractable.states.map(s => (s.label || s.id).toUpperCase()).join(' · ');
+                        ts.typeResponse(`VALID STATES FOR ${foundInteractable.label.toUpperCase()}: ${statesStr}`, null, 'warning', '?');
+                        playError();
+                    }
+                } else {
+                    playSuccess();
+                    ts.typeResponse(`CYCLING: ${foundInteractable.label.toUpperCase()}`, null, 'success', '↺');
+                    setTimeout(() => {
+                        window.game.handleAction('act', foundInterId, null);
+                    }, 500);
+                }
+            } else {
+                const inv = window.game.state.inventory || {};
+                const itemKey = interSearch.toLowerCase().replace(' ', '_');
+                if (inv[itemKey] !== undefined && inv[itemKey] > 0) {
+                    playSuccess();
+                    ts.typeResponse(`ITEM '${interSearch}' IS IN YOUR INVENTORY (x${inv[itemKey]}). USE IT ON A ROOM OBJECT OR TYPE A SPECIFIC ACTION.`, null, 'info', '◆');
+                } else {
+                    ts.typeResponse(`TARGET '${interSearch}' NOT FOUND.`, null, 'error', '✕');
+                    playError();
+                }
+            }
+        } else {
+            ts.typeResponse("CONTROL SYSTEM OFFLINE.", null, 'error', '✕');
+            playError();
+        }
+    }
+}
+
 const TerminalSystem = {
     isTyping: false,
     terminalContainer: null,
@@ -140,6 +523,22 @@ const TerminalSystem = {
             console.error("Failed to load terminal dialogue:", err);
             this.dialogueTree = { "INITIAL": { text: "SYSTEM ERROR: DIALOGUE DATA MISSING.", options: [] } };
         }
+
+        // Setup command registry
+        this.commandRegistry = new TerminalCommandRegistry(this);
+        this.commandRegistry.register(new HelpCommand());
+        this.commandRegistry.register(new ClearCommand());
+        this.commandRegistry.register(new ResetCommand());
+        this.commandRegistry.register(new InventoryCommand());
+        this.commandRegistry.register(new DrinkCommand());
+        this.commandRegistry.register(new MapCommand());
+        this.commandRegistry.register(new SanityCommand());
+        this.commandRegistry.register(new DiagnosticsCommand());
+        this.commandRegistry.register(new ScanCommand());
+        this.commandRegistry.register(new GoCommand());
+        this.commandRegistry.register(new ActCommand());
+
+        this.availableCommands = Array.from(this.commandRegistry.commands.keys());
 
         // Enable clicks on the terminal container
         this.terminalContainer.style.pointerEvents = 'auto';
@@ -617,261 +1016,14 @@ const TerminalSystem = {
             return;
         }
 
-        // Play feedback sounds
-        const playSuccess = () => { if (window.game && window.game.audio) window.game.audio.playUiSound('success'); };
-        const playError = () => { if (window.game && window.game.audio) window.game.audio.playUiSound('error'); };
-
         // 4. Otherwise, parse standard terminal commands:
-        if (cmd === 'HELP' || cmd === '?') {
-            playSuccess();
-            const helpLines = [
-                "+----------------------------------------+",
-                "|     TERMINAL COMMAND REFERENCE          |",
-                "+----------------------------------------+",
-                "|  HELP      - Show this reference        |",
-                "|  INVENTORY - List inventory items       |",
-                "|  DRINK     - Consume Almond Water       |",
-                "|  GO [EXIT] - Move to an exit            |",
-                "|  ACT [OBJ] - Interact with object       |",
-                "|  SCAN      - Scan for exits             |",
-                "|  MAP       - Toggle map view            |",
-                "|  SANITY    - Check sanity status        |",
-                "|  SYS       - System diagnostics         |",
-                "|  CLEAR     - Clear terminal history     |",
-                "|  RESET     - Reboot system              |",
-                "+----------------------------------------+",
-                "|  TIP: Click options or type numbers     |",
-                "|  KEYS: Up/Dn History - Tab Autocomplete |",
-                "+----------------------------------------+"
-            ];
-            this.typeResponse(helpLines.join("\n"), null, 'info', '?');
-        } else if (cmd === 'CLEAR' || cmd === 'CLS') {
-            this.history = [];
-            this.renderHistory();
-            this.typeResponse("TERMINAL HISTORY CLEARED.", null, 'success', '✓');
-            playSuccess();
-        } else if (cmd === 'RESET') {
-            if (confirm("REBOOT SYSTEM? ALL SESSION DATA WILL BE WIPED.")) {
-                localStorage.removeItem('backrooms_session');
-                window.location.hash = '';
-                location.reload();
-            }
-        } else if (cmd === 'INVENTORY' || cmd === 'INV') {
-            if (window.game) {
-                playSuccess();
-                const inv = window.game.state.inventory || {};
-                const items = Object.entries(inv).filter(([_, count]) => count > 0);
-                if (items.length === 0) {
-                    this.typeResponse("INVENTORY IS EMPTY.", null, 'warning', '◆');
-                } else {
-                    let lines = ["┌─ CURRENT INVENTORY ──────────────┐"];
-                    items.forEach(([item, count]) => {
-                        lines.push(`│  ◆ ${item.replace('_', ' ').toUpperCase()}: x${count}`);
-                    });
-                    lines.push("└──────────────────────────────────┘");
-                    this.typeResponse(lines.join("\n"), null, 'info', '◆');
-                }
-            } else {
-                this.typeResponse("INVENTORY SYSTEM OFFLINE.", null, 'error', '✕');
-                playError();
-            }
-        } else if (cmd.startsWith('DRINK')) {
-            if (window.game) {
-                const parts = cmd.split(' ');
-                const itemArg = parts.length > 1 ? parts.slice(1).join('_').toLowerCase() : 'almond_water';
-                const inv = window.game.state.inventory || {};
-                
-                if (inv[itemArg] && inv[itemArg] > 0) {
-                    if (itemArg === 'almond_water') {
-                        inv[itemArg]--;
-                        window.game.state.sanity = Math.min(100, window.game.state.sanity + 25);
-                        window.game.saveSession();
-                        window.game.render();
-                        playSuccess();
-                        this.typeResponse("YOU DRANK ALMOND WATER. SANITY RESTORED (+25%).", null, 'success', '▶');
-                    } else {
-                        this.typeResponse(`ITEM '${itemArg.replace('_', ' ').toUpperCase()}' IS NOT CONSUMABLE.`, null, 'warning', '✕');
-                        playError();
-                    }
-                } else {
-                    this.typeResponse(`YOU DO NOT HAVE ANY '${itemArg.replace('_', ' ').toUpperCase()}'.`, null, 'error', '✕');
-                    playError();
-                }
-            } else {
-                this.typeResponse("INVENTORY SYSTEM OFFLINE.", null, 'error', '✕');
-                playError();
-            }
-        } else if (cmd === 'MAP') {
-            const mapPanel = document.getElementById('map-panel');
-            if (mapPanel && window.game && window.game.mapGraph) {
-                mapPanel.classList.toggle('collapsed');
-                if (!mapPanel.classList.contains('collapsed')) {
-                    window.game.mapGraph.update();
-                    this.typeResponse("MAP INTERFACE ACTIVATED.", null, 'success', '◈');
-                } else {
-                    this.typeResponse("MAP INTERFACE DEACTIVATED.", null, 'warning', '◈');
-                }
-                playSuccess();
-            } else {
-                this.typeResponse("MAP SYSTEM OFFLINE.", null, 'error', '✕');
-                playError();
-            }
-        } else if (cmd === 'SANITY') {
-            const sanity = window.game ? window.game.state.sanity : 100;
-            const barLen = 20;
-            const filled = Math.round(sanity / 100 * barLen);
-            const bar = "█".repeat(filled) + "░".repeat(barLen - filled);
-            let level = "STABLE";
-            let type = 'success';
-            if (sanity < 30) {
-                level = "CRITICAL";
-                type = 'error';
-                playError();
-            } else if (sanity < 60) {
-                level = "UNSTABLE";
-                type = 'warning';
-                playError();
-            } else {
-                playSuccess();
-            }
+        const spaceIdx = cmd.indexOf(' ');
+        const baseCmd = spaceIdx !== -1 ? cmd.substring(0, spaceIdx) : cmd;
+        const args = spaceIdx !== -1 ? rawCmd.substring(spaceIdx).trim().split(' ') : [];
 
-            const sanityReport = [
-                "┌─ SANITY REPORT ─────────────────┐",
-                `│  LEVEL:  ${Math.floor(sanity)}%`,
-                `│  STATUS: ${level}`,
-                `│  ▐${bar}▌`,
-                "└─────────────────────────────────┘"
-            ].join("\n");
-            this.typeResponse(sanityReport, null, type, '◈');
-        } else if (cmd === 'DIAGNOSTICS' || cmd === 'SYS') {
-            if (window.game) {
-                playSuccess();
-                const sanity = window.game.state.sanity;
-                const loc = window.game.getCurrentLocation();
-                const explored = window.game.state.visitedRooms.length;
-                const total = Object.keys(window.game.world.rooms).length;
-                const seedHash = Math.abs(window.game.state.currentRoom.split('').reduce((a,b)=>{a=((a<<5)-a)+b.charCodeAt(0);return a&a},0)) % 10000;
-                
-                const stats = [
-                    "┌─ SYSTEM DIAGNOSTICS ─────────────┐",
-                    `│  POSITION .... ${loc.getName().toUpperCase()}`,
-                    `│  SEED ....... CMD-0x${seedHash.toString(16).toUpperCase()}`,
-                    `│  SANITY ..... ${Math.floor(sanity)}%`,
-                    `│  MAPPED ..... ${explored}/${total} SECTORS`,
-                    `│  CPU LOAD ... ${(100 - sanity).toFixed(1)}%`,
-                    `│  INTEGRITY .. STABLE`,
-                    "└──────────────────────────────────┘"
-                ].join("\n");
-                
-                this.typeResponse(stats, null, 'info', '◈');
-            } else {
-                this.typeResponse("DIAGNOSTICS SERVICE OFFLINE.", null, 'error', '✕');
-                playError();
-            }
-        } else if (cmd === 'SCAN' || cmd === 'PING') {
-            if (window.game) {
-                playSuccess();
-                const exits = window.game.getCurrentLocation().getActions();
-                if (exits.length === 0) {
-                    this.typeResponse("SCAN COMPLETE — NO EXIT VECTORS DETECTED.", null, 'warning', '◉');
-                } else {
-                    let lines = ["┌─ ENVIRONMENT SCAN ───────────────┐"];
-                    exits.forEach((e, i) => {
-                        const status = e.isUnknown ? "NEW" : "KNOWN";
-                        const recommend = e.isRecommended ? " ★" : "";
-                        const statusIcon = e.isUnknown ? "◆" : "◇";
-                        lines.push(`│  ${statusIcon} ${e.label.toUpperCase()} [${status}]${recommend}`);
-                    });
-                    lines.push("└──────────────────────────────────┘");
-                    this.typeResponse(lines.join("\n"), null, 'info', '◉');
-                }
-            } else {
-                this.typeResponse("SCANNER OFFLINE.", null, 'error', '✕');
-                playError();
-            }
-        } else if (cmd.startsWith('GO ') || cmd.startsWith('MOVE ')) {
-            const exitLabel = rawCmd.substring(cmd.indexOf(' ')).trim().toUpperCase();
-            if (window.game) {
-                const exits = window.game.getCurrentLocation().getActions();
-                // Match by exit label or room name
-                const found = exits.find(e => 
-                    e.label.toUpperCase().includes(exitLabel) || 
-                    (e.extra && window.game.world.rooms[e.extra] && window.game.world.rooms[e.extra].name.toUpperCase().includes(exitLabel))
-                );
-                if (found) {
-                    playSuccess();
-                    this.typeResponse(`NAVIGATING → ${found.label.toUpperCase()}...`, null, 'success', '→');
-                    setTimeout(() => {
-                        window.game.handleAction('tra', found.id, found.extra);
-                    }, 500);
-                } else {
-                    this.typeResponse(`PATH ERROR: '${exitLabel}' NOT FOUND.`, null, 'error', '✕');
-                    playError();
-                }
-            } else {
-                this.typeResponse("NAVIGATION ENGINE OFFLINE.", null, 'error', '✕');
-                playError();
-            }
-        } else if (cmd.startsWith('ACT ') || cmd.startsWith('USE ')) {
-            const params = rawCmd.substring(cmd.indexOf(' ')).trim().split(' ');
-            const interSearch = params[0].toUpperCase();
-            const stateSearch = params.slice(1).join(' ').toUpperCase();
-
-            if (window.game) {
-                const loc = window.game.getCurrentLocation();
-                const interIds = loc.getInteractables();
-                let foundInterId = null;
-                let foundInteractable = null;
-
-                for (const id of interIds) {
-                    const item = window.game.world.interactables[id];
-                    if (item && item.label.toUpperCase().includes(interSearch)) {
-                        foundInterId = id;
-                        foundInteractable = item;
-                        break;
-                    }
-                }
-
-                if (foundInteractable) {
-                    if (stateSearch) {
-                        const stateIdx = foundInteractable.states.findIndex(s => (s.label || s.id).toUpperCase().includes(stateSearch));
-                        if (stateIdx !== -1) {
-                            playSuccess();
-                            this.typeResponse(`EXECUTING: ${foundInteractable.label.toUpperCase()} → ${stateSearch}`, null, 'success', '⚡');
-                            setTimeout(() => {
-                                window.game.handleAction('act', foundInterId, stateIdx);
-                            }, 500);
-                        } else {
-                            const statesStr = foundInteractable.states.map(s => (s.label || s.id).toUpperCase()).join(' · ');
-                            this.typeResponse(`VALID STATES FOR ${foundInteractable.label.toUpperCase()}: ${statesStr}`, null, 'warning', '?');
-                            playError();
-                        }
-                    } else {
-                        // Cycle if no state specified
-                        playSuccess();
-                        this.typeResponse(`CYCLING: ${foundInteractable.label.toUpperCase()}`, null, 'success', '↺');
-                        setTimeout(() => {
-                            window.game.handleAction('act', foundInterId, null);
-                        }, 500);
-                    }
-                } else {
-                    // Fallback to check inventory items
-                    const inv = window.game.state.inventory || {};
-                    const itemKey = interSearch.toLowerCase().replace(' ', '_');
-                    if (inv[itemKey] !== undefined && inv[itemKey] > 0) {
-                        playSuccess();
-                        this.typeResponse(`ITEM '${interSearch}' IS IN YOUR INVENTORY (x${inv[itemKey]}). USE IT ON A ROOM OBJECT OR TYPE A SPECIFIC ACTION.`, null, 'info', '◆');
-                    } else {
-                        this.typeResponse(`TARGET '${interSearch}' NOT FOUND.`, null, 'error', '✕');
-                        playError();
-                    }
-                }
-            } else {
-                this.typeResponse("CONTROL SYSTEM OFFLINE.", null, 'error', '✕');
-                playError();
-            }
-        } else {
-            // Invalid command / fallback
+        const executed = this.commandRegistry.execute(baseCmd, args, rawCmd);
+        if (!executed) {
+            const playError = () => { if (window.game && window.game.audio) window.game.audio.playUiSound('error'); };
             this.typeResponse(`UNKNOWN: '${cmd}' — TYPE 'HELP' FOR COMMANDS.`, null, 'error', '✕');
             playError();
         }
