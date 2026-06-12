@@ -78,7 +78,12 @@ class AudioEngine {
 
         const now = this.ctx.currentTime;
         try {
-            if (loop.gain) loop.gain.gain.setTargetAtTime(0, now, fadeTime);
+            if (loop.gain) {
+                const currentVal = loop.gain.gain.value;
+                loop.gain.gain.cancelScheduledValues(now);
+                loop.gain.gain.setValueAtTime(currentVal, now);
+                loop.gain.gain.setTargetAtTime(0, now, fadeTime);
+            }
         } catch (e) { /* ignore */ }
 
         // Cleanup after fade (3x time constant for ~95% decrease)
@@ -312,7 +317,7 @@ class AudioEngine {
         if (mapped) {
             const buffer = await this.ensureBuffer(mapped.audio_file_id);
             if (buffer) {
-                this.playBuffer(mapped.audio_file_id, this.sfxGain, mapped.volume);
+                this.playBuffer(mapped.audio_file_id, this.sfxGain, mapped.volume, false, true);
                 return;
             }
         }
@@ -395,6 +400,13 @@ class AudioEngine {
 
         osc.connect(gain);
         gain.connect(this.sfxGain);
+
+        const sfxEntry = { source: osc, gain: gain };
+        this.activeSfx.add(sfxEntry);
+        osc.onended = () => {
+            this.activeSfx.delete(sfxEntry);
+            try { gain.disconnect(); } catch (e) { }
+        };
     }
 
     async playTransitionSound(transitionId) {
@@ -404,7 +416,7 @@ class AudioEngine {
         if (mapping) {
             const buffer = await this.ensureBuffer(mapping.audio_file_id);
             if (buffer) {
-                this.playBuffer(mapping.audio_file_id, this.sfxGain, mapping.volume);
+                this.playBuffer(mapping.audio_file_id, this.sfxGain, mapping.volume, false, true);
                 return;
             }
         }
@@ -476,7 +488,7 @@ class AudioEngine {
         }
     }
 
-    playBuffer(id, destination, volume = 0.5, loop = false) {
+    playBuffer(id, destination, volume = 0.5, loop = false, trackSfx = false) {
         const buffer = this.buffers.get(id);
         if (!buffer) return null;
 
@@ -491,7 +503,17 @@ class AudioEngine {
         gain.connect(destination || this.ctx.destination);
         source.start();
 
-        return { source, gain };
+        const sfxEntry = { source, gain };
+
+        if (trackSfx) {
+            source.onended = () => {
+                this.activeSfx.delete(sfxEntry);
+                try { gain.disconnect(); } catch (e) { }
+            };
+            this.activeSfx.add(sfxEntry);
+        }
+
+        return sfxEntry;
     }
 
     async updateBgm(roomId) {
@@ -505,11 +527,17 @@ class AudioEngine {
         if (this.bgmSource) {
             const oldGain = this.bgmGain;
             const oldSource = this.bgmSource;
-            oldGain.gain.setTargetAtTime(0, this.ctx.currentTime, 1.5);
+            const now = this.ctx.currentTime;
+            try {
+                const currentVal = oldGain.gain.value;
+                oldGain.gain.cancelScheduledValues(now);
+                oldGain.gain.setValueAtTime(currentVal, now);
+                oldGain.gain.setTargetAtTime(0, now, 1.5);
+            } catch (e) { }
             setTimeout(() => {
                 try { oldSource.stop(); } catch (e) { }
-                oldGain.disconnect();
-            }, 3000);
+                try { oldGain.disconnect(); } catch (e) { }
+            }, 4550); // 3 * 1.5s + 50ms
         }
 
         this.currentBgmId = nextBgmId;
@@ -614,7 +642,7 @@ class AudioEngine {
     }
 
     /**
-     * Stop absolutely everything – loops and transient SFX – with a graceful fade.
+     * Stop absolutely everything – loops, transient SFX, and BGM – with a graceful fade.
      */
     stopAllSounds(fadeTime = 0.3) {
         if (!this.ctx || !this.enabled) return;
@@ -629,6 +657,9 @@ class AudioEngine {
         for (const sfx of this.activeSfx) {
             try {
                 if (sfx.gain) {
+                    const currentVal = sfx.gain.gain.value;
+                    sfx.gain.gain.cancelScheduledValues(now);
+                    sfx.gain.gain.setValueAtTime(currentVal, now);
                     sfx.gain.gain.setTargetAtTime(0, now, fadeTime);
                     setTimeout(() => {
                         try { sfx.source.stop(); } catch (e) { }
@@ -641,6 +672,26 @@ class AudioEngine {
             } catch (e) { /* ignore */ }
         }
         this.activeSfx.clear();
+
+        // Fade out BGM
+        if (this.bgmSource && this.bgmGain) {
+            const oldGain = this.bgmGain;
+            const oldSource = this.bgmSource;
+            try {
+                const currentVal = oldGain.gain.value;
+                oldGain.gain.cancelScheduledValues(now);
+                oldGain.gain.setValueAtTime(currentVal, now);
+                oldGain.gain.setTargetAtTime(0, now, fadeTime);
+            } catch (e) { }
+            setTimeout(() => {
+                try { oldSource.stop(); } catch (e) { }
+                try { oldGain.disconnect(); } catch (e) { }
+            }, (fadeTime * 3000) + 50);
+
+            this.bgmSource = null;
+            this.bgmGain = null;
+            this.currentBgmId = null;
+        }
     }
 
     playRandomSfxByCategory(category, manifest) {
