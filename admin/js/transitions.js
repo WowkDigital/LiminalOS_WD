@@ -1,7 +1,7 @@
 // Transition rendering and editor logic using ES6 Components
 import { state } from './state.js';
 import { getThumbPath, showToast } from './ui.js';
-import { fetchWorld, fetchMedia, saveTransition, deleteTransition as apiDeleteTransition } from './api.js';
+import { fetchWorld, fetchMedia, saveTransition, deleteTransition as apiDeleteTransition, assignMedia } from './api.js';
 import { navigate } from './router.js';
 import { refreshCategorySelectors } from './rooms.js';
 import { el } from './dom.js';
@@ -168,6 +168,20 @@ export async function handleTransitionSubmit(e) {
     const transData = getTransitionDataFromForm();
 
     try {
+        // If coming from a draft temp ID, migrate any media assignments to the real ID
+        if (state.currentEditId && state.currentEditId.startsWith('draft_') && state.currentEditId !== transId) {
+            const draftMedia = state.mediaLibrary.filter(
+                m => m.context_type === 'transition' && m.context_id === state.currentEditId
+            );
+            for (const m of draftMedia) {
+                await assignMedia(m.id, 'transition', transId);
+            }
+            if (draftMedia.length > 0) {
+                const mData = await fetchMedia();
+                state.mediaLibrary = mData;
+            }
+        }
+
         const result = await saveTransition(transId, transData);
         if (result.success) {
             showToast('Liminal path secured.', 'success');

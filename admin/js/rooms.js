@@ -417,6 +417,20 @@ export async function handleRoomSubmit(e) {
     const roomId = document.getElementById('room-id').value.trim();
     const roomData = getRoomDataFromForm();
     try {
+        // If coming from a draft temp ID, migrate any media assignments to the real ID
+        if (state.currentEditId && state.currentEditId.startsWith('draft_') && state.currentEditId !== roomId) {
+            const draftMedia = state.mediaLibrary.filter(
+                m => m.context_type === 'room' && m.context_id === state.currentEditId
+            );
+            for (const m of draftMedia) {
+                await assignMedia(m.id, 'room', roomId);
+            }
+            if (draftMedia.length > 0) {
+                const mData = await fetchMedia();
+                state.mediaLibrary = mData;
+            }
+        }
+
         const result = await saveRoom(roomId, roomData);
         if (result.success) {
             showToast('Reality updated.', 'success');

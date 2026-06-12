@@ -43,19 +43,59 @@ export function renderMediaLibrary() {
         return;
     }
 
-    const onOpenRoom = (roomId, pendingMediaId) => {
+    const onOpenRoom = async (roomId, pendingMediaId) => {
         state.currentContext = 'room';
         openEditor(roomId || null);
+
         if (pendingMediaId && !roomId) {
-            state._pendingMediaId = pendingMediaId;
+            // Generate a descriptive temp ID pre-filled in the form
+            const tempId = `draft_room_${Date.now()}`;
+            state.currentEditId = tempId;
+
+            const idInput = document.getElementById('room-id');
+            if (idInput) {
+                idInput.value = tempId;
+                idInput.readOnly = false;
+            }
+
+            // Assign the image to this temporary room context via API
+            try {
+                await assignMedia(pendingMediaId, 'room', tempId);
+                const mData = await fetchMedia();
+                state.mediaLibrary = mData;
+                renderRoomMediaPreview();
+                showToast('Image pre-linked. Set your Room ID and save.', 'info');
+            } catch (err) {
+                console.error('Failed to pre-assign media to room:', err);
+            }
         }
     };
 
-    const onOpenTransition = (transId, pendingMediaId) => {
+    const onOpenTransition = async (transId, pendingMediaId) => {
         state.currentContext = 'transition';
         openTransitionEditor(transId || null);
+
         if (pendingMediaId && !transId) {
-            state._pendingMediaId = pendingMediaId;
+            // Generate a descriptive temp ID pre-filled in the form
+            const tempId = `draft_trans_${Date.now()}`;
+            state.currentEditId = tempId;
+
+            const idInput = document.getElementById('trans-id');
+            if (idInput) {
+                idInput.value = tempId;
+                idInput.readOnly = false;
+            }
+
+            // Assign the image to this temporary transition context via API
+            try {
+                await assignMedia(pendingMediaId, 'transition', tempId);
+                const mData = await fetchMedia();
+                state.mediaLibrary = mData;
+                renderTransMediaPreview();
+                showToast('Image pre-linked. Set your Transition ID and save.', 'info');
+            } catch (err) {
+                console.error('Failed to pre-assign media to transition:', err);
+            }
         }
     };
 
