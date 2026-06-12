@@ -168,7 +168,7 @@ if (isset($_SESSION['admin_auth']) && $_SESSION['admin_auth'] === true):
                 </header>
 
                 <div class="media-controls">
-                    <input type="text" id="media-search" placeholder="Search by tags or context...">
+                    <input type="text" id="media-search" placeholder="Search by filename, tags or context...">
                     <select id="media-filter-type">
                         <option value="all">All Types</option>
                         <option value="room">Rooms</option>
@@ -176,6 +176,10 @@ if (isset($_SESSION['admin_auth']) && $_SESSION['admin_auth'] === true):
                         <option value="interactable">Interactables</option>
                         <option value="none">Unassigned</option>
                     </select>
+                </div>
+
+                <div id="media-tag-chips" class="media-tag-chips">
+                    <!-- Tag filter chips injected by JS -->
                 </div>
 
                 <div class="media-grid" id="media-list">

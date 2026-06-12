@@ -42,7 +42,8 @@ import {
     renderMediaLibrary, 
     openMediaModal, 
     confirmMediaSelection, 
-    handleUpload 
+    handleUpload,
+    renderMediaTagChips
 } from './media.js';
 import { 
     fetchTaxonomy, 
@@ -71,6 +72,8 @@ document.addEventListener('DOMContentLoaded', () => {
         media: () => {
             fetchMedia().then(m => {
                 state.mediaLibrary = m;
+                state.activeMediaTagFilter = state.activeMediaTagFilter || 'all';
+                renderMediaTagChips();
                 renderMediaLibrary();
             });
         },
@@ -184,6 +187,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Media Filter & Upload bindings
     document.getElementById('media-filter-type').addEventListener('change', renderMediaLibrary);
+    document.getElementById('media-search').addEventListener('input', renderMediaLibrary);
     document.getElementById('media-upload-input').addEventListener('change', handleUpload);
 
     // SFX upload & search bindings

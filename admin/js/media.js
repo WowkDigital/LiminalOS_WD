@@ -2,8 +2,8 @@
 import { state } from './state.js';
 import { getThumbPath, showToast } from './ui.js';
 import { fetchMedia, uploadMedia, assignMedia, deleteMedia as apiDeleteMedia, fetchWorld } from './api.js';
-import { renderRoomMediaPreview } from './rooms.js';
-import { renderTransMediaPreview } from './transitions.js';
+import { renderRoomMediaPreview, openEditor } from './rooms.js';
+import { renderTransMediaPreview, openTransitionEditor } from './transitions.js';
 import { el } from './dom.js';
 import { MediaCard } from './components/MediaCard.js';
 
@@ -12,6 +12,7 @@ export function renderMediaLibrary() {
     if (!list) return;
     const search = document.getElementById('media-search').value.toLowerCase();
     const filter = document.getElementById('media-filter-type').value;
+    const activeTagFilter = state.activeMediaTagFilter || 'all';
 
     list.innerHTML = '';
 
@@ -20,7 +21,21 @@ export function renderMediaLibrary() {
             item.tags.toLowerCase().includes(search) ||
             item.context_id.toLowerCase().includes(search);
         const matchesFilter = filter === 'all' || item.context_type === filter;
-        return matchesSearch && matchesFilter;
+
+        let matchesTag = true;
+        if (activeTagFilter === 'assigned') {
+            matchesTag = item.context_type !== 'none';
+        } else if (activeTagFilter === 'unassigned') {
+            matchesTag = item.context_type === 'none';
+        } else if (activeTagFilter === 'room') {
+            matchesTag = item.context_type === 'room';
+        } else if (activeTagFilter === 'transition') {
+            matchesTag = item.context_type === 'transition';
+        } else if (activeTagFilter === 'interactable') {
+            matchesTag = item.context_type === 'interactable';
+        }
+
+        return matchesSearch && matchesFilter && matchesTag;
     });
 
     if (filtered.length === 0) {
@@ -28,9 +43,53 @@ export function renderMediaLibrary() {
         return;
     }
 
+    const onOpenRoom = (roomId, pendingMediaId) => {
+        state.currentContext = 'room';
+        openEditor(roomId || null);
+        if (pendingMediaId && !roomId) {
+            state._pendingMediaId = pendingMediaId;
+        }
+    };
+
+    const onOpenTransition = (transId, pendingMediaId) => {
+        state.currentContext = 'transition';
+        openTransitionEditor(transId || null);
+        if (pendingMediaId && !transId) {
+            state._pendingMediaId = pendingMediaId;
+        }
+    };
+
+
     filtered.forEach(item => {
-        const cardComponent = new MediaCard(item, window.deleteMedia);
+        const cardComponent = new MediaCard(item, window.deleteMedia, onOpenRoom, onOpenTransition);
         list.appendChild(cardComponent.render());
+    });
+}
+
+export function renderMediaTagChips() {
+    const container = document.getElementById('media-tag-chips');
+    if (!container) return;
+
+    const tags = [
+        { key: 'all', label: 'All' },
+        { key: 'assigned', label: 'Assigned' },
+        { key: 'unassigned', label: 'Unassigned' },
+        { key: 'room', label: 'Location' },
+        { key: 'transition', label: 'Transition' },
+        { key: 'interactable', label: 'Interactable' }
+    ];
+
+    container.innerHTML = '';
+    tags.forEach(({ key, label }) => {
+        const chip = el('button', {
+            className: `tag-chip ${(state.activeMediaTagFilter || 'all') === key ? 'active' : ''}`,
+            onClick: () => {
+                state.activeMediaTagFilter = key;
+                renderMediaTagChips();
+                renderMediaLibrary();
+            }
+        }, label);
+        container.appendChild(chip);
     });
 }
 
@@ -180,4 +239,42 @@ window.deleteMedia = async (id) => {
     } catch (err) {
         showToast('Delete failed: ' + err.message, 'error');
     }
+};
+
+// Global lightbox for fullscreen image preview
+window.openMediaLightbox = (src, filename) => {
+    // Remove any existing lightbox
+    const existing = document.getElementById('media-lightbox');
+    if (existing) existing.remove();
+
+    const lightbox = document.createElement('div');
+    lightbox.id = 'media-lightbox';
+    lightbox.innerHTML = `
+        <div class="lightbox-backdrop"></div>
+        <div class="lightbox-content">
+            <div class="lightbox-header">
+                <span class="lightbox-filename">${filename}</span>
+                <button class="lightbox-close" title="Close">×</button>
+            </div>
+            <div class="lightbox-img-wrap">
+                <img src="${src}" alt="${filename}" />
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(lightbox);
+
+    // Animate in
+    requestAnimationFrame(() => lightbox.classList.add('open'));
+
+    const close = () => {
+        lightbox.classList.remove('open');
+        setTimeout(() => lightbox.remove(), 250);
+    };
+
+    lightbox.querySelector('.lightbox-close').addEventListener('click', close);
+    lightbox.querySelector('.lightbox-backdrop').addEventListener('click', close);
+    document.addEventListener('keydown', function escHandler(e) {
+        if (e.key === 'Escape') { close(); document.removeEventListener('keydown', escHandler); }
+    });
 };
