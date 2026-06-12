@@ -439,6 +439,16 @@ class MapGraph {
         this.game = game;
         this.svg = document.getElementById('map-svg');
 
+        // Zoom/pan state
+        this.zoom = 1.0;
+        this.panX = 0;
+        this.panY = 0;
+        this.isDragging = false;
+        this.hasDragged = false;
+        this.startX = 0;
+        this.startY = 0;
+        this.lastRoom = null;
+
         const mapPanel = document.getElementById('map-panel');
         const toggleBtn = document.getElementById('map-toggle-btn');
         if (toggleBtn) {
@@ -453,6 +463,9 @@ class MapGraph {
                 this.update();
             }
         });
+
+        // Initialize drag, zoom, and resize controls
+        this._initInteraction();
     }
 
     update() {
@@ -700,6 +713,15 @@ class MapGraph {
         const currentRoom = state.isTransitioning
             ? state.transitionContext?.target
             : state.currentRoom;
+
+        // Reset zoom/pan only when current room actually changes
+        if (currentRoom !== this.lastRoom) {
+            this.zoom = 1.0;
+            this.panX = 0;
+            this.panY = 0;
+            this.lastRoom = currentRoom;
+        }
+
         const reachable = new Set();
         (state.roomTransitions[currentRoom] || []).forEach(e => reachable.add(e.target));
 
@@ -736,12 +758,16 @@ class MapGraph {
         defs.appendChild(marker);
         this.svg.appendChild(defs);
 
-        // Background Grid Pattern
+        // Background Grid Pattern (keeps static radar background grid)
         const bgGrid = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
         bgGrid.setAttribute('width', '100%');
         bgGrid.setAttribute('height', '100%');
         bgGrid.setAttribute('fill', 'url(#map-grid)');
         this.svg.appendChild(bgGrid);
+
+        // --- Create Map Stage Group (for transform/zoom/pan) ---
+        const stage = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        stage.setAttribute('id', 'map-stage');
 
         const NODE_R_VISITED = 7;
         const NODE_R_UNKNOWN = 4.5;
@@ -784,7 +810,7 @@ class MapGraph {
             line.setAttribute('color', strokeColor); // makes arrowhead currentColor
             if (!isTargetVisited) line.setAttribute('stroke-dasharray', '3 3');
             line.setAttribute('marker-end', 'url(#arrowhead)');
-            this.svg.appendChild(line);
+            stage.appendChild(line);
 
             // Flow overlay (animated scanner pulse) for visited paths
             if (isTargetVisited) {
@@ -798,11 +824,11 @@ class MapGraph {
                 const flowColor = color.replace('hsl', 'hsla').replace(')', `, 0.7)`);
                 lineFlow.setAttribute('stroke', flowColor);
                 lineFlow.setAttribute('stroke-width', '2');
-                this.svg.appendChild(lineFlow);
+                stage.appendChild(lineFlow);
             }
         });
 
-        // --- Draw nodes (unvisited first, then visited, current last) ---
+        // --- Draw nodes ---
         const allIds = Object.keys(pos).sort((a, b) => {
             if (a === currentRoom) return 1;
             if (b === currentRoom) return -1;
@@ -815,11 +841,14 @@ class MapGraph {
             const isCurrent = id === currentRoom;
             const isVisited = visited.has(id);
             const isReachable = reachable.has(id);
-            this._renderNode(id, p, isCurrent, isVisited, isReachable);
+            this._renderNode(id, p, isCurrent, isVisited, isReachable, stage);
         });
+
+        this.svg.appendChild(stage);
+        this._applyTransform();
     }
 
-    _renderNode(id, pos, isCurrent, isVisited, isReachable) {
+    _renderNode(id, pos, isCurrent, isVisited, isReachable, parentContainer) {
         const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
         let nodeClass = 'map-node';
         if (isReachable) nodeClass += ' map-node--reachable';
@@ -831,9 +860,12 @@ class MapGraph {
         group.addEventListener('mouseenter', () => this.showNodeTelemetry(id, isCurrent, isVisited, isReachable));
         group.addEventListener('mouseleave', () => this.resetNodeTelemetry());
 
-        // Click to navigate to reachable rooms
+        // Click to navigate to reachable rooms (ignore if user is panning the map)
         if (isReachable && !isCurrent) {
-            group.addEventListener('click', () => this._navigateToRoom(id));
+            group.addEventListener('click', () => {
+                if (this.hasDragged) return;
+                this._navigateToRoom(id);
+            });
         }
 
         // Target target ring / scanner glow for current location
@@ -990,7 +1022,7 @@ class MapGraph {
             group.appendChild(hint);
         }
 
-        this.svg.appendChild(group);
+        parentContainer.appendChild(group);
     }
 
     /** Find the transition ID leading to targetRoomId from current room and trigger it */
@@ -1082,6 +1114,212 @@ class MapGraph {
             <div class="node-details-placeholder">// TELEMETRY SCANNER INITIALIZED</div>
             <div class="node-details-hint">Hover over node to tap visual feed</div>
         `;
+    }
+
+    _initInteraction() {
+        if (!this.svg) return;
+
+        // 1. Mouse Wheel Zoom
+        this.svg.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const rect = this.svg.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            const zoomFactor = e.deltaY < 0 ? 1.15 : 0.85;
+            const nextZoom = Math.max(0.3, Math.min(5.0, this.zoom * zoomFactor));
+
+            // Pan to keep cursor focus point stable
+            this.panX = mouseX - (mouseX - this.panX) * (nextZoom / this.zoom);
+            this.panY = mouseY - (mouseY - this.panY) * (nextZoom / this.zoom);
+            this.zoom = nextZoom;
+
+            this._applyTransform();
+        }, { passive: false });
+
+        // 2. Mouse Drag (Pan)
+        this.svg.addEventListener('mousedown', (e) => {
+            this.isDragging = true;
+            this.hasDragged = false;
+            this.startX = e.clientX;
+            this.startY = e.clientY;
+            this.initialPanX = this.panX;
+            this.initialPanY = this.panY;
+            this.svg.style.cursor = 'grabbing';
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!this.isDragging) return;
+            const dx = e.clientX - this.startX;
+            const dy = e.clientY - this.startY;
+
+            if (Math.sqrt(dx * dx + dy * dy) > 5) {
+                this.hasDragged = true;
+            }
+
+            this.panX = this.initialPanX + dx;
+            this.panY = this.initialPanY + dy;
+            this._applyTransform();
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (this.isDragging) {
+                this.isDragging = false;
+                this.svg.style.cursor = '';
+            }
+        });
+
+        // 3. Touch Drag & Pinch-to-Zoom
+        let touchStartDist = 0;
+        let touchStartZoom = 1;
+        let touchStartCenter = { x: 0, y: 0 };
+
+        this.svg.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                this.isDragging = true;
+                this.hasDragged = false;
+                this.startX = e.touches[0].clientX;
+                this.startY = e.touches[0].clientY;
+                this.initialPanX = this.panX;
+                this.initialPanY = this.panY;
+            } else if (e.touches.length === 2) {
+                this.isDragging = false; // Disable single finger drag
+                const t1 = e.touches[0];
+                const t2 = e.touches[1];
+                touchStartDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+                touchStartZoom = this.zoom;
+
+                const rect = this.svg.getBoundingClientRect();
+                touchStartCenter = {
+                    x: ((t1.clientX + t2.clientX) / 2) - rect.left,
+                    y: ((t1.clientY + t2.clientY) / 2) - rect.top
+                };
+            }
+        }, { passive: true });
+
+        this.svg.addEventListener('touchmove', (e) => {
+            if (e.touches.length === 1 && this.isDragging) {
+                const dx = e.touches[0].clientX - this.startX;
+                const dy = e.touches[0].clientY - this.startY;
+                if (Math.hypot(dx, dy) > 5) {
+                    this.hasDragged = true;
+                }
+                this.panX = this.initialPanX + dx;
+                this.panY = this.initialPanY + dy;
+                this._applyTransform();
+            } else if (e.touches.length === 2) {
+                const t1 = e.touches[0];
+                const t2 = e.touches[1];
+                const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+                const factor = dist / (touchStartDist || 1);
+                const nextZoom = Math.max(0.3, Math.min(5.0, touchStartZoom * factor));
+
+                // Adjust pan to zoom centered on touch midpoint
+                this.panX = touchStartCenter.x - (touchStartCenter.x - this.panX) * (nextZoom / this.zoom);
+                this.panY = touchStartCenter.y - (touchStartCenter.y - this.panY) * (nextZoom / this.zoom);
+                this.zoom = nextZoom;
+
+                this._applyTransform();
+            }
+        }, { passive: true });
+
+        this.svg.addEventListener('touchend', () => {
+            this.isDragging = false;
+        });
+
+        // 4. Zoom Buttons binding
+        const zoomInBtn = document.getElementById('map-zoom-in');
+        if (zoomInBtn) {
+            zoomInBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this._zoomByFactor(1.3);
+            });
+        }
+        const zoomOutBtn = document.getElementById('map-zoom-out');
+        if (zoomOutBtn) {
+            zoomOutBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this._zoomByFactor(1 / 1.3);
+            });
+        }
+        const zoomResetBtn = document.getElementById('map-zoom-reset');
+        if (zoomResetBtn) {
+            zoomResetBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.resetZoomView();
+            });
+        }
+
+        // 5. Sidebar Resize Grabber drag logic
+        const resizer = document.getElementById('map-resizer');
+        const mapPanel = document.getElementById('map-panel');
+        if (resizer && mapPanel) {
+            let startWidth = 0;
+            let startMouseX = 0;
+            let isResizing = false;
+
+            const onResizeMouseDown = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                isResizing = true;
+                startWidth = parseFloat(getComputedStyle(mapPanel).width) || 330;
+                startMouseX = e.clientX || e.touches?.[0]?.clientX;
+                document.body.classList.add('is-resizing');
+                window.addEventListener('mousemove', onResizeMouseMove);
+                window.addEventListener('mouseup', onResizeMouseUp);
+                window.addEventListener('touchmove', onResizeMouseMove, { passive: false });
+                window.addEventListener('touchend', onResizeMouseUp);
+            };
+
+            const onResizeMouseMove = (e) => {
+                if (!isResizing) return;
+                const clientX = e.clientX !== undefined ? e.clientX : e.touches?.[0]?.clientX;
+                if (clientX === undefined) return;
+                const dx = startMouseX - clientX;
+                const newWidth = Math.max(250, Math.min(window.innerWidth - 60, startWidth + dx));
+                document.documentElement.style.setProperty('--map-panel-width', `${newWidth}px`);
+                this.update();
+            };
+
+            const onResizeMouseUp = () => {
+                if (isResizing) {
+                    isResizing = false;
+                    document.body.classList.remove('is-resizing');
+                    window.removeEventListener('mousemove', onResizeMouseMove);
+                    window.removeEventListener('mouseup', onResizeMouseUp);
+                    window.removeEventListener('touchmove', onResizeMouseMove);
+                    window.removeEventListener('touchend', onResizeMouseUp);
+                }
+            };
+
+            resizer.addEventListener('mousedown', onResizeMouseDown);
+            resizer.addEventListener('touchstart', onResizeMouseDown, { passive: false });
+        }
+    }
+
+    _zoomByFactor(factor) {
+        const nextZoom = Math.max(0.3, Math.min(5.0, this.zoom * factor));
+        const cx = this.width / 2;
+        const cy = this.height / 2;
+        // Center zoom on viewport midpoint
+        this.panX = cx - (cx - this.panX) * (nextZoom / this.zoom);
+        this.panY = cy - (cy - this.panY) * (nextZoom / this.zoom);
+        this.zoom = nextZoom;
+        this._applyTransform();
+    }
+
+    resetZoomView() {
+        this.zoom = 1.0;
+        this.panX = 0;
+        this.panY = 0;
+        this._applyTransform();
+    }
+
+    _applyTransform() {
+        const stage = this.svg.querySelector('#map-stage');
+        if (stage) {
+            stage.setAttribute('transform', `translate(${this.panX}, ${this.panY}) scale(${this.zoom})`);
+        }
     }
 }
 

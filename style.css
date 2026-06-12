@@ -49,6 +49,7 @@
     --safe-bottom: env(safe-area-inset-bottom, 0px);
     --safe-top: env(safe-area-inset-top, 0px);
     --bg-margin: 0px;
+    --map-panel-width: 330px;
 }
 
 /* ============================
@@ -1525,7 +1526,7 @@ button.custom-category-btn:hover {
     right: 0;
     top: 50%;
     transform: translateY(-50%);
-    width: 330px;
+    width: var(--map-panel-width, 330px);
     height: 75vh;
     background: rgba(5, 5, 5, 0.75);
     border: 1px solid var(--glass-border);
@@ -1541,7 +1542,7 @@ button.custom-category-btn:hover {
 }
 
 .map-panel.collapsed {
-    transform: translate(330px, -50%);
+    transform: translate(var(--map-panel-width, 330px), -50%);
 }
 
 @media (min-width: 1024px) {
@@ -1555,8 +1556,88 @@ button.custom-category-btn:hover {
     }
     
     .map-panel.collapsed {
-        transform: translate3d(330px, 0, 0);
+        transform: translate3d(var(--map-panel-width, 330px), 0, 0);
     }
+}
+
+/* Sidebar resizing styling */
+.map-resizer {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 6px;
+    cursor: ew-resize;
+    z-index: 100;
+    background: transparent;
+    transition: background-color var(--transition-fast);
+}
+
+.map-resizer:hover,
+body.is-resizing .map-resizer {
+    background: rgba(234, 179, 8, 0.25);
+    box-shadow: 0 0 8px var(--accent-glow);
+}
+
+body.is-resizing {
+    user-select: none;
+    cursor: ew-resize !important;
+}
+
+body.is-resizing * {
+    user-select: none;
+    cursor: ew-resize !important;
+}
+
+/* Map Zoom Controls styling */
+.map-zoom-controls {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    z-index: 10;
+}
+
+.map-zoom-btn {
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
+    min-height: 30px;
+    padding: 0;
+    background: rgba(10, 10, 10, 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    color: var(--text-secondary);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition-fast);
+}
+
+.map-zoom-btn::before {
+    display: none !important; /* Remove exit button side border effect */
+}
+
+.map-zoom-btn:hover {
+    border-color: var(--accent-primary) !important;
+    color: var(--accent-primary) !important;
+    background: rgba(234, 179, 8, 0.1) !important;
+    box-shadow: 0 0 10px var(--accent-glow) !important;
+    transform: none !important;
+}
+
+.map-zoom-btn:active {
+    transform: scale(0.95) !important;
+}
+
+.map-zoom-btn svg {
+    width: 14px;
+    height: 14px;
 }
 
 .map-toggle-btn {

@@ -142,6 +142,7 @@
 
         <!-- Map Panel -->
         <div id="map-panel" class="map-panel collapsed">
+            <div id="map-resizer" class="map-resizer"></div>
             <button id="map-toggle-btn" class="map-toggle-btn">
                 <span class="map-toggle-text">MAP</span>
             </button>
@@ -165,6 +166,11 @@
                 </div>
                 <div class="map-svg-container">
                     <svg id="map-svg" width="100%" height="100%"></svg>
+                    <div class="map-zoom-controls">
+                        <button id="map-zoom-in" class="map-zoom-btn" title="Zoom In"><i data-lucide="zoom-in"></i></button>
+                        <button id="map-zoom-out" class="map-zoom-btn" title="Zoom Out"><i data-lucide="zoom-out"></i></button>
+                        <button id="map-zoom-reset" class="map-zoom-btn" title="Reset View"><i data-lucide="maximize"></i></button>
+                    </div>
                 </div>
                 <!-- Interactive Selected Node Info -->
                 <div class="map-node-details" id="map-node-details">
