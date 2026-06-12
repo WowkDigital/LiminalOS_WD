@@ -1009,33 +1009,15 @@ input[type="checkbox"]:checked::before {
 
 /* Editor Layout Improved */
 .editor-layout {
-    display: grid;
-    grid-template-columns: 1fr 380px;
+    display: flex;
+    flex-direction: column;
     gap: 2rem;
-    align-items: start;
+    align-items: stretch;
+    max-width: 1000px;
 }
 
 .editor-main {
     min-width: 0;
-}
-
-.editor-sidebar {
-    position: sticky;
-    top: 6rem;
-}
-
-@media (max-width: 1200px) {
-    .editor-layout {
-        grid-template-columns: 1fr;
-    }
-    .editor-sidebar {
-        position: static;
-    }
-}
-
-.editor-sidebar .form-section {
-    position: sticky;
-    top: 1rem;
 }
 
 .image-preview-grid {

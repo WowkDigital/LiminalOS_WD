@@ -265,8 +265,7 @@ if (isset($_SESSION['admin_auth']) && $_SESSION['admin_auth'] === true):
                                 <div id="texts-list"></div>
                                 <button type="button" id="btn-add-text" class="btn-small">+ Add Text Line</button>
                             </div>
-                        </div>
-                        <div class="editor-sidebar">
+
                             <div class="form-section json-control-section">
                                 <h3 style="margin-bottom: 0.75rem;">Data Control (JSON)</h3>
                                 
@@ -357,8 +356,7 @@ if (isset($_SESSION['admin_auth']) && $_SESSION['admin_auth'] === true):
                                 <div id="states-list"></div>
                                 <button type="button" id="btn-add-state" class="btn-small">+ Add New State</button>
                             </div>
-                        </div>
-                        <div class="editor-sidebar">
+
                             <div class="form-section json-control-section">
                                 <h3 style="margin-bottom: 0.75rem;">Data Control (JSON)</h3>
                                 
@@ -483,8 +481,7 @@ if (isset($_SESSION['admin_auth']) && $_SESSION['admin_auth'] === true):
                                 <button type="button" id="btn-manage-trans-media"
                                     class="btn-secondary full-width">Manage Graphics</button>
                             </div>
-                        </div>
-                        <div class="editor-sidebar">
+
                             <div class="form-section json-control-section">
                                 <h3 style="margin-bottom: 0.75rem;">Data Control (JSON)</h3>
                                 
