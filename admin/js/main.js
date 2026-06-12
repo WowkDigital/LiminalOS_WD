@@ -176,6 +176,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Taxonomy bindings
+    document.getElementById('btn-add-room-tag').addEventListener('click', () => saveTaxonomyItem('room_tag', 'new-room-tag'));
+    document.getElementById('btn-add-trans-cat').addEventListener('click', () => saveTaxonomyItem('transition_category', 'new-trans-cat'));
     document.getElementById('btn-add-trans-tag').addEventListener('click', () => saveTaxonomyItem('transition_tag', 'new-trans-tag'));
 
     // Requirements Modal bindings

@@ -45,7 +45,19 @@ export function el(tag, attrs = {}, children = []) {
  * Helper to build custom SVGs or Lucide icons when lucide is not preloaded or for specific inline icons
  */
 export function icon(name, attrs = {}) {
-    const i = el('i', { ...attrs });
+    const { style = {}, ...rest } = attrs;
+    const i = el('i', rest);
     i.setAttribute('data-lucide', name);
+
+    // Lucide reads width/height from HTML attributes on <i>, not from CSS style.
+    // Extract them so the generated <svg> gets the correct dimensions.
+    if (style.width)  i.setAttribute('width',  style.width);
+    if (style.height) i.setAttribute('height', style.height);
+
+    const remainingStyle = { ...style };
+    delete remainingStyle.width;
+    delete remainingStyle.height;
+    Object.assign(i.style, remainingStyle);
+
     return i;
 }

@@ -20,7 +20,7 @@ export function getCategoryColor(category) {
  */
 export function getCategoryIcon(category) {
     const cat = (category || '').toLowerCase().trim();
-    
+
     // Primary taxonomy categories
     if (cat === 'universal') return 'infinity';
     if (cat === 'formal') return 'briefcase';
@@ -28,7 +28,8 @@ export function getCategoryIcon(category) {
     if (cat === 'concrete') return 'layers';
     if (cat === 'technology') return 'cpu';
     if (cat === 'noclip') return 'ghost';
-    
+    if (cat === 'underground') return 'square-arrow-down';
+
     // Subcategory / description keywords helper matches
     if (cat.includes('elevator') || cat.includes('lift')) return 'chevrons-up-down';
     if (cat.includes('stair') || cat.includes('escalator')) return 'stairs';
@@ -40,7 +41,7 @@ export function getCategoryIcon(category) {
     if (cat.includes('vent') || cat.includes('shaft')) return 'wind';
     if (cat.includes('tunnel')) return 'aperture';
     if (cat.includes('secret') || cat.includes('hidden')) return 'eye-off';
-    
+
     return 'route'; // Default path connection icon
 }
 
