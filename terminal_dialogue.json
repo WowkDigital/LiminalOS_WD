@@ -32,7 +32,7 @@
                 "effects": [
                     {
                         "type": "move",
-                        "room": "servers"
+                        "room": ""
                     }
                 ]
             },
@@ -153,11 +153,11 @@
         "options": [
             {
                 "label": "CRAWL INTO VENTILATION SHAFT",
-                "next": "ROOM_LOBBY",
+                "next": "WANDER",
                 "effects": [
                     {
                         "type": "move",
-                        "room": "corridor"
+                        "room": "servers"
                     },
                     {
                         "type": "sfx",
