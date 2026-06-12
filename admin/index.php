@@ -205,7 +205,7 @@ if (isset($_SESSION['admin_auth']) && $_SESSION['admin_auth'] === true):
                     <div class="editor-layout">
                         <div class="editor-main">
                             <!-- Room Editor Tabs -->
-                            <div class="editor-tabs" style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--glass-border); padding-bottom: 10px;">
+                            <div class="editor-tabs">
                                 <button type="button" class="tab-btn active" data-room-tab="room-tab-general">General Config</button>
                                 <button type="button" class="tab-btn" data-room-tab="room-tab-terminal">Terminal Interaction</button>
                             </div>
@@ -309,7 +309,8 @@ if (isset($_SESSION['admin_auth']) && $_SESSION['admin_auth'] === true):
                                         <small style="margin-top: 8px;">Warning: This will overwrite currently entered data.</small>
                                     </div>
                                 </div>
-                            </div> <!-- Close room-tab-general -->
+                            </div> <!-- Close json-control-section -->
+                        </div> <!-- Close room-tab-general -->
 
                             <!-- Terminal Interaction Tab Content -->
                             <div id="room-tab-terminal" class="room-tab-content hidden">

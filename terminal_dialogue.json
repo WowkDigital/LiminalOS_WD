@@ -28,7 +28,13 @@
                 "next": "LOBBY_VENT",
                 "requirements": {
                     "sanity_min": 30
-                }
+                },
+                "effects": [
+                    {
+                        "type": "move",
+                        "room": "servers"
+                    }
+                ]
             },
             {
                 "label": "LISTEN INTENTLY TO HUMMING",
@@ -76,8 +82,15 @@
                 "label": "TAKE FLASH DRIVE",
                 "next": "ROOM_LOBBY",
                 "effects": [
-                    { "type": "item", "item": "flash_drive", "amount": 1 },
-                    { "type": "sfx", "value": "success" }
+                    {
+                        "type": "item",
+                        "item": "flash_drive",
+                        "amount": 1
+                    },
+                    {
+                        "type": "sfx",
+                        "value": "success"
+                    }
                 ]
             },
             {
@@ -93,10 +106,24 @@
                 "label": "TRIGGER VENT OVERRIDE",
                 "next": "ROOM_LOBBY",
                 "effects": [
-                    { "type": "item", "item": "flash_drive", "amount": -1 },
-                    { "type": "act", "id": "lobby_vent", "state": 1 },
-                    { "type": "sfx", "value": "success" },
-                    { "type": "sanity", "value": 10 }
+                    {
+                        "type": "item",
+                        "item": "flash_drive",
+                        "amount": -1
+                    },
+                    {
+                        "type": "act",
+                        "id": "lobby_vent",
+                        "state": 1
+                    },
+                    {
+                        "type": "sfx",
+                        "value": "success"
+                    },
+                    {
+                        "type": "sanity",
+                        "value": 10
+                    }
                 ]
             },
             {
@@ -128,8 +155,14 @@
                 "label": "CRAWL INTO VENTILATION SHAFT",
                 "next": "ROOM_LOBBY",
                 "effects": [
-                    { "type": "move", "room": "corridor" },
-                    { "type": "sfx", "value": "arrival" }
+                    {
+                        "type": "move",
+                        "room": "corridor"
+                    },
+                    {
+                        "type": "sfx",
+                        "value": "arrival"
+                    }
                 ]
             },
             {
@@ -145,8 +178,14 @@
                 "label": "PULL AWAY",
                 "next": "ROOM_LOBBY",
                 "effects": [
-                    { "type": "sanity", "value": -15 },
-                    { "type": "sfx", "value": "error" }
+                    {
+                        "type": "sanity",
+                        "value": -15
+                    },
+                    {
+                        "type": "sfx",
+                        "value": "error"
+                    }
                 ]
             }
         ]
@@ -158,9 +197,19 @@
                 "label": "DISCARD EMPTY CAN",
                 "next": "ROOM_LOBBY",
                 "effects": [
-                    { "type": "item", "item": "almond_water", "amount": -1 },
-                    { "type": "sanity", "value": 25 },
-                    { "type": "sfx", "value": "success" }
+                    {
+                        "type": "item",
+                        "item": "almond_water",
+                        "amount": -1
+                    },
+                    {
+                        "type": "sanity",
+                        "value": 25
+                    },
+                    {
+                        "type": "sfx",
+                        "value": "success"
+                    }
                 ]
             }
         ]

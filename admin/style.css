@@ -2609,3 +2609,39 @@ input[type="checkbox"]:checked::before {
         position: static;
     }
 }
+
+/* Room Editor Tabs Styling */
+.editor-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--glass-border);
+    padding-bottom: 0;
+}
+
+.editor-tabs .tab-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-secondary);
+    padding: 10px 20px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    font-family: var(--font-sans);
+    cursor: pointer;
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    transition: var(--transition-fast);
+    margin-bottom: -1px;
+}
+
+.editor-tabs .tab-btn:hover {
+    color: var(--text-main);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.editor-tabs .tab-btn.active {
+    color: var(--accent-primary);
+    background: rgba(234, 179, 8, 0.05);
+    border: 1px solid var(--glass-border);
+    border-bottom: 1px solid #050505; /* blend with active main card color */
+    box-shadow: inset 0 2px 0 var(--accent-primary); /* premium top line accent */
+}
