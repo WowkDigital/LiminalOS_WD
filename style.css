@@ -139,6 +139,29 @@ body {
     opacity: 0;
 }
 
+/* Hover highlights during transition */
+#app-container.is-transitioning #scene-bg {
+    cursor: pointer;
+}
+
+#app-container.is-transitioning #scene-bg img#room-image {
+    cursor: pointer;
+}
+
+#app-container.is-transitioning #scene-bg::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(255, 255, 255, 0);
+    transition: background-color 0.3s ease;
+    pointer-events: none;
+    z-index: 2; /* Layer on top of room-image (which is z-index 1) */
+}
+
+#app-container.is-transitioning #scene-bg:hover::after {
+    background: rgba(255, 255, 255, 0.03); /* Subtle flash of light when hovering */
+}
+
 /* Vignette */
 #scene-vignette {
     position: absolute;
@@ -1029,6 +1052,7 @@ input[type=range]::-moz-range-thumb {
     z-index: 5;
     min-height: 0;
     overflow: hidden;
+    pointer-events: none;
 }
 
 /* Narrative Panel */
@@ -1047,6 +1071,7 @@ input[type=range]::-moz-range-thumb {
     position: relative;
     transition: max-width 0.3s ease, padding 0.3s ease, max-height 0.4s ease;
     cursor: pointer;
+    pointer-events: auto;
 }
 
 /* Narrative toggle button styling */

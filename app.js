@@ -248,6 +248,7 @@ class BackroomsGame {
             interactableDesc: document.getElementById('interactable-desc'),
             roomImage: document.getElementById('room-image'),
             roomImageBlur: document.getElementById('room-image-blur'),
+            sceneBg: document.getElementById('scene-bg'),
             actionsContainer: document.getElementById('actions-container'),
             appContainer: document.getElementById('app-container'),
             terminalText: document.getElementById('terminal-text'),
@@ -424,6 +425,15 @@ class BackroomsGame {
             syncHudHeight();
             if (hudBar && window.ResizeObserver) {
                 new ResizeObserver(syncHudHeight).observe(hudBar);
+            }
+
+            // Click on background to skip transition
+            if (this.elements.sceneBg) {
+                this.elements.sceneBg.addEventListener('click', () => {
+                    if (this.state.isTransitioning && this.state.transitionContext?.target) {
+                        this.handleAction('mov', this.state.transitionContext.target);
+                    }
+                });
             }
 
             window.addEventListener('hashchange', () => this.checkHash());
@@ -893,6 +903,12 @@ class BackroomsGame {
         this.elements.discoveredValue.innerText = `${visitedRooms.length}/${totalRooms}`;
 
         this.updateGlitchEffects(sanity);
+
+        if (this.state.isTransitioning) {
+            this.elements.appContainer.classList.add('is-transitioning');
+        } else {
+            this.elements.appContainer.classList.remove('is-transitioning');
+        }
 
         // Clear actions
         this.elements.actionsContainer.innerHTML = '';
