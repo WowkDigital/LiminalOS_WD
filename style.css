@@ -1345,6 +1345,20 @@ button.exit-btn {
     gap: 0.6rem;
 }
 
+button.exit-btn.locked {
+    background: rgba(255, 255, 255, 0.01) !important;
+    border-color: rgba(255, 255, 255, 0.05) !important;
+    color: var(--text-muted) !important;
+    opacity: 0.4 !important;
+    cursor: not-allowed !important;
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+button.exit-btn.locked::before {
+    display: none !important;
+}
+
 /* Continue button */
 button.continue-btn {
     flex: 1 1 100%;
@@ -2258,5 +2272,25 @@ button.custom-category-btn:hover {
 
     #scene-bg img {
         animation: none;
+    }
+}
+
+/* Blinking terminal status dot when interaction is available */
+.terminal-status-dot.status-blink,
+.terminal-status-dot.interactive-blink {
+    background-color: #eab308 !important; /* amber/yellow */
+    box-shadow: 0 0 10px #eab308, 0 0 20px #eab308 !important;
+    animation: terminalBlink 1s infinite alternate !important;
+}
+
+@keyframes terminalBlink {
+    0% {
+        opacity: 0.3;
+        transform: scale(0.9);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1.2);
+        box-shadow: 0 0 12px #eab308, 0 0 20px #eab308;
     }
 }

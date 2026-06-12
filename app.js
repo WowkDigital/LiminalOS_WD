@@ -114,23 +114,24 @@ class RoomLocation extends Location {
             ? getRecommendedExits(this.game)
             : new Set();
 
-        // Filter by requirements and transform to action objects
-        return stored.filter(t => this.game.checkRequirements(t.requirements))
-            .map(t => {
-                const category = this.game.getTransitionCategory(t.id);
-                const isUnknown = !this.game.state.visitedRooms.includes(t.target);
-                const isRecommended = recommended.has(t.id);
-                return {
-                    type: 'tra',
-                    label: t.label,
-                    value: t.id,
-                    extra: t.target,
-                    id: t.id,
-                    category,
-                    isUnknown,
-                    isRecommended   // true if taking this exit leads toward undiscovered rooms
-                };
-            });
+        // Map all transitions to action objects
+        return stored.map(t => {
+            const isMet = this.game.checkRequirements(t.requirements);
+            const category = this.game.getTransitionCategory(t.id);
+            const isUnknown = !this.game.state.visitedRooms.includes(t.target);
+            const isRecommended = recommended.has(t.id);
+            return {
+                type: 'tra',
+                label: t.label,
+                value: t.id,
+                extra: t.target,
+                id: t.id,
+                category,
+                isUnknown,
+                isRecommended,   // true if taking this exit leads toward undiscovered rooms
+                isLocked: !isMet
+            };
+        });
     }
 }
 
@@ -730,6 +731,8 @@ class BackroomsGame {
     processEffects(effects) {
         if (!Array.isArray(effects)) return;
 
+        let hasChange = false;
+
         effects.forEach(eff => {
             console.log("Effect trigger:", eff);
             if (eff.type === 'sfx' || eff.type === 'sound') {
@@ -744,6 +747,7 @@ class BackroomsGame {
                 }
             } else if (eff.type === 'sanity') {
                 this.state.sanity = Math.max(0, Math.min(100, this.state.sanity + eff.value));
+                hasChange = true;
             } else if (eff.type === 'glitch') {
                 this.updateGlitchEffects(this.state.sanity - (eff.intensity || 0));
                 setTimeout(() => this.updateGlitchEffects(this.state.sanity), eff.duration || 500);
@@ -764,7 +768,7 @@ class BackroomsGame {
                 if (itemName) {
                     if (!this.state.inventory) this.state.inventory = {};
                     this.state.inventory[itemName] = Math.max(0, (this.state.inventory[itemName] || 0) + amount);
-                    this.saveSession();
+                    hasChange = true;
                     if (window.TerminalSystem) {
                         const sign = amount > 0 ? "+" : "";
                         const logMsg = `INVENTORY: ${sign}${amount} ${itemName.replace('_', ' ').toUpperCase()}`;
@@ -773,6 +777,11 @@ class BackroomsGame {
                 }
             }
         });
+
+        if (hasChange) {
+            this.saveSession();
+            this.render();
+        }
     }
 
     checkRequirements(req) {
@@ -1001,6 +1010,11 @@ class BackroomsGame {
             if (act.type === 'tra' || act.type === 'mov') {
                 btn.className = act.type === 'mov' ? 'continue-btn' : 'exit-btn';
 
+                if (act.type === 'tra' && act.isLocked) {
+                    btn.classList.add('locked');
+                    btn.disabled = true;
+                }
+
                 // Build button content: label + optional icons
                 const hasBadges = (act.type === 'tra') && (act.isUnknown || act.isRecommended);
                 if (hasBadges) {
@@ -1016,7 +1030,7 @@ class BackroomsGame {
                 }
 
                 // Apply category colors if available
-                if (act.category) {
+                if (act.category && !act.isLocked) {
                     const color = this.getCategoryColor(act.category);
                     const glowColor = color.replace('hsl', 'hsla').replace(')', ', 0.3)');
                     const dimColor = color.replace('hsl', 'hsla').replace(')', ', 0.1)');

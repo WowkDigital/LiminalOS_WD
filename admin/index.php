@@ -204,8 +204,16 @@ if (isset($_SESSION['admin_auth']) && $_SESSION['admin_auth'] === true):
                 <form id="room-form">
                     <div class="editor-layout">
                         <div class="editor-main">
-                            <div class="form-row-2">
-                                <div class="form-group">
+                            <!-- Room Editor Tabs -->
+                            <div class="editor-tabs" style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--glass-border); padding-bottom: 10px;">
+                                <button type="button" class="tab-btn active" data-room-tab="room-tab-general">General Config</button>
+                                <button type="button" class="tab-btn" data-room-tab="room-tab-terminal">Terminal Interaction</button>
+                            </div>
+
+                            <!-- General Config Tab Content -->
+                            <div id="room-tab-general" class="room-tab-content">
+                                <div class="form-row-2">
+                                    <div class="form-group">
                                     <label for="room-id">Unique Room ID</label>
                                     <input type="text" id="room-id" name="id" placeholder="e.g. infinite_hallway" required>
                                     <small>Must be unique, lowercase, no spaces.</small>
@@ -299,6 +307,32 @@ if (isset($_SESSION['admin_auth']) && $_SESSION['admin_auth'] === true):
                                             Apply JSON Data
                                         </button>
                                         <small style="margin-top: 8px;">Warning: This will overwrite currently entered data.</small>
+                                    </div>
+                                </div>
+                            </div> <!-- Close room-tab-general -->
+
+                            <!-- Terminal Interaction Tab Content -->
+                            <div id="room-tab-terminal" class="room-tab-content hidden">
+                                <div class="form-section">
+                                    <label class="checkbox-container" style="display: flex; align-items: center; gap: 8px; font-size: 1rem; margin-bottom: 1.5rem; cursor: pointer;">
+                                        <input type="checkbox" id="room-terminal-enabled">
+                                        <span class="checkbox-label" style="font-weight: 600;">Enable Terminal Interaction in this Room</span>
+                                    </label>
+                                    
+                                    <div id="room-terminal-config" class="hidden" style="border-top: 1px dashed var(--glass-border); padding-top: 1.5rem;">
+                                        <div class="form-group">
+                                            <label for="room-terminal-text">Screen Content Text</label>
+                                            <textarea id="room-terminal-text" rows="4" placeholder="Text displayed on CRT screen when player interacts with the terminal in this room..."></textarea>
+                                            <small>Use {ROOM} for room display name placeholder.</small>
+                                        </div>
+                                        
+                                        <div class="form-section" style="margin-top: 1.5rem; background: rgba(0,0,0,0.15); padding: 1.5rem; border-radius: var(--radius-sm);">
+                                            <h3 style="border-bottom: 1px dashed var(--glass-border); padding-bottom: 8px; margin-bottom: 1rem;">Terminal Options</h3>
+                                            <div id="room-terminal-options-list">
+                                                <!-- Dynamic option cards loaded from terminal dialogue tree -->
+                                            </div>
+                                            <button type="button" id="btn-add-room-terminal-option" class="btn-small" style="margin-top: 12px;">+ Add Option</button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

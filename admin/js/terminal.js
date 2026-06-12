@@ -7,6 +7,14 @@ let terminalDialogueTree = {};
 let activeNodeId = null;
 let listenersAttached = false;
 
+export function getTerminalDialogueTree() {
+    return terminalDialogueTree;
+}
+
+export function setTerminalDialogueTree(tree) {
+    terminalDialogueTree = tree;
+}
+
 export async function fetchTerminalDialogues() {
     const listCont = document.getElementById('terminal-nodes-list');
     if (listCont) {
@@ -48,28 +56,35 @@ function setupTerminalEventListenersOnce() {
         });
     }
     
-    // Add Node
-    const addNodeBtn = document.getElementById('btn-add-terminal-node');
-    if (addNodeBtn) {
-        addNodeBtn.addEventListener('click', handleAddTerminalNode);
+    // Create node button
+    const addBtn = document.getElementById('btn-add-terminal-node');
+    if (addBtn) {
+        addBtn.addEventListener('click', handleAddTerminalNode);
     }
     
-    // Save Dialogues
+    // Add option button
+    const addOptBtn = document.getElementById('btn-add-terminal-option');
+    if (addOptBtn) {
+        addOptBtn.addEventListener('click', () => {
+            const list = document.getElementById('terminal-options-list');
+            if (list) {
+                const newIndex = list.children.length;
+                const newOpt = { label: 'NEW OPTION', next: activeNodeId || '' };
+                list.appendChild(createOptionCard(newOpt, newIndex));
+            }
+        });
+    }
+    
+    // Save button
     const saveBtn = document.getElementById('btn-save-terminal');
     if (saveBtn) {
         saveBtn.addEventListener('click', handleSaveTerminal);
     }
     
-    // Delete Node
-    const deleteNodeBtn = document.getElementById('btn-delete-terminal-node');
-    if (deleteNodeBtn) {
-        deleteNodeBtn.addEventListener('click', handleDeleteTerminalNode);
-    }
-    
-    // Add Option
-    const addOptionBtn = document.getElementById('btn-add-terminal-option');
-    if (addOptionBtn) {
-        addOptionBtn.addEventListener('click', handleAddTerminalOption);
+    // Delete button
+    const deleteBtn = document.getElementById('btn-delete-terminal-node');
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', handleDeleteTerminalNode);
     }
 }
 
@@ -78,25 +93,40 @@ function renderTerminalNodesList(filter = '') {
     if (!listCont) return;
     listCont.innerHTML = '';
     
-    const query = filter.toLowerCase();
-    const sortedKeys = Object.keys(terminalDialogueTree).sort();
-    
+    const nodeKeys = Object.keys(terminalDialogueTree).sort();
     let renderedCount = 0;
-    for (const key of sortedKeys) {
-        if (filter && !key.toLowerCase().includes(query)) continue;
+    
+    for (const key of nodeKeys) {
+        if (filter && !key.toLowerCase().includes(filter.toLowerCase())) {
+            continue;
+        }
         
         renderedCount++;
-        const node = terminalDialogueTree[key];
-        const isSelected = key === activeNodeId;
-        const className = `node-item ${isSelected ? 'active' : ''}`;
-        const optionCount = node.options ? node.options.length : 0;
+        const isActive = key === activeNodeId;
         
+        const removeNodeBtn = el('button', {
+            type: 'button',
+            className: 'btn-remove btn-remove-compact',
+            style: { padding: '4px', background: 'transparent', border: 'none' },
+            onClick: (e) => {
+                e.stopPropagation();
+                if (confirm(`Delete dialogue node "${key}"?`)) {
+                    delete terminalDialogueTree[key];
+                    if (activeNodeId === key) {
+                        clearTerminalEditor();
+                    }
+                    renderTerminalNodesList(filter);
+                }
+            }
+        }, [icon('trash-2', { style: { width: '12px', height: '12px' } })]);
+
         const itemEl = el('div', {
-            className: className,
-            onClick: () => selectTerminalNode(key)
+            className: `node-list-item ${isActive ? 'active' : ''}`,
+            onClick: () => selectTerminalNode(key),
+            style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' }
         }, [
-            el('div', { className: 'node-item-id' }, key),
-            el('div', { className: 'node-item-meta' }, `${optionCount} option(s)`)
+            el('span', {}, key),
+            removeNodeBtn
         ]);
         
         listCont.appendChild(itemEl);
@@ -158,7 +188,7 @@ function renderTerminalOptionsEditor(node) {
     });
 }
 
-function createOptionCard(opt, index) {
+export function createOptionCard(opt, index, tree = terminalDialogueTree) {
     // Label input
     const labelInput = el('input', {
         type: 'text',
@@ -381,7 +411,7 @@ function createOptionCard(opt, index) {
     return optCard;
 }
 
-function createEffectRow(eff, index) {
+export function createEffectRow(eff, index) {
     const typeSelect = el('select', {
         className: 'eff-type-select',
         style: { width: '140px' }
@@ -627,17 +657,12 @@ function saveCurrentNodeEditorValues() {
 }
 
 function handleAddTerminalNode() {
-    const rawId = prompt("Enter Unique Node ID (e.g. ROOM_LOBBY_VENT):");
-    if (!rawId) return;
-    
-    const nodeId = rawId.trim().toUpperCase();
-    if (!nodeId) return;
-    
-    if (terminalDialogueTree[nodeId]) {
-        showToast(`Node '${nodeId}' already exists!`, 'error');
-        selectTerminalNode(nodeId);
-        return;
+    let base = "NEW_NODE_";
+    let counter = 1;
+    while (terminalDialogueTree[base + counter]) {
+        counter++;
     }
+    const nodeId = base + counter;
     
     terminalDialogueTree[nodeId] = {
         text: "SYS_MSG: SYSTEM ONLINE...\n",
@@ -646,6 +671,15 @@ function handleAddTerminalNode() {
     
     selectTerminalNode(nodeId);
     renderTerminalNodesList();
+    
+    // Focus the ID input so the user can easily type their own name
+    setTimeout(() => {
+        const idInput = document.getElementById('terminal-node-id-input');
+        if (idInput) {
+            idInput.focus();
+            idInput.select();
+        }
+    }, 50);
 }
 
 function handleDeleteTerminalNode() {
