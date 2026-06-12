@@ -415,6 +415,277 @@ assertTest('Interactable State Effects Compliance', function() use ($dbFile) {
     }
 });
 
+// Test 9: Audio Mappings & Cascading Deletion
+assertTest('Audio Mapping Cascade Deletion (ON DELETE CASCADE)', function() use ($dbFile) {
+    $pdo = new PDO('sqlite:' . $dbFile);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo->exec("PRAGMA foreign_keys = ON;");
+    
+    // Register custom function to satisfy delete trigger without doing actual deletes
+    $dummy_fn = function($path) {};
+    if (method_exists($pdo, 'createFunction')) {
+        $pdo->createFunction('delete_file_on_disk', $dummy_fn, 1);
+    } else {
+        @$pdo->sqliteCreateFunction('delete_file_on_disk', $dummy_fn, 1);
+    }
+    
+    $pdo->beginTransaction();
+    try {
+        // 1. Insert dummy audio file
+        $pdo->prepare("INSERT INTO audio_library (filename, filepath, tags, category) VALUES (?, ?, ?, ?)")
+            ->execute(['__unit_test_audio__.mp3', 'media/sound_effects/__unit_test_audio__.mp3', 'test', 'sfx']);
+        $audioId = $pdo->lastInsertId();
+        
+        // 2. Insert mapping referencing that audio
+        $pdo->prepare("INSERT INTO audio_mappings (mapping_type, context_id, audio_file_id, volume, loop) VALUES (?, ?, ?, ?, ?)")
+            ->execute(['room', 'lobby', $audioId, 0.7, 1]);
+        $mappingId = $pdo->lastInsertId();
+        
+        // Confirm insertion
+        $mappingCount = $pdo->query("SELECT COUNT(*) FROM audio_mappings WHERE id = {$mappingId}")->fetchColumn();
+        if ($mappingCount != 1) {
+            throw new Exception("Prerequisite insert of audio mapping failed.");
+        }
+        
+        // 3. Delete audio library record
+        $pdo->prepare("DELETE FROM audio_library WHERE id = ?")->execute([$audioId]);
+        
+        // 4. Verify cascade
+        $mappingCountAfter = $pdo->query("SELECT COUNT(*) FROM audio_mappings WHERE id = {$mappingId}")->fetchColumn();
+        if ($mappingCountAfter != 0) {
+            throw new Exception("Cascade failed! Audio mapping record still exists after deleting referenced audio file.");
+        }
+        
+        return "Verified: Deleting an audio library record successfully cascades to purge dependent audio mapping constraints.";
+    } finally {
+        $pdo->rollBack();
+    }
+});
+
+// Test 10: Transition Saving & Modification Operations
+assertTest('Transition Saving & Modification Operations', function() use ($dbFile) {
+    $pdo = new PDO('sqlite:' . $dbFile);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo->exec("PRAGMA foreign_keys = ON;");
+    
+    $pdo->beginTransaction();
+    try {
+        $transId = '__test_edit_trans_id__';
+        
+        // 1. Initial Save
+        $transData = [
+            'label' => 'Initial Transition Label',
+            'desc' => 'Initial Transition Description',
+            'effects' => ['sanity' => -5],
+            'categories' => ['hallway', 'vent'],
+            'tags' => ['tag_a', 'tag_b'],
+            'texts' => [
+                ['text' => 'Transition text snippet', 'sanity_min' => 0, 'sanity_max' => 100, 'dialogue_id' => 'd_trans_1']
+            ]
+        ];
+        
+        $pdo->prepare("INSERT INTO transitions (id, label, desc, effects) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET label=excluded.label, desc=excluded.desc, effects=excluded.effects")
+            ->execute([$transId, $transData['label'], $transData['desc'], json_encode($transData['effects'])]);
+            
+        foreach ($transData['categories'] as $cat) {
+            $pdo->prepare("INSERT OR IGNORE INTO transition_category_links (transition_id, category) VALUES (?, ?)")->execute([$transId, $cat]);
+        }
+        
+        foreach ($transData['tags'] as $tag) {
+            $pdo->prepare("INSERT INTO transition_tags (transition_id, tag) VALUES (?, ?)")->execute([$transId, $tag]);
+        }
+        
+        foreach ($transData['texts'] as $txt) {
+            $pdo->prepare("INSERT INTO transition_texts (transition_id, text, sanity_min, sanity_max, dialogue_id) VALUES (?, ?, ?, ?, ?)")
+                ->execute([$transId, $txt['text'], $txt['sanity_min'], $txt['sanity_max'], $txt['dialogue_id']]);
+        }
+        
+        // Verify insert
+        $catCount = $pdo->query("SELECT COUNT(*) FROM transition_category_links WHERE transition_id = '{$transId}'")->fetchColumn();
+        if ($catCount != 2) {
+            throw new Exception("Categories failed to insert.");
+        }
+        
+        // 2. Modify values and save again
+        $modifiedData = [
+            'label' => 'Modified Transition Label',
+            'desc' => 'Modified Transition Description',
+            'effects' => null,
+            'categories' => ['vent'], // hallway category removed
+            'tags' => ['tag_b', 'tag_c'], // tag_a removed, tag_c added
+            'texts' => [] // all texts removed
+        ];
+        
+        $pdo->prepare("INSERT INTO transitions (id, label, desc, effects) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET label=excluded.label, desc=excluded.desc, effects=excluded.effects")
+            ->execute([$transId, $modifiedData['label'], $modifiedData['desc'], null]);
+            
+        $pdo->prepare("DELETE FROM transition_category_links WHERE transition_id = ?")->execute([$transId]);
+        foreach ($modifiedData['categories'] as $cat) {
+            $pdo->prepare("INSERT OR IGNORE INTO transition_category_links (transition_id, category) VALUES (?, ?)")->execute([$transId, $cat]);
+        }
+        
+        $pdo->prepare("DELETE FROM transition_tags WHERE transition_id = ?")->execute([$transId]);
+        foreach ($modifiedData['tags'] as $tag) {
+            $pdo->prepare("INSERT INTO transition_tags (transition_id, tag) VALUES (?, ?)")->execute([$transId, $tag]);
+        }
+        
+        $pdo->prepare("DELETE FROM transition_texts WHERE transition_id = ?")->execute([$transId]);
+        
+        // 3. Assertions
+        $trans = $pdo->query("SELECT * FROM transitions WHERE id = '{$transId}'")->fetch();
+        if ($trans['label'] !== 'Modified Transition Label' || $trans['desc'] !== 'Modified Transition Description' || $trans['effects'] !== null) {
+            throw new Exception("Transition fields failed to update correctly.");
+        }
+        
+        $cats = $pdo->query("SELECT category FROM transition_category_links WHERE transition_id = '{$transId}'")->fetchAll(PDO::FETCH_COLUMN);
+        if ($cats !== ['vent']) {
+            throw new Exception("Transition categories failed to update: " . json_encode($cats));
+        }
+        
+        $tags = $pdo->query("SELECT tag FROM transition_tags WHERE transition_id = '{$transId}'")->fetchAll(PDO::FETCH_COLUMN);
+        sort($tags);
+        if ($tags !== ['tag_b', 'tag_c']) {
+            throw new Exception("Transition tags failed to update: " . json_encode($tags));
+        }
+        
+        $textCount = $pdo->query("SELECT COUNT(*) FROM transition_texts WHERE transition_id = '{$transId}'")->fetchColumn();
+        if ($textCount != 0) {
+            throw new Exception("Transition texts failed to clear.");
+        }
+        
+        return "Transition creation, field updates, and child list rewrites passed validation.";
+    } finally {
+        $pdo->rollBack();
+    }
+});
+
+// Test 11: Taxonomy Definitions Uniqueness & Operations
+assertTest('Taxonomy Definitions Uniqueness & Constraints', function() use ($dbFile) {
+    $pdo = new PDO('sqlite:' . $dbFile);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    
+    $pdo->beginTransaction();
+    try {
+        // 1. Insert a tag definition
+        $pdo->prepare("INSERT INTO taxonomy_definitions (type, label) VALUES (?, ?)")
+            ->execute(['room_tag', '__diag_temp_tag__']);
+            
+        // 2. Assert unique constraint
+        $uniqueViolated = false;
+        try {
+            $pdo->prepare("INSERT INTO taxonomy_definitions (type, label) VALUES (?, ?)")
+                ->execute(['room_tag', '__diag_temp_tag__']);
+        } catch (PDOException $e) {
+            $uniqueViolated = true;
+        }
+        
+        if (!$uniqueViolated) {
+            throw new Exception("Failed to enforce UNIQUE constraint on taxonomy label.");
+        }
+        
+        // 3. Delete definition
+        $pdo->prepare("DELETE FROM taxonomy_definitions WHERE type = ? AND label = ?")
+            ->execute(['room_tag', '__diag_temp_tag__']);
+            
+        $count = $pdo->query("SELECT COUNT(*) FROM taxonomy_definitions WHERE label = '__diag_temp_tag__'")->fetchColumn();
+        if ($count != 0) {
+            throw new Exception("Taxonomy record deletion failed.");
+        }
+        
+        return "Verified: Taxonomy UNIQUE constraints and basic CRUD operations perform correctly.";
+    } finally {
+        $pdo->rollBack();
+    }
+});
+
+// Test 12: Terminal Dialogue Configuration Integrity
+assertTest('Terminal Dialogue Configuration Integrity', function() {
+    $filePath = __DIR__ . '/../terminal_dialogue.json';
+    if (!file_exists($filePath)) {
+        throw new Exception("terminal_dialogue.json file does not exist in the root workspace.");
+    }
+    
+    $rawContent = file_get_contents($filePath);
+    $dialogue = json_decode($rawContent, true);
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        throw new Exception("terminal_dialogue.json is not valid JSON. Error: " . json_last_error_msg());
+    }
+    
+    if (empty($dialogue)) {
+        throw new Exception("terminal_dialogue.json is empty.");
+    }
+    
+    // Check key requirements for nodes
+    $validKeys = array_keys($dialogue);
+    foreach ($dialogue as $key => $node) {
+        if (!isset($node['text']) || !is_string($node['text'])) {
+            throw new Exception("Dialogue node '{$key}' is missing required 'text' string.");
+        }
+        
+        if (isset($node['options'])) {
+            if (!is_array($node['options'])) {
+                throw new Exception("Options in node '{$key}' must be an array.");
+            }
+            foreach ($node['options'] as $idx => $opt) {
+                if (!isset($opt['label']) || !is_string($opt['label'])) {
+                    throw new Exception("Option index {$idx} in node '{$key}' is missing a 'label' string.");
+                }
+                if (!isset($opt['next']) || !is_string($opt['next'])) {
+                    throw new Exception("Option index {$idx} in node '{$key}' is missing a 'next' state string.");
+                }
+                
+                $nextState = $opt['next'];
+                // Check if target state exists in the dialogue, or is a dynamic system keyword
+                $allowedSpecialKeywords = ['INITIAL', 'WANDER', 'ROOM_LOBBY'];
+                if (!in_array($nextState, $validKeys) && !in_array($nextState, $allowedSpecialKeywords)) {
+                    throw new Exception("Option '{$opt['label']}' in node '{$key}' references non-existent state '{$nextState}'.");
+                }
+            }
+        }
+    }
+    
+    return "terminal_dialogue.json format is valid and references are 100% consistent across " . count($validKeys) . " dialogue nodes.";
+});
+
+// Test 13: Database Effects Column JSON Compliance Audit
+assertTest('Database Effects Columns JSON Integrity', function() use ($dbFile) {
+    $pdo = new PDO('sqlite:' . $dbFile);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    
+    // 1. Audit rooms effects
+    $stmt = $pdo->query("SELECT id, name, effects FROM rooms WHERE effects IS NOT NULL AND effects != ''");
+    $corruptRooms = [];
+    while ($row = $stmt->fetch()) {
+        json_decode($row['effects']);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            $corruptRooms[] = $row['id'] . " ('" . $row['name'] . "')";
+        }
+    }
+    
+    // 2. Audit transitions effects
+    $stmt = $pdo->query("SELECT id, label, effects FROM transitions WHERE effects IS NOT NULL AND effects != ''");
+    $corruptTransitions = [];
+    while ($row = $stmt->fetch()) {
+        json_decode($row['effects']);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            $corruptTransitions[] = $row['id'] . " ('" . $row['label'] . "')";
+        }
+    }
+    
+    if (!empty($corruptRooms) || !empty($corruptTransitions)) {
+        $msg = "";
+        if (!empty($corruptRooms)) {
+            $msg .= "Malformed effects JSON in rooms: " . implode(', ', $corruptRooms) . ". ";
+        }
+        if (!empty($corruptTransitions)) {
+            $msg .= "Malformed effects JSON in transitions: " . implode(', ', $corruptTransitions) . ". ";
+        }
+        throw new Exception($msg);
+    }
+    
+    return "Verified: All stored Room and Transition effect payloads in the database contain valid JSON structures.";
+});
+
 echo json_encode([
     'success' => ($failed === 0),
     'summary' => [
