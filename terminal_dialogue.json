@@ -3,6 +3,15 @@
         "text": "SYSTEM READY. AWAITING INPUT...",
         "options": [
             {
+                "label": "MORE OPTIONS",
+                "next": "INITIAL_MORE"
+            }
+        ]
+    },
+    "INITIAL_MORE": {
+        "text": "EXPANDED SYSTEM OPTIONS DETECTED.",
+        "options": [
+            {
                 "label": "STATUS CHECK",
                 "next": "STATUS"
             },
@@ -13,6 +22,10 @@
             {
                 "label": "QUERY ARCHIVE",
                 "next": "QUERY"
+            },
+            {
+                "label": "BACK",
+                "next": "INITIAL"
             }
         ]
     },
