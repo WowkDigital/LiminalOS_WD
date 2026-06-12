@@ -2410,3 +2410,46 @@ body.is-resizing * {
         box-shadow: 0 0 12px #eab308, 0 0 20px #eab308;
     }
 }
+
+/* Map Version Toggle Styling */
+.map-version-toggle {
+    display: flex;
+    gap: 4px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-sm);
+    padding: 2px;
+    margin-top: 0.6rem;
+}
+
+.map-ver-btn {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text-secondary);
+    font-family: var(--font-mono) !important;
+    font-size: 0.65rem;
+    font-weight: bold;
+    padding: 5px 8px;
+    border-radius: calc(var(--radius-sm) - 2px);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    text-align: center;
+    position: relative;
+}
+
+.map-ver-btn::before {
+    display: none !important; /* Prevent exit button styling if applied globally */
+}
+
+.map-ver-btn:hover {
+    color: var(--text-main);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.map-ver-btn.active {
+    background: var(--accent-primary) !important;
+    color: #000 !important;
+    box-shadow: 0 0 8px var(--accent-glow) !important;
+}

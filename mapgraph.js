@@ -23,6 +23,10 @@ class MapGraph {
         this.startX = 0;
         this.startY = 0;
         this.lastRoom = null;
+        this.lastMapMode = this.game.state.mapMode || 'v1';
+        this.isDraggingNode = false;
+        this.draggedNode = null;
+        this.hasDraggedNode = false;
 
         const mapPanel = document.getElementById('map-panel');
         const toggleBtn = document.getElementById('map-toggle-btn');
@@ -30,6 +34,50 @@ class MapGraph {
             toggleBtn.addEventListener('click', () => {
                 mapPanel.classList.toggle('collapsed');
                 if (!mapPanel.classList.contains('collapsed')) this.update();
+            });
+        }
+
+        const v1Btn = document.getElementById('map-v1-btn');
+        const v2Btn = document.getElementById('map-v2-btn');
+        if (v1Btn && v2Btn) {
+            const currentMode = this.game.state.mapMode || 'v1';
+            this.game.state.mapMode = currentMode;
+            if (currentMode === 'v1') {
+                v1Btn.classList.add('active');
+                v2Btn.classList.remove('active');
+            } else {
+                v2Btn.classList.add('active');
+                v1Btn.classList.remove('active');
+            }
+
+            v1Btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (this.game.state.mapMode !== 'v1') {
+                    this.game.state.mapMode = 'v1';
+                    v1Btn.classList.add('active');
+                    v2Btn.classList.remove('active');
+                    this.game.saveSession();
+                    this.update();
+                }
+            });
+
+            v2Btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (this.game.state.mapMode !== 'v2') {
+                    this.game.state.mapMode = 'v2';
+                    v2Btn.classList.add('active');
+                    v1Btn.classList.remove('active');
+                    this.game.saveSession();
+                    this.update();
+                }
+            });
+        }
+
+        const optimizeBtn = document.getElementById('map-optimize');
+        if (optimizeBtn) {
+            optimizeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.optimizeLayout();
             });
         }
 
@@ -47,6 +95,12 @@ class MapGraph {
         if (!this.svg) return;
         const mapPanel = document.getElementById('map-panel');
         if (mapPanel && mapPanel.classList.contains('collapsed')) return;
+
+        // Toggle optimize button visibility based on mapMode
+        const optimizeBtn = document.getElementById('map-optimize');
+        if (optimizeBtn) {
+            optimizeBtn.style.display = this.game.state.mapMode === 'v2' ? 'flex' : 'none';
+        }
 
         // Update technical header statistics
         const totalRooms = Object.keys(this.game.world.rooms).length;
@@ -92,6 +146,39 @@ class MapGraph {
             visible.add(currentRoom);
         }
 
+        const edges = this._buildEdges(visited);
+
+        // --- MAP V2 CODE PATH ---
+        if (state.mapMode === 'v2') {
+            if (!state.mapV2Positions) {
+                state.mapV2Positions = {};
+            }
+
+            // Initialize positions for V2 if not present
+            visible.forEach(id => {
+                if (!state.mapV2Positions[id]) {
+                    const initial = state.mapPositions?.[id] || { x: 400 + (Math.random() - 0.5) * 50, y: 600 + (Math.random() - 0.5) * 50 };
+                    state.mapV2Positions[id] = { x: initial.x, y: initial.y };
+                }
+            });
+
+            // Populate the positions array using persistent V2 coordinates
+            const pos = {};
+            visible.forEach(id => {
+                const coord = state.mapV2Positions[id];
+                pos[id] = {
+                    x: coord.x,
+                    y: coord.y,
+                    vx: 0,
+                    vy: 0,
+                    fixed: false
+                };
+            });
+
+            return { pos, edges, visited };
+        }
+
+        // --- MAP V1 CODE PATH ---
         // Center coordinates
         const cx = this.width / 2;
         const cy = this.height / 2;
@@ -131,8 +218,6 @@ class MapGraph {
                 };
             }
         });
-
-        const edges = this._buildEdges(visited);
 
         // Run a fast, localized force simulation (150 iterations)
         const allNodes = Object.keys(pos);
@@ -289,12 +374,35 @@ class MapGraph {
             ? state.transitionContext?.target
             : state.currentRoom;
 
-        // Reset zoom/pan only when current room actually changes
-        if (currentRoom !== this.lastRoom) {
+        const modeChanged = state.mapMode !== this.lastMapMode;
+
+        if (modeChanged) {
+            this.lastMapMode = state.mapMode || 'v1';
             this.zoom = 1.0;
-            this.panX = 0;
-            this.panY = 0;
+            if (state.mapMode === 'v2') {
+                const currentPos = state.mapV2Positions?.[currentRoom];
+                if (currentPos) {
+                    const cx = this.width / 2;
+                    const cy = this.height / 2;
+                    this.panX = cx - currentPos.x * this.zoom;
+                    this.panY = cy - currentPos.y * this.zoom;
+                } else {
+                    this.panX = 0;
+                    this.panY = 0;
+                }
+            } else {
+                this.panX = 0;
+                this.panY = 0;
+            }
+        }
+
+        if (currentRoom !== this.lastRoom) {
             this.lastRoom = currentRoom;
+            if (state.mapMode !== 'v2') {
+                this.zoom = 1.0;
+                this.panX = 0;
+                this.panY = 0;
+            }
         }
 
         const reachable = new Set();
@@ -435,10 +543,40 @@ class MapGraph {
         group.addEventListener('mouseenter', () => this.showNodeTelemetry(id, isCurrent, isVisited, isReachable));
         group.addEventListener('mouseleave', () => this.resetNodeTelemetry());
 
-        // Click to navigate to reachable rooms (ignore if user is panning the map)
+        // Dragging handler (only in Map V2)
+        group.addEventListener('mousedown', (e) => {
+            this.hasDragged = false;
+            this.hasDraggedNode = false;
+            if (this.game.state.mapMode === 'v2') {
+                e.stopPropagation(); // Prevent map panning
+                this.isDraggingNode = true;
+                this.draggedNode = id;
+                this.dragStartX = e.clientX;
+                this.dragStartY = e.clientY;
+                this.nodeStartX = pos.x;
+                this.nodeStartY = pos.y;
+                this.svg.style.cursor = 'grabbing';
+            }
+        });
+
+        group.addEventListener('touchstart', (e) => {
+            this.hasDragged = false;
+            this.hasDraggedNode = false;
+            if (this.game.state.mapMode === 'v2' && e.touches.length === 1) {
+                e.stopPropagation(); // Prevent map panning
+                this.isDraggingNode = true;
+                this.draggedNode = id;
+                this.dragStartX = e.touches[0].clientX;
+                this.dragStartY = e.touches[0].clientY;
+                this.nodeStartX = pos.x;
+                this.nodeStartY = pos.y;
+            }
+        }, { passive: true });
+
+        // Click to navigate to reachable rooms (ignore if user is panning the map or dragging a node)
         if (isReachable && !isCurrent) {
             group.addEventListener('click', () => {
-                if (this.hasDragged) return;
+                if (this.hasDragged || this.hasDraggedNode) return;
                 this._navigateToRoom(id);
             });
         }
@@ -724,6 +862,29 @@ class MapGraph {
         });
 
         window.addEventListener('mousemove', (e) => {
+            if (this.isDraggingNode && this.draggedNode) {
+                const dx = e.clientX - this.dragStartX;
+                const dy = e.clientY - this.dragStartY;
+
+                if (Math.sqrt(dx * dx + dy * dy) > 3) {
+                    this.hasDraggedNode = true;
+                }
+
+                let nextX = this.nodeStartX + dx / this.zoom;
+                let nextY = this.nodeStartY + dy / this.zoom;
+
+                nextX = Math.max(10, Math.min(790, nextX));
+                nextY = Math.max(10, Math.min(1190, nextY));
+
+                if (!this.game.state.mapV2Positions) {
+                    this.game.state.mapV2Positions = {};
+                }
+                this.game.state.mapV2Positions[this.draggedNode] = { x: nextX, y: nextY };
+
+                this._draw();
+                return;
+            }
+
             if (!this.isDragging) return;
             const dx = e.clientX - this.startX;
             const dy = e.clientY - this.startY;
@@ -738,6 +899,12 @@ class MapGraph {
         });
 
         window.addEventListener('mouseup', () => {
+            if (this.isDraggingNode) {
+                this.isDraggingNode = false;
+                this.draggedNode = null;
+                this.svg.style.cursor = '';
+                this.game.saveSession();
+            }
             if (this.isDragging) {
                 this.isDragging = false;
                 this.svg.style.cursor = '';
@@ -773,6 +940,30 @@ class MapGraph {
         }, { passive: true });
 
         this.svg.addEventListener('touchmove', (e) => {
+            if (e.touches.length === 1 && this.isDraggingNode && this.draggedNode) {
+                const touch = e.touches[0];
+                const dx = touch.clientX - this.dragStartX;
+                const dy = touch.clientY - this.dragStartY;
+
+                if (Math.hypot(dx, dy) > 3) {
+                    this.hasDraggedNode = true;
+                }
+
+                let nextX = this.nodeStartX + dx / this.zoom;
+                let nextY = this.nodeStartY + dy / this.zoom;
+
+                nextX = Math.max(10, Math.min(790, nextX));
+                nextY = Math.max(10, Math.min(1190, nextY));
+
+                if (!this.game.state.mapV2Positions) {
+                    this.game.state.mapV2Positions = {};
+                }
+                this.game.state.mapV2Positions[this.draggedNode] = { x: nextX, y: nextY };
+
+                this._draw();
+                return;
+            }
+
             if (e.touches.length === 1 && this.isDragging) {
                 const dx = e.touches[0].clientX - this.startX;
                 const dy = e.touches[0].clientY - this.startY;
@@ -799,6 +990,11 @@ class MapGraph {
         }, { passive: true });
 
         this.svg.addEventListener('touchend', () => {
+            if (this.isDraggingNode) {
+                this.isDraggingNode = false;
+                this.draggedNode = null;
+                this.game.saveSession();
+            }
             this.isDragging = false;
         });
 
@@ -885,8 +1081,26 @@ class MapGraph {
 
     resetZoomView() {
         this.zoom = 1.0;
-        this.panX = 0;
-        this.panY = 0;
+        const state = this.game.state;
+        const currentRoom = state.isTransitioning
+            ? state.transitionContext?.target
+            : state.currentRoom;
+
+        if (state.mapMode === 'v2') {
+            const currentPos = state.mapV2Positions?.[currentRoom];
+            if (currentPos) {
+                const cx = this.width / 2;
+                const cy = this.height / 2;
+                this.panX = cx - currentPos.x * this.zoom;
+                this.panY = cy - currentPos.y * this.zoom;
+            } else {
+                this.panX = 0;
+                this.panY = 0;
+            }
+        } else {
+            this.panX = 0;
+            this.panY = 0;
+        }
         this._applyTransform();
     }
 
@@ -895,6 +1109,184 @@ class MapGraph {
         if (stage) {
             stage.setAttribute('transform', `translate(${this.panX}, ${this.panY}) scale(${this.zoom})`);
         }
+    }
+
+    optimizeLayout() {
+        if (this.game.state.mapMode !== 'v2') return;
+
+        // Play UI feedback sound if available
+        if (this.game.audio && typeof this.game.audio.playUiSound === 'function') {
+            this.game.audio.playUiSound('click');
+        }
+
+        const state = this.game.state;
+        const visited = new Set(state.visitedRooms);
+
+        // Visible nodes: visited rooms + their immediate unvisited neighbours
+        const visible = new Set(state.visitedRooms);
+        state.visitedRooms.forEach(roomId => {
+            (state.roomTransitions[roomId] || []).forEach(e => visible.add(e.target));
+        });
+
+        const currentRoom = state.isTransitioning
+            ? state.transitionContext?.target
+            : state.currentRoom;
+
+        if (currentRoom) {
+            visible.add(currentRoom);
+        }
+
+        const edges = this._buildEdges(visited);
+
+        // Populate positions using current mapV2Positions
+        const pos = {};
+        if (!state.mapV2Positions) {
+            state.mapV2Positions = {};
+        }
+
+        visible.forEach(id => {
+            const coord = state.mapV2Positions[id] || state.mapPositions?.[id] || { x: 400, y: 600 };
+            pos[id] = {
+                x: coord.x,
+                y: coord.y,
+                vx: 0,
+                vy: 0,
+                fixed: false
+            };
+        });
+
+        const allNodes = Object.keys(pos);
+        const idealLength = 95;
+        const kAttraction = 0.15;
+        const kRepulsion = 22000;
+        const kGravity = 0.04; // pull towards logical center
+        const minDistance = 72;
+        const damping = 0.8;
+        const cx = 400; // logical center X
+        const cy = 600; // logical center Y
+
+        // Pad boundary inside logical space [0, 800] and [0, 1200]
+        const padX = 40;
+        const padY = 40;
+
+        for (let iter = 0; iter < 150; iter++) {
+            const temp = 1.0 - (iter / 150) * 0.9;
+
+            // 1. Repulsion forces
+            for (let i = 0; i < allNodes.length; i++) {
+                for (let j = i + 1; j < allNodes.length; j++) {
+                    const nodeA = pos[allNodes[i]];
+                    const nodeB = pos[allNodes[j]];
+
+                    const dx = nodeA.x - nodeB.x;
+                    const dy = nodeA.y - nodeB.y;
+                    const distSq = dx * dx + dy * dy || 1;
+                    const dist = Math.sqrt(distSq);
+
+                    const force = kRepulsion / Math.max(25, distSq);
+                    const ux = dx / dist;
+                    const uy = dy / dist;
+
+                    nodeA.vx += ux * force;
+                    nodeA.vy += uy * force;
+                    nodeB.vx -= ux * force;
+                    nodeB.vy -= uy * force;
+                }
+            }
+
+            // 2. Attraction forces along connections
+            edges.forEach(({ source, target }) => {
+                const nodeA = pos[source];
+                const nodeB = pos[target];
+                if (!nodeA || !nodeB) return;
+
+                const dx = nodeB.x - nodeA.x;
+                const dy = nodeB.y - nodeA.y;
+                const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+
+                const force = (dist - idealLength) * kAttraction;
+                const ux = dx / dist;
+                const uy = dy / dist;
+
+                nodeA.vx += ux * force;
+                nodeA.vy += uy * force;
+                nodeB.vx -= ux * force;
+                nodeB.vy -= uy * force;
+            });
+
+            // 3. Gravity toward center
+            allNodes.forEach(id => {
+                const node = pos[id];
+                node.vx += (cx - node.x) * kGravity;
+                node.vy += (cy - node.y) * kGravity;
+            });
+
+            // 4. Update coordinates and damping
+            allNodes.forEach(id => {
+                const node = pos[id];
+                node.x += node.vx * temp;
+                node.y += node.vy * temp;
+
+                node.vx *= damping;
+                node.vy *= damping;
+
+                node.x = Math.max(padX, Math.min(800 - padX, node.x));
+                node.y = Math.max(padY, Math.min(1200 - padY, node.y));
+            });
+
+            // 5. Collision push pass
+            for (let i = 0; i < allNodes.length; i++) {
+                for (let j = i + 1; j < allNodes.length; j++) {
+                    const nodeA = pos[allNodes[i]];
+                    const nodeB = pos[allNodes[j]];
+                    if (!nodeA || !nodeB) continue;
+
+                    let dx = nodeA.x - nodeB.x;
+                    let dy = nodeA.y - nodeB.y;
+                    let dist = Math.sqrt(dx * dx + dy * dy);
+
+                    if (dist < minDistance) {
+                        if (dist === 0) {
+                            dx = (Math.random() - 0.5) * 2;
+                            dy = (Math.random() - 0.5) * 2;
+                            dist = Math.sqrt(dx * dx + dy * dy) || 0.1;
+                        }
+                        const push = minDistance - dist;
+                        const ux = dx / dist;
+                        const uy = dy / dist;
+
+                        nodeA.x += ux * push * 0.5;
+                        nodeA.y += uy * push * 0.5;
+                        nodeB.x -= ux * push * 0.5;
+                        nodeB.y -= uy * push * 0.5;
+
+                        nodeA.x = Math.max(padX, Math.min(800 - padX, nodeA.x));
+                        nodeA.y = Math.max(padY, Math.min(1200 - padY, nodeA.y));
+                        nodeB.x = Math.max(padX, Math.min(800 - padX, nodeB.x));
+                        nodeB.y = Math.max(padY, Math.min(1200 - padY, nodeB.y));
+                    }
+                }
+            }
+        }
+
+        // Save new layout coordinates back to mapV2Positions
+        allNodes.forEach(id => {
+            state.mapV2Positions[id] = { x: pos[id].x, y: pos[id].y };
+        });
+
+        // Save session, auto-center view on current room, and redraw
+        this.game.saveSession();
+        
+        // Auto-center view on current room post-optimization
+        const currentPos = state.mapV2Positions[currentRoom];
+        if (currentPos) {
+            const cx = this.width / 2;
+            const cy = this.height / 2;
+            this.panX = cx - currentPos.x * this.zoom;
+            this.panY = cy - currentPos.y * this.zoom;
+        }
+
+        this._draw();
     }
 }
 
