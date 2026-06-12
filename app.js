@@ -1244,7 +1244,9 @@ class BackroomsGame {
 
             const type = () => {
                 if (index < fullText.length) {
-                    const isGlitch = Math.random() < this.glitchSettings.terminalChance;
+                    const sanityIntensity = (100 - this.state.sanity) / 100;
+                    const dynamicChance = sanityIntensity * this.glitchSettings.terminalChance;
+                    const isGlitch = Math.random() < dynamicChance;
                     const char = isGlitch
                         ? this.terminalGlitchChars[Math.floor(Math.random() * this.terminalGlitchChars.length)]
                         : fullText[index];

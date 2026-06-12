@@ -670,7 +670,8 @@ body {
     margin-bottom: 2px;
 }
 
-.terminal-option-item:hover {
+.terminal-option-item:hover,
+.terminal-option-item.selected {
     background: rgba(234, 179, 8, 0.06);
     border-color: rgba(234, 179, 8, 0.12);
     color: var(--accent-primary);
@@ -700,7 +701,8 @@ body {
     transition: all 0.2s ease;
 }
 
-.terminal-option-item:hover .opt-key {
+.terminal-option-item:hover .opt-key,
+.terminal-option-item.selected .opt-key {
     background: rgba(234, 179, 8, 0.12);
     border-color: rgba(234, 179, 8, 0.3);
     color: var(--accent-primary);
@@ -716,7 +718,8 @@ body {
     transition: opacity 0.2s ease;
 }
 
-.terminal-option-item:hover .opt-icon {
+.terminal-option-item:hover .opt-icon,
+.terminal-option-item.selected .opt-icon {
     opacity: 0.9;
     color: var(--accent-primary);
 }
@@ -737,7 +740,8 @@ body {
     color: var(--accent-primary);
 }
 
-.terminal-option-item:hover .opt-arrow {
+.terminal-option-item:hover .opt-arrow,
+.terminal-option-item.selected .opt-arrow {
     opacity: 0.7;
     transform: translateX(0);
 }
@@ -768,7 +772,8 @@ body {
     border-color: rgba(249, 115, 22, 0.1);
 }
 
-.terminal-option-item.opt-failed-sanity:hover {
+.terminal-option-item.opt-failed-sanity:hover,
+.terminal-option-item.opt-failed-sanity.selected {
     background: rgba(249, 115, 22, 0.08);
     border-color: rgba(249, 115, 22, 0.25);
     color: #fb923c !important;
@@ -781,7 +786,8 @@ body {
     color: #f97316 !important;
 }
 
-.terminal-option-item.opt-failed-sanity:hover .opt-key {
+.terminal-option-item.opt-failed-sanity:hover .opt-key,
+.terminal-option-item.opt-failed-sanity.selected .opt-key {
     background: rgba(249, 115, 22, 0.15);
     border-color: rgba(249, 115, 22, 0.4);
     color: #fb923c !important;

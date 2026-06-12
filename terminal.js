@@ -199,13 +199,23 @@ const TerminalSystem = {
                         this.cmdHistory.push(val);
                     }
                     this.cmdHistoryIndex = this.cmdHistory.length;
+                } else if (this.activeChoices.length > 0 && this.selectedOptionIndex !== -1) {
+                    const picked = this.activeChoices[this.selectedOptionIndex];
+                    this.selectChoice(picked);
                 }
                 this.terminalInputEl.value = "";
             } else if (e.key === 'Escape') {
                 this.collapseTerminal();
             } else if (e.key === 'ArrowUp') {
                 e.preventDefault();
-                if (this.cmdHistory.length > 0) {
+                if (this.activeChoices.length > 0) {
+                    if (this.selectedOptionIndex > 0) {
+                        this.selectedOptionIndex--;
+                    } else {
+                        this.selectedOptionIndex = this.activeChoices.length - 1;
+                    }
+                    this.updateSelectedOptionHighlight();
+                } else if (this.cmdHistory.length > 0) {
                     if (this.cmdHistoryIndex > 0) {
                         this.cmdHistoryIndex--;
                     } else {
@@ -215,7 +225,14 @@ const TerminalSystem = {
                 }
             } else if (e.key === 'ArrowDown') {
                 e.preventDefault();
-                if (this.cmdHistory.length > 0) {
+                if (this.activeChoices.length > 0) {
+                    if (this.selectedOptionIndex < this.activeChoices.length - 1) {
+                        this.selectedOptionIndex++;
+                    } else {
+                        this.selectedOptionIndex = 0;
+                    }
+                    this.updateSelectedOptionHighlight();
+                } else if (this.cmdHistory.length > 0) {
                     if (this.cmdHistoryIndex < this.cmdHistory.length - 1) {
                         this.cmdHistoryIndex++;
                         this.terminalInputEl.value = this.cmdHistory[this.cmdHistoryIndex];
@@ -238,6 +255,12 @@ const TerminalSystem = {
                         }
                     }
                 }
+            }
+
+            // Reset selected option index on typing other keys
+            if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown' && e.key !== 'Enter' && e.key !== 'Tab' && e.key !== 'Escape') {
+                this.selectedOptionIndex = -1;
+                this.updateSelectedOptionHighlight();
             }
         });
 
@@ -381,37 +404,12 @@ const TerminalSystem = {
             let keep = true;
 
             if (opt.requirements && window.game) {
-                let otherMet = true;
+                // Check non-sanity requirements using central logic in app.js
+                const nonSanityReqs = { ...opt.requirements };
+                delete nonSanityReqs.sanity_min;
+                delete nonSanityReqs.sanity_max;
                 
-                // Check non-sanity requirements
-                if (opt.requirements.visited_room && !window.game.state.visitedRooms.includes(opt.requirements.visited_room)) {
-                    otherMet = false;
-                }
-                if (opt.requirements.unvisited_room && window.game.state.visitedRooms.includes(opt.requirements.unvisited_room)) {
-                    otherMet = false;
-                }
-                if (opt.requirements.has_item) {
-                    const item = opt.requirements.has_item;
-                    const count = opt.requirements.item_count || 1;
-                    const inv = window.game.state.inventory || {};
-                    if ((inv[item] || 0) < count) {
-                        otherMet = false;
-                    }
-                }
-                if (opt.requirements.interactable_id && opt.requirements.state_id) {
-                    const interId = opt.requirements.interactable_id;
-                    const targetStateId = opt.requirements.state_id;
-                    const interactable = window.game.world.interactables[interId];
-                    if (!interactable) {
-                        otherMet = false;
-                    } else {
-                        const currentIndex = window.game.state.worldStates[interId] || 0;
-                        const currentState = interactable.states[currentIndex];
-                        if (!currentState || (currentState.id !== targetStateId && currentState.state_id !== targetStateId)) {
-                            otherMet = false;
-                        }
-                    }
-                }
+                const otherMet = window.game.checkRequirements(nonSanityReqs);
 
                 if (!otherMet) {
                     keep = false;
@@ -502,6 +500,7 @@ const TerminalSystem = {
 
             this.terminalOptionsEl.appendChild(item);
         });
+        this.updateSelectedOptionHighlight();
     },
 
     _glitchText(text) {
@@ -546,7 +545,23 @@ const TerminalSystem = {
         setTimeout(() => ripple.remove(), 600);
     },
 
+    updateSelectedOptionHighlight() {
+        if (!this.terminalOptionsEl) return;
+        const items = this.terminalOptionsEl.querySelectorAll('.terminal-option-item');
+        items.forEach((item, index) => {
+            if (index === this.selectedOptionIndex) {
+                item.classList.add('selected');
+                item.scrollIntoView({ block: 'nearest' });
+            } else {
+                item.classList.remove('selected');
+            }
+        });
+    },
+
     selectChoice(option) {
+        this.selectedOptionIndex = -1;
+        this.updateSelectedOptionHighlight();
+
         // If option failed sanity check, show feedback and warning text, play error sound, and return
         if (option.failedSanity) {
             if (window.game && window.game.audio) {
@@ -880,30 +895,47 @@ const TerminalSystem = {
 
     addToHistory(text, type = '', icon = '') {
         const formattedText = this.formatText(text);
-        this.history.push({ text: formattedText, type, icon });
-        if (this.history.length > 30) {
-            this.history.shift();
+        const lineObj = { text: formattedText, type, icon };
+        this.history.push(lineObj);
+        
+        if (this.terminalHistoryEl) {
+            this.appendHistoryLine(lineObj);
+            
+            if (this.history.length > 30) {
+                this.history.shift();
+                if (this.terminalHistoryEl.firstElementChild) {
+                    this.terminalHistoryEl.firstElementChild.remove();
+                }
+            }
+            // Smooth scroll to bottom
+            requestAnimationFrame(() => {
+                this.terminalHistoryEl.scrollTop = this.terminalHistoryEl.scrollHeight;
+            });
         }
-        this.renderHistory();
+    },
+
+    appendHistoryLine(lineObj) {
+        if (!this.terminalHistoryEl) return;
+        const div = document.createElement('div');
+        const type = (typeof lineObj === 'string') ? '' : lineObj.type;
+        const text = (typeof lineObj === 'string') ? lineObj : lineObj.text;
+        const icon = (typeof lineObj === 'string') ? '' : (lineObj.icon || '');
+        div.className = 'terminal-history-line' + (type ? ' log-' + type : '');
+        
+        if (icon) {
+            div.innerHTML = `<span class="history-icon">${icon}</span><span class="history-text">${this._escapeHtml(text)}</span>`;
+        } else {
+            div.innerHTML = `<span class="history-text">${this._escapeHtml(text)}</span>`;
+        }
+        
+        this.terminalHistoryEl.appendChild(div);
     },
 
     renderHistory() {
         if (!this.terminalHistoryEl) return;
         this.terminalHistoryEl.innerHTML = "";
         this.history.forEach(lineObj => {
-            const div = document.createElement('div');
-            const type = (typeof lineObj === 'string') ? '' : lineObj.type;
-            const text = (typeof lineObj === 'string') ? lineObj : lineObj.text;
-            const icon = (typeof lineObj === 'string') ? '' : (lineObj.icon || '');
-            div.className = 'terminal-history-line' + (type ? ' log-' + type : '');
-            
-            if (icon) {
-                div.innerHTML = `<span class="history-icon">${icon}</span><span class="history-text">${this._escapeHtml(text)}</span>`;
-            } else {
-                div.innerHTML = `<span class="history-text">${this._escapeHtml(text)}</span>`;
-            }
-            
-            this.terminalHistoryEl.appendChild(div);
+            this.appendHistoryLine(lineObj);
         });
         // Smooth scroll to bottom
         requestAnimationFrame(() => {
