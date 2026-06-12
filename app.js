@@ -234,7 +234,8 @@ class BackroomsGame {
             inventory: {
                 almond_water: 1 // Start with 1 Almond Water
             },
-            autoWalk: true      // Enable auto walk on transition
+            autoWalk: true,      // Enable auto walk on transition
+            quickTransition: false // Enable 2s quick transition permanently
         };
 
         // DOM Elements
@@ -518,6 +519,9 @@ class BackroomsGame {
         }
         if (this.state.autoWalk === undefined) {
             this.state.autoWalk = true;
+        }
+        if (this.state.quickTransition === undefined) {
+            this.state.quickTransition = false;
         }
     }
 
@@ -1066,15 +1070,18 @@ class BackroomsGame {
                     if (this.state.autoWalk) {
                         const progress = document.createElement('div');
                         progress.className = 'btn-progress animate';
+                        const duration = this.state.quickTransition ? '2s' : '11s';
+                        progress.style.animationDuration = duration;
                         if (act.category) {
                             progress.style.background = 'currentColor';
                         }
                         btn.appendChild(progress);
 
                         if (!this.transitionTimeout) {
+                            const timeoutMs = this.state.quickTransition ? 2000 : 11000;
                             this.transitionTimeout = setTimeout(() => {
                                 this.handleAction(act.type, act.value, act.extra);
-                            }, 11000);
+                            }, timeoutMs);
                         }
                     } else {
                         if (this.transitionTimeout) {
@@ -1115,6 +1122,32 @@ class BackroomsGame {
                 };
 
                 this.elements.actionsContainer.appendChild(autoWalkBtn);
+
+                // Quick Transition button
+                const quickBtn = document.createElement('button');
+                quickBtn.className = 'quick-transition-btn';
+                if (this.state.quickTransition) {
+                    quickBtn.classList.add('active');
+                    quickBtn.innerHTML = `<i data-lucide="zap"></i> QUICK: ON`;
+                } else {
+                    quickBtn.innerHTML = `<i data-lucide="zap-off"></i> QUICK: OFF`;
+                }
+
+                quickBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    this.state.quickTransition = !this.state.quickTransition;
+
+                    // Reset timeout so it starts fresh with the new setting
+                    if (this.transitionTimeout) {
+                        clearTimeout(this.transitionTimeout);
+                        this.transitionTimeout = null;
+                    }
+
+                    this.saveSession();
+                    this.render();
+                };
+
+                this.elements.actionsContainer.appendChild(quickBtn);
             }
         });
 
