@@ -695,7 +695,7 @@ if (isset($_SESSION['admin_auth']) && $_SESSION['admin_auth'] === true):
                         <div class="form-section">
                             <h3>Dialogue Nodes</h3>
                             <div class="search-box" style="margin-bottom: 12px;">
-                                <input type="text" id="terminal-node-search" placeholder="Search node ID...">
+                                <input type="text" id="terminal-node-search" placeholder="Search nodes (ID, text, options)...">
                             </div>
                             <div id="terminal-nodes-list" class="node-items-list">
                                 <!-- Nodes will be injected here -->

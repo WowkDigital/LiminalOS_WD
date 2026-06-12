@@ -95,14 +95,62 @@ function renderTerminalNodesList(filter = '') {
     
     const nodeKeys = Object.keys(terminalDialogueTree).sort();
     let renderedCount = 0;
+    const filterLower = filter.toLowerCase();
     
     for (const key of nodeKeys) {
-        if (filter && !key.toLowerCase().includes(filter.toLowerCase())) {
+        const node = terminalDialogueTree[key] || {};
+        
+        // Full text search conditions
+        const matchKey = key.toLowerCase().includes(filterLower);
+        const matchText = node.text && node.text.toLowerCase().includes(filterLower);
+        
+        let matchOptionLabel = null;
+        let matchOptionNext = null;
+        if (node.options && Array.isArray(node.options)) {
+            for (const opt of node.options) {
+                if (opt.label && opt.label.toLowerCase().includes(filterLower)) {
+                    matchOptionLabel = opt.label;
+                    break;
+                }
+                if (opt.next && opt.next.toLowerCase().includes(filterLower)) {
+                    matchOptionNext = opt.next;
+                    break;
+                }
+            }
+        }
+        
+        if (filter && !matchKey && !matchText && !matchOptionLabel && !matchOptionNext) {
             continue;
         }
         
         renderedCount++;
         const isActive = key === activeNodeId;
+        
+        // Build metadata/sub-text
+        let matchReason = '';
+        if (filter) {
+            if (matchKey) {
+                // Keep default or show "ID match" if desired, let's keep it clean
+            } else if (matchText) {
+                matchReason = 'Text match';
+            } else if (matchOptionLabel) {
+                matchReason = `Opt: "${matchOptionLabel}"`;
+            } else if (matchOptionNext) {
+                matchReason = `Next: "${matchOptionNext}"`;
+            }
+        }
+        
+        const optionCount = node.options ? node.options.length : 0;
+        const textPreview = node.text ? node.text.replace(/\r?\n/g, ' ').trim() : '';
+        const truncatedText = textPreview.substring(0, 35) + (textPreview.length > 35 ? '...' : '');
+        
+        let metaContent = `${optionCount} opt${optionCount === 1 ? '' : 's'}`;
+        if (truncatedText) {
+            metaContent += ` • ${truncatedText}`;
+        }
+        if (matchReason) {
+            metaContent += ` (${matchReason})`;
+        }
         
         const removeNodeBtn = el('button', {
             type: 'button',
@@ -121,11 +169,14 @@ function renderTerminalNodesList(filter = '') {
         }, [icon('trash-2', { style: { width: '12px', height: '12px' } })]);
 
         const itemEl = el('div', {
-            className: `node-list-item ${isActive ? 'active' : ''}`,
+            className: `node-item ${isActive ? 'active' : ''}`,
             onClick: () => selectTerminalNode(key),
-            style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' }
+            style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }
         }, [
-            el('span', {}, key),
+            el('div', { style: { display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 } }, [
+                el('span', { className: 'node-item-id' }, key),
+                el('span', { className: 'node-item-meta', style: { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, metaContent)
+            ]),
             removeNodeBtn
         ]);
         
@@ -135,6 +186,8 @@ function renderTerminalNodesList(filter = '') {
     if (renderedCount === 0) {
         listCont.appendChild(el('div', { className: 'empty-list-placeholder' }, 'No nodes found'));
     }
+    
+    if (window.lucide) window.lucide.createIcons();
 }
 
 function selectTerminalNode(nodeId) {
