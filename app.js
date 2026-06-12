@@ -889,7 +889,7 @@ class BackroomsGame {
         this.elements.actionsContainer.innerHTML = '';
 
         // Update Header
-        let title = `/// ${loc.getName().toUpperCase()} ///`;
+        let title = `>> ${loc.getName().toUpperCase()}`;
         this.elements.roomTitle.innerText = this.glitchText(title, sanity);
 
         // Subtitle (e.g. transition category)
