@@ -1,6 +1,7 @@
 // TransitionCard component to display liminal paths in the transitions overview
 import { el, icon } from '../dom.js';
 import { getCategoryColor, getThumbPath, getCategoryIcon } from '../ui.js';
+import { state } from '../state.js';
 
 export class TransitionCard {
     constructor(trans, imageIndex, onClick) {
@@ -25,6 +26,7 @@ export class TransitionCard {
         }
 
         const catColor = getCategoryColor(this.trans.cat);
+        const hasSound = (state.audioMappings || []).some(m => m.mapping_type === 'transitions' && m.context_id === this.trans.id && m.audio_file_id !== null);
 
         return el('div', {
             className: 'room-card',
@@ -32,9 +34,17 @@ export class TransitionCard {
         }, [
             thumbEl,
             el('div', { className: 'room-card-content' }, [
-                el('h3', {}, [
-                    this.trans.label + ' ',
-                    el('span', { className: 'small-dim' }, this.trans.id)
+                el('div', { className: 'room-card-header' }, [
+                    el('h3', {}, [
+                        this.trans.label + ' ',
+                        el('span', { className: 'small-dim' }, this.trans.id)
+                    ]),
+                    el('div', { className: 'reachability-indicators' }, [
+                        el('span', { 
+                            className: `reach-icon ${hasSound ? 'active' : 'inactive'}`,
+                            title: hasSound ? 'Transition Sound Active' : 'No Sound'
+                        }, [icon(hasSound ? 'volume-2' : 'volume-x')])
+                    ])
                 ]),
                 el('p', { style: { display: 'flex', alignItems: 'center', gap: '6px' } }, [
                     'Category: ',

@@ -17,5 +17,10 @@ export const state = {
     currentReqTarget: null, // {type, id}
     audioLibrary: [],
     audioMappings: [],
-    currentSfxTab: 'bgm' // 'bgm', 'states', 'transitions', 'ui'
+    currentSfxTab: 'bgm', // 'bgm', 'states', 'transitions', 'ui'
+    dashboardSearchQuery: '',
+    mediaSearchQuery: '',
+    audioSearchQuery: '',
+    terminalSearchQuery: ''
 };
+

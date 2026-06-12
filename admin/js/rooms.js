@@ -7,8 +7,29 @@ import { el, icon } from './dom.js';
 import { RoomCard } from './components/RoomCard.js';
 import { TextConfigRow } from './components/TextConfigRow.js';
 import { getTerminalDialogueTree, setTerminalDialogueTree, createOptionCard, createEffectRow } from './terminal.js';
+import { SearchBox } from './components/SearchBox.js';
+
+let dashboardSearchBox = null;
 
 export function renderRoomsList() {
+    const searchContainer = document.getElementById('dashboard-search-container');
+    if (searchContainer && !searchContainer.querySelector('.search-box-container')) {
+        searchContainer.innerHTML = '';
+        dashboardSearchBox = new SearchBox({
+            placeholder: 'Search rooms by name, ID, desc or tags...',
+            initialValue: state.dashboardSearchQuery || '',
+            onSearch: (query) => {
+                state.dashboardSearchQuery = query;
+                filterAndRenderRooms();
+            }
+        });
+        searchContainer.appendChild(dashboardSearchBox.render());
+    }
+
+    filterAndRenderRooms();
+}
+
+export function filterAndRenderRooms() {
     const list = document.getElementById('rooms-list');
     if (!list) return;
     list.innerHTML = '';
@@ -17,7 +38,23 @@ export function renderRoomsList() {
         return;
     }
 
-    Object.entries(state.roomsData).forEach(([id, room]) => {
+    const query = (state.dashboardSearchQuery || '').toLowerCase().trim();
+
+    const filteredRooms = Object.entries(state.roomsData).filter(([id, room]) => {
+        if (!query) return true;
+        const matchesId = id.toLowerCase().includes(query);
+        const matchesName = (room.name || '').toLowerCase().includes(query);
+        const matchesDesc = (room.desc || '').toLowerCase().includes(query);
+        const matchesTags = (room.tags || []).some(tag => tag.toLowerCase().includes(query));
+        return matchesId || matchesName || matchesDesc || matchesTags;
+    });
+
+    if (filteredRooms.length === 0) {
+        list.appendChild(el('div', { className: 'empty' }, 'No matching spaces found.'));
+        return;
+    }
+
+    filteredRooms.forEach(([id, room]) => {
         // Calculate reachability
         const canEnter = Object.entries(state.roomsData).some(([otherId, otherRoom]) => {
             if (otherId === id) return false;

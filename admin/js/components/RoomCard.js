@@ -1,6 +1,7 @@
 // RoomCard component to display space metadata and metrics on the dashboard
 import { el, icon } from '../dom.js';
 import { getThumbPath } from '../ui.js';
+import { state } from '../state.js';
 
 export class RoomCard {
     constructor(id, room, transitionTypes, imageIndex, roomsCount, onEdit) {
@@ -55,6 +56,8 @@ export class RoomCard {
             el('span', { className: 'tag' }, tag)
         );
 
+        const hasSound = (state.audioMappings || []).some(m => m.mapping_type === 'bgm' && m.context_id === this.id && m.audio_file_id !== null);
+
         const card = el('div', { 
             className: 'room-card',
             onClick: () => this.onEdit(this.id)
@@ -74,7 +77,11 @@ export class RoomCard {
                         el('span', { 
                             className: `reach-icon ${canExit ? 'active' : 'inactive'}`,
                             title: canExit ? 'Has Exits' : 'Dead End'
-                        }, [icon('log-out')])
+                        }, [icon('log-out')]),
+                        el('span', { 
+                            className: `reach-icon ${hasSound ? 'active' : 'inactive'}`,
+                            title: hasSound ? 'BGM Active' : 'No Sound'
+                        }, [icon(hasSound ? 'volume-2' : 'volume-x')])
                     ])
                 ]),
                 el('p', {}, this.room.desc || 'No descriptions found.'),

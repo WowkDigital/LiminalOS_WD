@@ -7,7 +7,8 @@ import {
     importTransitions, 
     previewImport, 
     importAll, 
-    exportAll 
+    exportAll,
+    getAudio
 } from './api.js';
 import { switchView, navigate } from './router.js';
 import { showToast } from './ui.js';
@@ -206,12 +207,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Media Filter & Upload bindings
     document.getElementById('media-filter-type').addEventListener('change', renderMediaLibrary);
-    document.getElementById('media-search').addEventListener('input', renderMediaLibrary);
     document.getElementById('media-upload-input').addEventListener('change', handleUpload);
 
     // SFX upload & search bindings
     document.getElementById('audio-upload-input').addEventListener('change', handleAudioUpload);
-    document.getElementById('audio-search').addEventListener('input', renderAudioLibrary);
     document.querySelectorAll('[data-sfx-tab]').forEach(btn => {
         btn.addEventListener('click', () => {
             const tab = btn.getAttribute('data-sfx-tab');
@@ -420,6 +419,14 @@ document.addEventListener('DOMContentLoaded', () => {
             state.imageIndex = data.image_index || { rooms: {}, transitions: {} };
             state.allInteractables = data.interactables || {};
             state.systemTaxonomy = data.taxonomy || [];
+            
+            try {
+                const audioData = await getAudio();
+                state.audioLibrary = audioData.library || [];
+                state.audioMappings = audioData.mappings || [];
+            } catch (ae) {
+                console.warn("Failed to fetch audio mappings", ae);
+            }
             
             // Re-render based on active hash
             const currentView = window.location.hash.replace('#', '') || 'dashboard';

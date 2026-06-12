@@ -5,9 +5,11 @@ import { getAudio, deleteAudio, renameAudio, saveAudioMapping, uploadMedia } fro
 import { el } from './dom.js';
 import { AudioItem } from './components/AudioItem.js';
 import { MappingRow } from './components/MappingRow.js';
+import { SearchBox } from './components/SearchBox.js';
 
 let currentPreviewAudio = null;
 let currentPreviewId = null;
+let audioSearchBox = null;
 
 export async function fetchAudioData() {
     try {
@@ -46,10 +48,23 @@ function setupAccordionBehavior() {
 
 export function renderAudioLibrary() {
     const list = document.getElementById('audio-items-list');
-    const searchInput = document.getElementById('audio-search');
-    if (!list || !searchInput) return;
+    if (!list) return;
 
-    const search = searchInput.value.toLowerCase();
+    const searchContainer = document.getElementById('audio-search-container');
+    if (searchContainer && !searchContainer.querySelector('.search-box-container')) {
+        searchContainer.innerHTML = '';
+        audioSearchBox = new SearchBox({
+            placeholder: 'Search audio library...',
+            initialValue: state.audioSearchQuery || '',
+            onSearch: (query) => {
+                state.audioSearchQuery = query;
+                renderAudioLibrary();
+            }
+        });
+        searchContainer.appendChild(audioSearchBox.render());
+    }
+
+    const search = (state.audioSearchQuery || '').toLowerCase();
     list.innerHTML = '';
 
     const filtered = state.audioLibrary.filter(a => a.filename.toLowerCase().includes(search));

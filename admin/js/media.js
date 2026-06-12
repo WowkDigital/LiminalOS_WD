@@ -6,11 +6,29 @@ import { renderRoomMediaPreview, openEditor } from './rooms.js';
 import { renderTransMediaPreview, openTransitionEditor } from './transitions.js';
 import { el } from './dom.js';
 import { MediaCard } from './components/MediaCard.js';
+import { SearchBox } from './components/SearchBox.js';
+
+let mediaSearchBox = null;
 
 export function renderMediaLibrary() {
     const list = document.getElementById('media-list');
     if (!list) return;
-    const search = document.getElementById('media-search').value.toLowerCase();
+
+    const searchContainer = document.getElementById('media-search-container');
+    if (searchContainer && !searchContainer.querySelector('.search-box-container')) {
+        searchContainer.innerHTML = '';
+        mediaSearchBox = new SearchBox({
+            placeholder: 'Search by filename, tags or context...',
+            initialValue: state.mediaSearchQuery || '',
+            onSearch: (query) => {
+                state.mediaSearchQuery = query;
+                renderMediaLibrary();
+            }
+        });
+        searchContainer.appendChild(mediaSearchBox.render());
+    }
+
+    const search = (state.mediaSearchQuery || '').toLowerCase();
     const filter = document.getElementById('media-filter-type').value;
     const activeTagFilter = state.activeMediaTagFilter || 'all';
 

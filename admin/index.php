@@ -150,6 +150,8 @@ if (isset($_SESSION['admin_auth']) && $_SESSION['admin_auth'] === true):
                     <div id="world-integrity-status"></div>
                 </header>
 
+                <div id="dashboard-search-container" style="margin-bottom: 24px; display: flex; gap: 16px; align-items: center; max-width: 480px;"></div>
+
                 <div class="rooms-grid" id="rooms-list">
                     <!-- Rooms will be injected here via JS -->
                     <div class="loading">Loading reality data...</div>
@@ -169,7 +171,7 @@ if (isset($_SESSION['admin_auth']) && $_SESSION['admin_auth'] === true):
                 </header>
 
                 <div class="media-controls">
-                    <input type="text" id="media-search" placeholder="Search by filename, tags or context...">
+                    <div id="media-search-container" style="flex: 1;"></div>
                     <select id="media-filter-type">
                         <option value="all">All Types</option>
                         <option value="room">Rooms</option>
@@ -642,9 +644,7 @@ if (isset($_SESSION['admin_auth']) && $_SESSION['admin_auth'] === true):
                         </div>
                         <div class="sfx-card-body">
                             <p class="small-dim" style="margin-bottom: 12px;">Uploaded audio files. Click play to listen, pencil to edit name, trash to delete.</p>
-                            <div class="search-box" style="margin-bottom: 15px;">
-                                <input type="text" id="audio-search" placeholder="Search audio library...">
-                            </div>
+                            <div id="audio-search-container" style="margin-bottom: 15px;"></div>
                             <div id="audio-items-list" class="audio-items-list">
                                 <!-- Injected -->
                             </div>
@@ -730,9 +730,7 @@ if (isset($_SESSION['admin_auth']) && $_SESSION['admin_auth'] === true):
                     <div class="terminal-sidebar-pane">
                         <div class="form-section">
                             <h3>Dialogue Nodes</h3>
-                            <div class="search-box" style="margin-bottom: 12px;">
-                                <input type="text" id="terminal-node-search" placeholder="Search nodes (ID, text, options)...">
-                            </div>
+                            <div id="terminal-node-search-container" style="margin-bottom: 12px;"></div>
                             <div id="terminal-nodes-list" class="node-items-list">
                                 <!-- Nodes will be injected here -->
                             </div>

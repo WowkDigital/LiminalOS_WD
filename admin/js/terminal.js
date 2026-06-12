@@ -2,10 +2,13 @@
 import { el, icon } from './dom.js';
 import { state } from './state.js';
 import { showToast } from './ui.js';
+import { SearchBox } from './components/SearchBox.js';
 
 let terminalDialogueTree = {};
 let activeNodeId = null;
 let listenersAttached = false;
+let terminalSearchBox = null;
+
 
 export function getTerminalDialogueTree() {
     return terminalDialogueTree;
@@ -48,14 +51,6 @@ function setupTerminalEventListenersOnce() {
     if (listenersAttached) return;
     listenersAttached = true;
     
-    // Node search
-    const searchInput = document.getElementById('terminal-node-search');
-    if (searchInput) {
-        searchInput.addEventListener('input', () => {
-            renderTerminalNodesList(searchInput.value.trim());
-        });
-    }
-    
     // Create node button
     const addBtn = document.getElementById('btn-add-terminal-node');
     if (addBtn) {
@@ -88,14 +83,31 @@ function setupTerminalEventListenersOnce() {
     }
 }
 
-function renderTerminalNodesList(filter = '') {
+function renderTerminalNodesList() {
     const listCont = document.getElementById('terminal-nodes-list');
     if (!listCont) return;
+
+    // Render search box if needed
+    const searchContainer = document.getElementById('terminal-node-search-container');
+    if (searchContainer && !searchContainer.querySelector('.search-box-container')) {
+        searchContainer.innerHTML = '';
+        terminalSearchBox = new SearchBox({
+            placeholder: 'Search nodes (ID, text, options)...',
+            initialValue: state.terminalSearchQuery || '',
+            onSearch: (query) => {
+                state.terminalSearchQuery = query;
+                renderTerminalNodesList();
+            }
+        });
+        searchContainer.appendChild(terminalSearchBox.render());
+    }
+
+    const filter = state.terminalSearchQuery || '';
     listCont.innerHTML = '';
     
     const nodeKeys = Object.keys(terminalDialogueTree).sort();
     let renderedCount = 0;
-    const filterLower = filter.toLowerCase();
+    const filterLower = filter.toLowerCase().trim();
     
     for (const key of nodeKeys) {
         const node = terminalDialogueTree[key] || {};
@@ -119,7 +131,7 @@ function renderTerminalNodesList(filter = '') {
             }
         }
         
-        if (filter && !matchKey && !matchText && !matchOptionLabel && !matchOptionNext) {
+        if (filterLower && !matchKey && !matchText && !matchOptionLabel && !matchOptionNext) {
             continue;
         }
         
@@ -128,7 +140,7 @@ function renderTerminalNodesList(filter = '') {
         
         // Build metadata/sub-text
         let matchReason = '';
-        if (filter) {
+        if (filterLower) {
             if (matchKey) {
                 // Keep default or show "ID match" if desired, let's keep it clean
             } else if (matchText) {
@@ -163,7 +175,7 @@ function renderTerminalNodesList(filter = '') {
                     if (activeNodeId === key) {
                         clearTerminalEditor();
                     }
-                    renderTerminalNodesList(filter);
+                    renderTerminalNodesList();
                 }
             }
         }, [icon('trash-2', { style: { width: '12px', height: '12px' } })]);
@@ -196,7 +208,7 @@ function selectTerminalNode(nodeId) {
     }
     
     activeNodeId = nodeId;
-    renderTerminalNodesList(document.getElementById('terminal-node-search')?.value.trim() || '');
+    renderTerminalNodesList();
     
     const fieldsDiv = document.getElementById('terminal-editor-fields');
     const placeholderDiv = document.getElementById('terminal-editor-placeholder');
@@ -788,7 +800,7 @@ async function handleSaveTerminal() {
         const result = await response.json();
         if (result.success) {
             showToast('Terminal dialogues saved successfully!', 'success');
-            renderTerminalNodesList(document.getElementById('terminal-node-search')?.value.trim() || '');
+            renderTerminalNodesList();
         } else {
             throw new Error(result.error || 'Server error');
         }
