@@ -152,8 +152,13 @@ class TransitionLocation extends Location {
     get isTransition() { return true; }
 
     getName() {
-        const targetRoom = this.game.world.rooms[this.targetId];
-        return targetRoom ? targetRoom.name : "Unknown Room";
+        if (this.definition && this.definition.label) {
+            return this.definition.label;
+        }
+        if (this.id) {
+            return this.id.charAt(0).toUpperCase() + this.id.slice(1);
+        }
+        return "Transition";
     }
 
     getSubtitle() {
