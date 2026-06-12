@@ -136,15 +136,21 @@ export function renderAudioMappings() {
         }
 
         contexts.forEach(ctx => {
+            const key = `${category}:${ctx.id}`;
+            const pending = state.pendingAudioMappings && state.pendingAudioMappings[key];
+            const isModified = !!pending;
+
             const mapping = state.audioMappings.find(m => m.mapping_type === category && m.context_id === ctx.id) || {};
+            const activeMapping = isModified ? { ...mapping, ...pending } : mapping;
+
             const rowComponent = new MappingRow(
                 ctx,
-                mapping,
+                activeMapping,
                 state.audioLibrary,
                 category,
-                window.updateMapping,
-                window.updateMappingVolume,
-                window.updateMappingLoop
+                isModified,
+                window.stageMappingChange,
+                window.saveMappingRow
             );
             container.appendChild(rowComponent.render());
         });
@@ -256,40 +262,65 @@ window.renameAudioItem = async (id, newFilename) => {
     }
 };
 
-window.updateMapping = async (type, contextId, audioId) => {
-    const mapping = { mapping_type: type, context_id: contextId, audio_file_id: audioId };
-    const existing = state.audioMappings.find(m => m.mapping_type === type && m.context_id === contextId) || {};
-    mapping.volume = existing.volume !== undefined ? existing.volume : 0.5;
-    mapping.loop = existing.loop !== undefined ? existing.loop : 0;
+window.stageMappingChange = (category, contextId, field, value) => {
+    if (!state.pendingAudioMappings) {
+        state.pendingAudioMappings = {};
+    }
+    const key = `${category}:${contextId}`;
+    if (!state.pendingAudioMappings[key]) {
+        const existing = state.audioMappings.find(m => m.mapping_type === category && m.context_id === contextId) || {};
+        state.pendingAudioMappings[key] = {
+            mapping_type: category,
+            context_id: contextId,
+            audio_file_id: existing.audio_file_id !== undefined ? existing.audio_file_id : null,
+            volume: existing.volume !== undefined ? existing.volume : 0.5,
+            loop: existing.loop !== undefined ? existing.loop : 0
+        };
+    }
 
+    const pending = state.pendingAudioMappings[key];
+    if (field === 'audio_file_id') {
+        pending.audio_file_id = value ? parseInt(value) : null;
+    } else if (field === 'volume') {
+        pending.volume = parseFloat(value);
+    } else if (field === 'loop') {
+        pending.loop = value ? 1 : 0;
+    }
+
+    // Compare with database state. If no difference, clear the pending entry
+    const existing = state.audioMappings.find(m => m.mapping_type === category && m.context_id === contextId) || {};
+    const dbAudioFileId = existing.audio_file_id !== undefined ? existing.audio_file_id : null;
+    const dbVolume = existing.volume !== undefined ? existing.volume : 0.5;
+    const dbLoop = existing.loop !== undefined ? existing.loop : 0;
+
+    if (
+        pending.audio_file_id == dbAudioFileId &&
+        Math.abs(pending.volume - dbVolume) < 0.01 &&
+        pending.loop == dbLoop
+    ) {
+        delete state.pendingAudioMappings[key];
+    }
+
+    renderAudioMappings();
+};
+
+window.saveMappingRow = async (category, contextId) => {
+    const key = `${category}:${contextId}`;
+    if (!state.pendingAudioMappings || !state.pendingAudioMappings[key]) return;
+
+    const mapping = state.pendingAudioMappings[key];
     try {
         const result = await saveAudioMapping(mapping);
         if (result.success) {
+            delete state.pendingAudioMappings[key];
+            showToast('Mapping updated', 'success');
             const data = await getAudio();
             state.audioMappings = data.mappings || [];
             renderAudioMappings();
+        } else {
+            showToast('Failed to save mapping: ' + result.error, 'error');
         }
     } catch (e) {
         showToast('Failed to save mapping', 'error');
     }
-};
-
-window.updateMappingVolume = async (type, contextId, volume) => {
-    const existing = state.audioMappings.find(m => m.mapping_type === type && m.context_id === contextId);
-    if (!existing) {
-        await window.updateMapping(type, contextId, null);
-    }
-    const current = state.audioMappings.find(m => m.mapping_type === type && m.context_id === contextId) || {};
-    current.volume = parseFloat(volume);
-    await window.updateMapping(type, contextId, current.audio_file_id);
-};
-
-window.updateMappingLoop = async (type, contextId, loop) => {
-    const existing = state.audioMappings.find(m => m.mapping_type === type && m.context_id === contextId);
-    if (!existing) {
-        await window.updateMapping(type, contextId, null);
-    }
-    const current = state.audioMappings.find(m => m.mapping_type === type && m.context_id === contextId) || {};
-    current.loop = loop ? 1 : 0;
-    await window.updateMapping(type, contextId, current.audio_file_id);
 };

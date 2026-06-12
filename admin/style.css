@@ -1964,9 +1964,51 @@ input[type="checkbox"]:checked::before {
     border-radius: var(--radius-sm);
     padding: 10px 15px;
     display: grid;
-    grid-template-columns: 1.5fr 2fr 40px 1.5fr 60px;
+    grid-template-columns: 1.5fr 2fr 40px 1.5fr 60px 40px;
     align-items: center;
     gap: 15px;
+    transition: var(--transition-fast);
+}
+
+.mapping-row.modified {
+    border-color: rgba(234, 179, 8, 0.4);
+    background: rgba(234, 179, 8, 0.03);
+}
+
+.mapping-save-btn {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--glass-border);
+    color: var(--text-muted);
+    cursor: not-allowed;
+    transition: var(--transition-fast);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    padding: 0;
+}
+
+.mapping-save-btn svg,
+.mapping-save-btn i {
+    width: 16px;
+    height: 16px;
+}
+
+.mapping-save-btn.unsaved {
+    background: rgba(234, 179, 8, 0.1);
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(234, 179, 8, 0.15);
+}
+
+.mapping-save-btn.unsaved:hover {
+    background: var(--accent-primary);
+    color: #1a1a1a;
+    box-shadow: 0 0 15px var(--accent-glow);
+    transform: translateY(-1px);
 }
 
 .mapping-context {

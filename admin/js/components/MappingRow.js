@@ -2,14 +2,14 @@
 import { el, icon } from '../dom.js';
 
 export class MappingRow {
-    constructor(ctx, mapping, audioLibrary, currentSfxTab, onChangeFile, onChangeVolume, onChangeLoop) {
+    constructor(ctx, mapping, audioLibrary, currentSfxTab, isModified, onChange, onSave) {
         this.ctx = ctx;
         this.mapping = mapping;
         this.audioLibrary = audioLibrary;
         this.currentSfxTab = currentSfxTab;
-        this.onChangeFile = onChangeFile;
-        this.onChangeVolume = onChangeVolume;
-        this.onChangeLoop = onChangeLoop;
+        this.isModified = isModified;
+        this.onChange = onChange;
+        this.onSave = onSave;
     }
 
     render() {
@@ -18,16 +18,13 @@ export class MappingRow {
         ];
 
         this.audioLibrary.forEach(a => {
-            const opt = el('option', { value: a.id }, a.filename);
-            if (this.mapping.audio_file_id == a.id) {
-                opt.setAttribute('selected', 'selected');
-            }
+            const opt = el('option', { value: a.id, selected: this.mapping.audio_file_id == a.id }, a.filename);
             options.push(opt);
         });
 
         const select = el('select', {
             className: 'mapping-select',
-            onChange: (e) => this.onChangeFile(this.currentSfxTab, this.ctx.id, e.target.value)
+            onChange: (e) => this.onChange(this.currentSfxTab, this.ctx.id, 'audio_file_id', e.target.value)
         }, options);
 
         // Preview button next to dropdown
@@ -51,18 +48,25 @@ export class MappingRow {
             max: '1',
             step: '0.1',
             value: this.mapping.volume !== undefined ? this.mapping.volume : '0.5',
-            onChange: (e) => this.onChangeVolume(this.currentSfxTab, this.ctx.id, e.target.value)
+            onChange: (e) => this.onChange(this.currentSfxTab, this.ctx.id, 'volume', e.target.value)
         });
 
         const loopCheck = el('input', {
             type: 'checkbox',
-            onChange: (e) => this.onChangeLoop(this.currentSfxTab, this.ctx.id, e.target.checked)
+            checked: !!this.mapping.loop,
+            onChange: (e) => this.onChange(this.currentSfxTab, this.ctx.id, 'loop', e.target.checked)
         });
-        if (this.mapping.loop) {
-            loopCheck.setAttribute('checked', 'checked');
-        }
 
-        return el('div', { className: 'mapping-row' }, [
+        const saveBtn = el('button', {
+            className: `mapping-save-btn${this.isModified ? ' unsaved' : ''}`,
+            disabled: !this.isModified,
+            onClick: () => {
+                if (this.isModified) this.onSave(this.currentSfxTab, this.ctx.id);
+            },
+            title: this.isModified ? 'Save changes to this mapping' : 'No changes'
+        }, [icon('save')]);
+
+        return el('div', { className: `mapping-row${this.isModified ? ' modified' : ''}` }, [
             el('div', { className: 'mapping-context' }, this.ctx.label),
             select,
             playBtn,
@@ -72,7 +76,8 @@ export class MappingRow {
             ]),
             el('div', { className: 'mapping-loop' }, [
                 loopCheck
-            ])
+            ]),
+            saveBtn
         ]);
     }
 }
