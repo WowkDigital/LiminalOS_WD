@@ -1800,31 +1800,103 @@ input[type="checkbox"]:checked::before {
     margin-bottom: 0.5rem;
 }
 
-/* SFX Engine UI */
-.sfx-container {
-    display: grid;
-    grid-template-columns: 350px 1fr;
-    gap: 2rem;
-    height: calc(100vh - 200px);
-    min-height: 500px;
+/* SFX Engine UI - Collapsible Single Column Redesign */
+.sfx-unified-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    max-width: 1200px;
+    margin: 0 auto;
 }
 
-.sfx-library {
+.sfx-card {
     background: var(--glass-panel);
     border: 1px solid var(--glass-border);
     border-radius: var(--radius-md);
-    padding: 1.5rem;
-    display: flex;
-    flex-direction: column;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     overflow: hidden;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.sfx-card:hover {
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+.sfx-card.active {
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 20px rgba(234, 179, 8, 0.05);
+}
+
+.sfx-card-header {
+    padding: 1.25rem 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+    background: rgba(255, 255, 255, 0.01);
+    transition: background var(--transition-fast);
+}
+
+.sfx-card-header:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.sfx-card-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.sfx-card-title i,
+.sfx-card-title svg {
+    width: 20px;
+    height: 20px;
+}
+
+.sfx-card-title span {
+    font-family: var(--font-mono);
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.sfx-card-title .sec-meta {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-family: var(--font-sans);
+    margin-top: 0;
+    margin-left: 10px;
+    display: inline-block;
+}
+
+.chevron-icon {
+    width: 18px;
+    height: 18px;
+    color: var(--text-secondary);
+    transition: transform var(--transition-fast);
+}
+
+.sfx-card.active .chevron-icon {
+    transform: rotate(180deg);
+}
+
+.sfx-card-body {
+    display: none;
+    padding: 1.5rem;
+    border-top: 1px solid var(--glass-border);
+}
+
+.sfx-card.active .sfx-card-body {
+    display: block;
 }
 
 .audio-items-list {
-    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+    max-height: 400px;
     overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
     padding-right: 5px;
 }
 
@@ -1832,24 +1904,16 @@ input[type="checkbox"]:checked::before {
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid var(--glass-border);
     border-radius: var(--radius-sm);
-    padding: 10px 12px;
+    padding: 12px;
     display: flex;
     align-items: center;
     gap: 12px;
-    cursor: pointer;
     transition: var(--transition-fast);
 }
 
 .audio-item:hover {
-    background: rgba(255, 255, 255, 0.08);
-    border-color: rgba(255, 255, 255, 0.2);
-}
-
-.audio-item i,
-.audio-item svg {
-    width: 16px;
-    height: 16px;
-    color: var(--accent-primary);
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.15);
 }
 
 .audio-info {
@@ -1864,43 +1928,55 @@ input[type="checkbox"]:checked::before {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    color: var(--text-main);
 }
 
 .audio-meta {
-    display: block;
-    font-size: 0.7rem;
+    font-size: 0.72rem;
     color: var(--text-muted);
     font-family: var(--font-mono);
 }
 
-.sfx-mappings {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
+.audio-duration {
+    font-size: 0.72rem;
+    color: var(--accent-primary);
+    font-family: var(--font-mono);
+}
+
+.audio-rename-input {
+    background: rgba(0, 0, 0, 0.5) !important;
+    border: 1px solid var(--accent-primary) !important;
+    color: var(--text-main) !important;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    outline: none;
 }
 
 .mapping-container {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
 }
 
 .mapping-row {
-    background: var(--glass-panel);
+    background: rgba(255, 255, 255, 0.02);
     border: 1px solid var(--glass-border);
-    border-radius: var(--radius-md);
-    padding: 1rem 1.5rem;
+    border-radius: var(--radius-sm);
+    padding: 10px 15px;
     display: grid;
-    grid-template-columns: 1fr 2fr 100px 60px;
+    grid-template-columns: 1.5fr 2fr 40px 1.5fr 60px;
     align-items: center;
-    gap: 20px;
+    gap: 15px;
 }
 
 .mapping-context {
     font-weight: 600;
     font-family: var(--font-mono);
-    font-size: 0.9rem;
-    color: var(--accent-primary);
+    font-size: 0.85rem;
+    color: var(--text-main);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .mapping-select {
@@ -1908,7 +1984,7 @@ input[type="checkbox"]:checked::before {
     color: var(--text-main);
     border: 1px solid var(--glass-border);
     border-radius: var(--radius-sm);
-    padding: 8px 12px;
+    padding: 6px 10px;
     font-size: 0.85rem;
     width: 100%;
 }
@@ -1916,13 +1992,24 @@ input[type="checkbox"]:checked::before {
 .mapping-volume {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
+}
+
+.mapping-volume i,
+.mapping-volume svg {
+    width: 14px;
+    height: 14px;
+    color: var(--text-muted);
 }
 
 .mapping-volume input[type="range"] {
     flex: 1;
     height: 4px;
     accent-color: var(--accent-primary);
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    padding: 0;
+    cursor: pointer;
 }
 
 .mapping-loop {
@@ -1932,33 +2019,9 @@ input[type="checkbox"]:checked::before {
 }
 
 .mapping-loop input[type="checkbox"] {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
     margin: 0;
-}
-
-.config-tabs {
-    display: flex;
-    gap: 8px;
-    border-bottom: 1px solid var(--glass-border);
-    padding-bottom: 8px;
-}
-
-.config-tabs .nav-btn {
-    width: auto;
-    margin-bottom: 0;
-    padding: 8px 20px;
-    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-}
-
-.sfx-tab-content {
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid var(--glass-border);
-    border-top: none;
-    border-radius: 0 0 var(--radius-md) var(--radius-md);
-    padding: 1.5rem;
-    flex: 1;
-    overflow-y: auto;
 }
 
 .audio-play-btn {
@@ -1969,20 +2032,38 @@ input[type="checkbox"]:checked::before {
     transition: var(--transition-fast);
     display: flex;
     align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
 }
 
 .audio-play-btn:hover {
     color: var(--accent-primary);
-    transform: scale(1.1);
+    background: rgba(234, 179, 8, 0.08);
 }
 
-.audio-delete-btn {
-    color: var(--error);
-    opacity: 0.5;
+.btn-remove-tiny {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: var(--transition-fast);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px;
+    border-radius: 4px;
+}
+
+.btn-remove-tiny:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-main);
 }
 
 .audio-delete-btn:hover {
-    opacity: 1;
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--error);
 }
 
 /* Test Diagnostics Styling */

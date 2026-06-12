@@ -1069,6 +1069,72 @@ elseif ($method === 'POST') {
             echo json_encode(['success' => false, 'error' => $e->getMessage()]);
         }
     }
+    elseif ($action === 'rename_audio') {
+        $id = (int)$data['id'];
+        $newName = trim($data['filename'] ?? '');
+        if (empty($newName)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'Filename cannot be empty']);
+            exit;
+        }
+
+        // Get the current file details
+        $stmt = $pdo->prepare("SELECT * FROM audio_library WHERE id = ?");
+        $stmt->execute([$id]);
+        $audio = $stmt->fetch();
+
+        if (!$audio) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'error' => 'Audio file not found']);
+            exit;
+        }
+
+        $oldPath = $audio['filepath'];
+        $pathInfo = pathinfo($oldPath);
+        $ext = strtolower($pathInfo['extension'] ?? '');
+
+        // If the new name doesn't end with the extension, add it
+        if (!empty($ext) && strtolower(substr($newName, -strlen($ext) - 1)) !== '.' . $ext) {
+            $newName .= '.' . $ext;
+        }
+
+        // Clean new name
+        $cleanName = preg_replace('/[^a-zA-Z0-9_\-\.]/', '_', $newName);
+
+        $rootPath = realpath(__DIR__ . '/../');
+        $oldAbsPath = $rootPath . '/' . $oldPath;
+        
+        $targetDir = dirname($oldPath) . '/';
+        $newPath = $targetDir . $cleanName;
+        $newAbsPath = $rootPath . '/' . $newPath;
+
+        // Check if destination already exists and is different
+        if ($newPath !== $oldPath && file_exists($newAbsPath)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'A file with this name already exists']);
+            exit;
+        }
+
+        // Try renaming physical file if it exists
+        if ($newPath !== $oldPath && file_exists($oldAbsPath)) {
+            if (!rename($oldAbsPath, $newAbsPath)) {
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => 'Failed to rename file on disk']);
+                exit;
+            }
+        }
+
+        // Update database
+        try {
+            $stmt = $pdo->prepare("UPDATE audio_library SET filename = ?, filepath = ? WHERE id = ?");
+            $stmt->execute([$cleanName, $newPath, $id]);
+            echo json_encode(['success' => true, 'filename' => $cleanName, 'filepath' => $newPath]);
+        }
+        catch (Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        }
+    }
     else {
         http_response_code(400);
         echo json_encode(['error' => 'Unknown action']);

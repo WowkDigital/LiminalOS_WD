@@ -620,7 +620,7 @@ if (isset($_SESSION['admin_auth']) && $_SESSION['admin_auth'] === true):
             <!-- SFX View -->
             <section id="view-sfx" class="view hidden">
                 <header class="section-header">
-                    <h2>SFX & Audio Management</h2>
+                    <h2>SFX & Audio Engine</h2>
                     <div class="header-actions">
                         <label class="btn-primary" for="audio-upload-input">
                             + Upload New Audio
@@ -629,48 +629,84 @@ if (isset($_SESSION['admin_auth']) && $_SESSION['admin_auth'] === true):
                     </div>
                 </header>
 
-                <div class="sfx-container">
-                    <div class="sfx-library">
-                        <div class="box-header">
-                            <i data-lucide="library" class="accent"></i>
-                            <div>
-                                <h3>Audio Library</h3>
-                                <p class="small-dim">Uploaded .mp3 / .wav assets.</p>
+                <div class="sfx-unified-layout">
+                    <!-- Section 1: Audio Library -->
+                    <div class="sfx-card collapsible active" id="sfx-sec-library">
+                        <div class="sfx-card-header">
+                            <div class="sfx-card-title">
+                                <i data-lucide="library" class="accent"></i>
+                                <span>Audio Library</span>
+                                <small class="sec-meta" id="library-count-meta"></small>
                             </div>
+                            <i data-lucide="chevron-down" class="chevron-icon"></i>
                         </div>
-                        <div class="search-box" style="margin-bottom: 10px;">
-                            <input type="text" id="audio-search" placeholder="Search audio...">
-                        </div>
-                        <div id="audio-items-list" class="audio-items-list">
-                            <!-- Injected -->
+                        <div class="sfx-card-body">
+                            <p class="small-dim" style="margin-bottom: 12px;">Uploaded audio files. Click play to listen, pencil to edit name, trash to delete.</p>
+                            <div class="search-box" style="margin-bottom: 15px;">
+                                <input type="text" id="audio-search" placeholder="Search audio library...">
+                            </div>
+                            <div id="audio-items-list" class="audio-items-list">
+                                <!-- Injected -->
+                            </div>
                         </div>
                     </div>
 
-                    <div class="sfx-mappings">
-                        <div class="config-tabs">
-                            <button class="nav-btn active" data-sfx-tab="bgm">Music (BGM)</button>
-                            <button class="nav-btn" data-sfx-tab="states">States (SFX)</button>
-                            <button class="nav-btn" data-sfx-tab="transitions">Transitions</button>
-                            <button class="nav-btn" data-sfx-tab="ui">UI (Click)</button>
+                    <!-- Section 2: Music Mappings (BGM) -->
+                    <div class="sfx-card collapsible" id="sfx-sec-bgm">
+                        <div class="sfx-card-header">
+                            <div class="sfx-card-title">
+                                <i data-lucide="music" class="accent"></i>
+                                <span>Music Mappings (BGM)</span>
+                                <small class="sec-meta">Background ambient loops mapped to rooms</small>
+                            </div>
+                            <i data-lucide="chevron-down" class="chevron-icon"></i>
                         </div>
-
-                        <div id="sfx-tab-bgm" class="sfx-tab-content">
-                            <p class="small-dim">Background loops for rooms.</p>
+                        <div class="sfx-card-body">
                             <div id="bgm-mapping-list" class="mapping-container"></div>
                         </div>
+                    </div>
 
-                        <div id="sfx-tab-states" class="sfx-tab-content hidden">
-                            <p class="small-dim">One-shot effects for object state changes.</p>
-                            <div id="state-mapping-list" class="mapping-container"></div>
+                    <!-- Section 3: Object State Mappings (SFX) -->
+                    <div class="sfx-card collapsible" id="sfx-sec-states">
+                        <div class="sfx-card-header">
+                            <div class="sfx-card-title">
+                                <i data-lucide="package" class="accent"></i>
+                                <span>Object State Mappings (SFX)</span>
+                                <small class="sec-meta">One-shot SFX loops mapped to object states</small>
+                            </div>
+                            <i data-lucide="chevron-down" class="chevron-icon"></i>
                         </div>
+                        <div class="sfx-card-body">
+                            <div id="states-mapping-list" class="mapping-container"></div>
+                        </div>
+                    </div>
 
-                        <div id="sfx-tab-transitions" class="sfx-tab-content hidden">
-                            <p class="small-dim">Sounds triggered when entering a transition.</p>
+                    <!-- Section 4: Transition Mappings -->
+                    <div class="sfx-card collapsible" id="sfx-sec-transitions">
+                        <div class="sfx-card-header">
+                            <div class="sfx-card-title">
+                                <i data-lucide="repeat" class="accent"></i>
+                                <span>Transition Mappings</span>
+                                <small class="sec-meta">SFX played during transition events</small>
+                            </div>
+                            <i data-lucide="chevron-down" class="chevron-icon"></i>
+                        </div>
+                        <div class="sfx-card-body">
                             <div id="transitions-mapping-list" class="mapping-container"></div>
                         </div>
+                    </div>
 
-                        <div id="sfx-tab-ui" class="sfx-tab-content hidden">
-                            <p class="small-dim">Sounds for button clicks and UI events.</p>
+                    <!-- Section 5: UI Event Mappings -->
+                    <div class="sfx-card collapsible" id="sfx-sec-ui">
+                        <div class="sfx-card-header">
+                            <div class="sfx-card-title">
+                                <i data-lucide="mouse-pointer" class="accent"></i>
+                                <span>UI Event Mappings (Click)</span>
+                                <small class="sec-meta">Procedural sounds overridden by custom SFX</small>
+                            </div>
+                            <i data-lucide="chevron-down" class="chevron-icon"></i>
+                        </div>
+                        <div class="sfx-card-body">
                             <div id="ui-mapping-list" class="mapping-container"></div>
                         </div>
                     </div>

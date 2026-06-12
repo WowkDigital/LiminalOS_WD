@@ -189,6 +189,16 @@ export async function deleteAudio(id) {
     return res.json();
 }
 
+export async function renameAudio(id, filename) {
+    const res = await fetch('api.php?action=rename_audio', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, filename })
+    });
+    if (!res.ok) throw new Error('Rename audio failed');
+    return res.json();
+}
+
 export async function saveAudioMapping(mapping) {
     const res = await fetch('api.php?action=save_audio_mapping', {
         method: 'POST',

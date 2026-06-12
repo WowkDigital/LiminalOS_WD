@@ -30,6 +30,21 @@ export class MappingRow {
             onChange: (e) => this.onChangeFile(this.currentSfxTab, this.ctx.id, e.target.value)
         }, options);
 
+        // Preview button next to dropdown
+        const selectedAudio = this.audioLibrary.find(a => a.id == this.mapping.audio_file_id);
+        let playBtn;
+        if (selectedAudio) {
+            playBtn = el('button', {
+                className: 'audio-play-btn',
+                'data-audio-id': selectedAudio.id,
+                onClick: () => window.previewAudio(selectedAudio.id, selectedAudio.filepath),
+                style: 'flex-shrink: 0;'
+            }, [icon('play')]);
+        } else {
+            // Empty placeholder to keep grid layout aligned
+            playBtn = el('div', { style: 'width: 32px; height: 32px; flex-shrink: 0;' });
+        }
+
         const range = el('input', {
             type: 'range',
             min: '0',
@@ -50,6 +65,7 @@ export class MappingRow {
         return el('div', { className: 'mapping-row' }, [
             el('div', { className: 'mapping-context' }, this.ctx.label),
             select,
+            playBtn,
             el('div', { className: 'mapping-volume' }, [
                 icon('volume-2'),
                 range
