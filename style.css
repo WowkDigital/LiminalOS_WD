@@ -303,6 +303,12 @@ body {
     box-shadow: 0 0 6px rgba(16, 185, 129, 0.5);
 }
 
+.terminal-status-dot.status-blink {
+    background: var(--accent-primary) !important;
+    box-shadow: 0 0 8px var(--accent-primary), 0 0 16px var(--accent-primary) !important;
+    animation: statusRapidBlink 1.2s step-end infinite !important;
+}
+
 .terminal-status-dot.status-active {
     background: var(--accent-primary);
     box-shadow: 0 0 8px rgba(234, 179, 8, 0.5);
@@ -323,6 +329,11 @@ body {
 @keyframes statusPulse {
     0%, 100% { opacity: 1; transform: scale(1); }
     50% { opacity: 0.5; transform: scale(0.85); }
+}
+
+@keyframes statusRapidBlink {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.25; transform: scale(0.9); }
 }
 
 .terminal-status-text {

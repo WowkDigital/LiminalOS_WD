@@ -297,12 +297,43 @@ const TerminalSystem = {
     focusInput() { this.expandTerminal(); },
     blurInput() { this.collapseTerminal(); },
 
+    isInteractionAvailable() {
+        if (!window.game || !window.game.world) return false;
+        
+        // 1. Check if the active atmospheric text has a dialogue
+        if (window.game.state && window.game.state.activeAtmosphericText) {
+            const atm = window.game.state.activeAtmosphericText;
+            if (atm && typeof atm === 'object' && atm.dialogue_id && this.dialogueTree[atm.dialogue_id]) {
+                return true;
+            }
+        }
+        
+        // 2. Check if the current room has a room-specific dialogue node
+        if (window.game.state && window.game.state.currentRoom) {
+            const roomDialogueId = "ROOM_" + window.game.state.currentRoom.toUpperCase();
+            if (this.dialogueTree[roomDialogueId]) {
+                return true;
+            }
+        }
+
+        // 3. If the current terminal state is not INITIAL
+        if (this.currentState !== "INITIAL") {
+            return true;
+        }
+        
+        return false;
+    },
+
     updateHeaderStatus(status) {
         if (!this.terminalHeaderEl) return;
         const statusDot = this.terminalHeaderEl.querySelector('.terminal-status-dot');
         const statusText = this.terminalHeaderEl.querySelector('.terminal-status-text');
         if (statusDot) {
-            statusDot.className = 'terminal-status-dot status-' + status;
+            let className = 'terminal-status-dot status-' + status;
+            if (this.isInteractionAvailable()) {
+                className += ' status-blink';
+            }
+            statusDot.className = className;
         }
         if (statusText) {
             const labels = { online: 'STANDBY', active: 'ACTIVE', busy: 'PROCESSING', error: 'ERROR' };

@@ -1107,6 +1107,11 @@ class BackroomsGame {
         if (window.lucide) {
             window.lucide.createIcons();
         }
+
+        if (window.TerminalSystem && window.TerminalSystem.terminalContainer) {
+            const isExpanded = window.TerminalSystem.terminalContainer.classList.contains('expanded');
+            window.TerminalSystem.updateHeaderStatus(isExpanded ? 'active' : 'online');
+        }
     }
 
     /**
@@ -1165,6 +1170,10 @@ class BackroomsGame {
      * Falls back to category texts if transition has no inline texts.
      */
     updateTerminalText(transitionId = null) {
+        if (window.TerminalSystem) {
+            window.TerminalSystem.currentState = "INITIAL";
+        }
+
         // Polymorphic approach:
         const loc = this.getCurrentLocation();
         const possibleTexts = loc.getTerminalTexts();
