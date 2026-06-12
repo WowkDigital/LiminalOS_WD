@@ -123,6 +123,28 @@ class MapGenerator {
             }
         });
 
+        // Step 6: Guarantee strong connectivity (every room can reach startId)
+        let S = this._getNodesCanReach(startId, globalTransitions, roomIds);
+        while (S.size < roomIds.length) {
+            const remaining = roomIds.filter(id => !S.has(id));
+            const u = remaining[Math.floor(Math.random() * remaining.length)];
+            
+            const targetPool = Array.from(S);
+            const w = targetPool[Math.floor(Math.random() * targetPool.length)];
+            
+            const tDef = this._pickTransition(u, w);
+            globalTransitions[u].push({
+                id: tDef.id,
+                label: tDef.label,
+                target: w,
+                requirements: null, // Guarantee this return path is not locked
+                category: tDef.category,
+                isDiscovery: false
+            });
+            
+            S = this._getNodesCanReach(startId, globalTransitions, roomIds);
+        }
+
         this.game.state.roomTransitions = globalTransitions;
         // BFS depths used by MapGraph for the hierarchical layout
         this.game.state.bfsDepth = this._computeBFSDepth(startId, globalTransitions);
@@ -176,6 +198,39 @@ class MapGenerator {
             }
         }
         return depth;
+    }
+
+    /**
+     * Finds all rooms that can reach the target room through the directed transition graph.
+     * @param {string} target
+     * @param {{ [roomId: string]: any[] }} transitions
+     * @param {string[]} roomIds
+     * @returns {Set<string>}
+     */
+    _getNodesCanReach(target, transitions, roomIds) {
+        // Build transpose graph (incoming edges)
+        const incoming = {};
+        roomIds.forEach(id => { incoming[id] = []; });
+        roomIds.forEach(source => {
+            for (const t of (transitions[source] || [])) {
+                if (incoming[t.target]) {
+                    incoming[t.target].push(source);
+                }
+            }
+        });
+
+        const visited = new Set([target]);
+        const queue = [target];
+        while (queue.length > 0) {
+            const curr = queue.shift();
+            for (const parent of (incoming[curr] || [])) {
+                if (!visited.has(parent)) {
+                    visited.add(parent);
+                    queue.push(parent);
+                }
+            }
+        }
+        return visited;
     }
 
     /**
