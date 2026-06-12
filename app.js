@@ -1204,7 +1204,11 @@ class BackroomsGame {
 
         if (validTexts.length === 0) {
             this.state.activeAtmosphericText = null;
-            this.typeTerminalText("");
+            if (window.TerminalSystem) {
+                window.TerminalSystem.showActiveDialogueOptions();
+            } else {
+                this.typeTerminalText("");
+            }
             return;
         }
 
@@ -1212,20 +1216,28 @@ class BackroomsGame {
         this.state.activeAtmosphericText = selected;
 
         const displayText = typeof selected === 'string' ? selected : selected.text;
-        this.typeTerminalText(displayText.toUpperCase());
+        
+        if (window.TerminalSystem) {
+            window.TerminalSystem.typeResponse(displayText.toUpperCase(), () => {
+                window.TerminalSystem.showActiveDialogueOptions();
+            });
+        } else {
+            this.typeTerminalText(displayText.toUpperCase());
+        }
     }
 
-    typeTerminalText(fullText, callback) {
+    typeTerminalText(fullText, callback, targetEl) {
         if (this.terminalTimeout) clearTimeout(this.terminalTimeout);
 
         if (window.TerminalSystem) window.TerminalSystem.isTyping = true;
 
         const previewEl = document.getElementById('terminal-preview-text');
+        const outputEl = targetEl || this.elements.terminalText;
 
         const deleteChar = () => {
-            const current = this.elements.terminalText.innerText;
+            const current = outputEl ? outputEl.innerText : "";
             if (current.length > 0) {
-                this.elements.terminalText.innerText = current.slice(0, -1);
+                outputEl.innerText = current.slice(0, -1);
                 if (previewEl) previewEl.textContent = current.slice(0, -1);
                 this.terminalTimeout = setTimeout(deleteChar, 10);
             } else {
@@ -1251,7 +1263,7 @@ class BackroomsGame {
                         ? this.terminalGlitchChars[Math.floor(Math.random() * this.terminalGlitchChars.length)]
                         : fullText[index];
 
-                    this.elements.terminalText.innerText = currentDisplay + char;
+                    if (outputEl) outputEl.innerText = currentDisplay + char;
 
                     if (!isGlitch) {
                         currentDisplay += char;
@@ -1263,7 +1275,7 @@ class BackroomsGame {
 
                     this.terminalTimeout = setTimeout(type, Math.random() * 10 + 5);
                 } else {
-                    this.elements.terminalText.innerText = fullText;
+                    if (outputEl) outputEl.innerText = fullText;
                     if (previewEl) previewEl.textContent = fullText.replace(/\n/g, ' ');
                     if (window.TerminalSystem) window.TerminalSystem.isTyping = false;
 
@@ -1284,7 +1296,16 @@ class BackroomsGame {
             type();
         };
 
-        deleteChar();
+        if (targetEl) {
+            if (fullText) startTyping();
+            else {
+                if (previewEl) previewEl.textContent = '';
+                if (window.TerminalSystem) window.TerminalSystem.isTyping = false;
+                if (callback) callback();
+            }
+        } else {
+            deleteChar();
+        }
     }
 
     updateGlitchEffects(sanity) {

@@ -108,7 +108,6 @@ window.generateGlitchText = generateGlitchText;
 
 const TerminalSystem = {
     isTyping: false,
-    terminalTextEl: null,
     terminalContainer: null,
     terminalHistoryEl: null,
     terminalInputEl: null,
@@ -125,14 +124,13 @@ const TerminalSystem = {
     selectedOptionIndex: -1, // For keyboard navigation of options
 
     async init() {
-        this.terminalTextEl = document.getElementById('terminal-text');
         this.terminalContainer = document.getElementById('terminal-line-container');
         this.terminalHistoryEl = document.getElementById('terminal-history');
         this.terminalInputEl = document.getElementById('terminal-input');
         this.terminalOptionsEl = document.getElementById('terminal-options-list');
         this.terminalHeaderEl = document.getElementById('terminal-header');
 
-        if (!this.terminalContainer || !this.terminalTextEl || !this.terminalInputEl || !this.terminalOptionsEl) return;
+        if (!this.terminalContainer || !this.terminalInputEl || !this.terminalOptionsEl) return;
 
         // Load dialogue tree from JSON
         try {
@@ -567,23 +565,14 @@ const TerminalSystem = {
             if (window.game && window.game.audio) {
                 window.game.audio.playUiSound('error');
             }
-            const prevText = this.terminalTextEl.innerText;
-            if (prevText) this.addToHistory(prevText, this.currentLogType, '⊟');
-            
             let displayLabel = option.label.toUpperCase();
             this.addToHistory("» " + displayLabel, 'user-input', '▸');
-            this.terminalTextEl.innerText = "";
             this.typeResponse(`ERROR: SANITY DEVIATION DETECTED. REQUIRED: ${option.sanityRequiredText}`, null, 'error', '✕');
             return;
         }
 
-        // Add current prompt response to history
-        const prevText = this.terminalTextEl.innerText;
-        if (prevText) this.addToHistory(prevText, this.currentLogType, '⊟');
-
         // Add selected option label to history with user-input styling
         this.addToHistory("» " + option.label.toUpperCase(), 'user-input', '▸');
-        this.terminalTextEl.innerText = "";
 
         // Execute side effects if they are defined on the choice
         if (option.effects && window.game) {
@@ -609,11 +598,6 @@ const TerminalSystem = {
     handleInput(inputVal) {
         const rawCmd = inputVal.trim();
         const cmd = rawCmd.toUpperCase();
-
-        // Save previous output to history before overwriting
-        const prevText = this.terminalTextEl.innerText;
-        if (prevText) this.addToHistory(prevText, this.currentLogType, '⊟');
-        this.terminalTextEl.innerText = "";
 
         // 1. Add current command to history with user-input styling
         this.addToHistory("» " + rawCmd, 'user-input', '▸');
@@ -990,29 +974,50 @@ const TerminalSystem = {
 
     typeResponse(text, callback, logType = '', icon = '') {
         this.currentLogType = logType;
-        this.terminalTextEl.className = 'terminal-response-text' + (logType ? ' log-' + logType : '');
         this.updateHeaderStatus('busy');
         
         const formattedText = this.formatText(text);
 
+        const lineObj = { text: "", type: logType, icon: icon };
+        this.history.push(lineObj);
+        
+        let textSpan = null;
+        if (this.terminalHistoryEl) {
+            this.appendHistoryLine(lineObj);
+            const lastLine = this.terminalHistoryEl.lastElementChild;
+            if (lastLine) {
+                textSpan = lastLine.querySelector('.history-text');
+            }
+            
+            if (this.history.length > 30) {
+                this.history.shift();
+                if (this.terminalHistoryEl.firstElementChild) {
+                    this.terminalHistoryEl.firstElementChild.remove();
+                }
+            }
+            requestAnimationFrame(() => {
+                this.terminalHistoryEl.scrollTop = this.terminalHistoryEl.scrollHeight;
+            });
+        }
+
         if (window.game) {
-            // Forward typing animation to the game to use its glitchy visual typing animation
             window.game.typeTerminalText(formattedText, () => {
                 this.updateHeaderStatus(this.terminalContainer.classList.contains('expanded') ? 'active' : 'online');
+                lineObj.text = formattedText;
                 if (callback) callback();
-            });
+            }, textSpan);
         } else {
             // Fallback typing animation
             this.isTyping = true;
-            this.terminalTextEl.innerText = "";
             let i = 0;
             const type = () => {
                 if (i < formattedText.length) {
-                    this.terminalTextEl.innerText = formattedText.substring(0, i + 1) + "█";
+                    if (textSpan) textSpan.innerText = formattedText.substring(0, i + 1) + "█";
                     i++;
                     setTimeout(type, 8);
                 } else {
-                    this.terminalTextEl.innerText = formattedText;
+                    if (textSpan) textSpan.innerText = formattedText;
+                    lineObj.text = formattedText;
                     this.isTyping = false;
                     this.updateHeaderStatus(this.terminalContainer.classList.contains('expanded') ? 'active' : 'online');
                     if (callback) callback();

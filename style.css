@@ -437,7 +437,7 @@ body {
 }
 
 #terminal-line-container.expanded #terminal-history {
-    max-height: 14rem;
+    max-height: 22rem;
     opacity: 1;
     overflow-y: auto;
     padding-top: 0.4rem;
@@ -516,68 +516,6 @@ body {
     border-left: 2px solid rgba(234, 179, 8, 0.25);
     padding-left: 0.5rem;
     margin-left: -0.15rem;
-}
-
-/* ---- Output Line (system responses) ---- */
-.terminal-output-line {
-    display: none;
-    align-items: flex-start;
-    gap: 0.5rem;
-    padding: 0.4rem 0.85rem;
-    min-height: 0;
-    flex-shrink: 0;
-    max-height: 10rem;
-    overflow-y: auto;
-}
-
-#terminal-line-container.expanded .terminal-output-line {
-    display: flex;
-}
-
-.terminal-output-line::-webkit-scrollbar {
-    width: 3px;
-}
-.terminal-output-line::-webkit-scrollbar-track {
-    background: transparent;
-}
-.terminal-output-line::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 2px;
-}
-
-.output-prompt {
-    color: var(--accent-primary);
-    font-size: 0.7rem;
-    opacity: 0.5;
-    line-height: 1.5;
-    flex-shrink: 0;
-}
-
-#terminal-text {
-    flex: 1;
-    white-space: pre;
-    overflow-x: auto;
-    color: var(--text-main);
-    line-height: 1.4;
-    font-size: 0.75rem;
-}
-
-#terminal-text::-webkit-scrollbar {
-    height: 3px;
-}
-#terminal-text::-webkit-scrollbar-track {
-    background: transparent;
-}
-#terminal-text::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 2px;
-}
-
-#terminal-text:empty + .output-prompt,
-.terminal-output-line:has(#terminal-text:empty) {
-    min-height: 0;
-    padding-top: 0;
-    padding-bottom: 0;
 }
 
 /* ---- Input Line (user typing) ---- */
