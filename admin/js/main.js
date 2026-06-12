@@ -61,6 +61,7 @@ import {
     saveRequirementsToState 
 } from './requirements.js';
 import { runDiagnosticsSuite } from './tests.js';
+import { fetchTerminalDialogues } from './terminal.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     // Initialize static icons
@@ -81,12 +82,14 @@ document.addEventListener('DOMContentLoaded', () => {
         transitions: renderTransitionsList,
         taxonomy: fetchTaxonomy,
         sfx: fetchAudioData,
-        tests: () => {}
+        tests: () => {},
+        terminal: fetchTerminalDialogues
     };
 
     const validViews = [
         'dashboard', 'media', 'interactables', 'transitions', 
-        'taxonomy', 'sfx', 'editor', 'interEditor', 'transEditor', 'tests'
+        'taxonomy', 'sfx', 'editor', 'interEditor', 'transEditor', 'tests',
+        'terminal'
     ];
 
     // Navigation - Hash Based
@@ -105,6 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-taxonomy').addEventListener('click', () => navigate('taxonomy'));
     document.getElementById('btn-sfx').addEventListener('click', () => navigate('sfx'));
     document.getElementById('btn-tests').addEventListener('click', () => navigate('tests'));
+    document.getElementById('btn-terminal').addEventListener('click', () => navigate('terminal'));
 
     // Create New Record bindings
     document.getElementById('btn-add-room').addEventListener('click', () => { navigate('editor'); openEditor(); });

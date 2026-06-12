@@ -89,8 +89,9 @@ if (isset($_SESSION['admin_auth']) && $_SESSION['admin_auth'] === true):
                 <button id="btn-dashboard" class="nav-btn active"><i data-lucide="layout-dashboard"></i>
                     Dashboard</button>
                 <button id="btn-media" class="nav-btn"><i data-lucide="image"></i> Media Library</button>
-                <button id="btn-interactables" class="nav-btn"><i data-lucide="package"></i> Interactables</button>
+                 <button id="btn-interactables" class="nav-btn"><i data-lucide="package"></i> Interactables</button>
                 <button id="btn-transitions" class="nav-btn"><i data-lucide="repeat"></i> Transitions</button>
+                <button id="btn-terminal" class="nav-btn"><i data-lucide="terminal"></i> Terminal Dialogues</button>
                 <button id="btn-taxonomy" class="nav-btn"><i data-lucide="settings"></i> System Config</button>
                 <button id="btn-sfx" class="nav-btn"><i data-lucide="music"></i> SFX Engine</button>
                 <button id="btn-add-room" class="nav-btn"><i data-lucide="plus-circle"></i> Add New Room</button>
@@ -636,6 +637,72 @@ if (isset($_SESSION['admin_auth']) && $_SESSION['admin_auth'] === true):
                         <div id="sfx-tab-ui" class="sfx-tab-content hidden">
                             <p class="small-dim">Sounds for button clicks and UI events.</p>
                             <div id="ui-mapping-list" class="mapping-container"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Terminal Dialogues View -->
+            <section id="view-terminal" class="view hidden">
+                <header class="section-header">
+                    <div>
+                        <h2>Terminal Dialogue Tree</h2>
+                        <p class="subtitle">Configure dialogue nodes, options, entry conditions, and state effects for interactive terminals.</p>
+                    </div>
+                    <div class="header-actions">
+                        <button id="btn-save-terminal" class="btn-primary">Save Dialogues</button>
+                    </div>
+                </header>
+
+                <div class="terminal-manager-layout">
+                    <!-- Left pane: Node List and Add Node -->
+                    <div class="terminal-sidebar-pane">
+                        <div class="form-section">
+                            <h3>Dialogue Nodes</h3>
+                            <div class="search-box" style="margin-bottom: 12px;">
+                                <input type="text" id="terminal-node-search" placeholder="Search node ID...">
+                            </div>
+                            <div id="terminal-nodes-list" class="node-items-list">
+                                <!-- Nodes will be injected here -->
+                            </div>
+                            <button type="button" id="btn-add-terminal-node" class="btn-small">+ Create New Node</button>
+                        </div>
+                    </div>
+
+                    <!-- Right pane: Node Editor -->
+                    <div class="terminal-editor-pane">
+                        <div class="form-section" id="terminal-node-editor-card">
+                            <h3 id="terminal-editor-node-id">Select a node to edit</h3>
+                            
+                            <div id="terminal-editor-fields" class="hidden">
+                                <div class="form-group">
+                                    <label for="terminal-node-id-input">Dialogue Node ID</label>
+                                    <input type="text" id="terminal-node-id-input" placeholder="e.g. ROOM_LOBBY_SUB" required>
+                                    <small>Unique ID matching dialogue_id field in room texts, uppercase, e.g., ROOM_XXX.</small>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="terminal-node-text-input">Screen Content Text</label>
+                                    <textarea id="terminal-node-text-input" rows="4" placeholder="Text displayed on CRT screen... Use {ROOM} for current room name placeholder." required></textarea>
+                                </div>
+
+                                <div class="form-section" style="margin-top: 1.5rem; background: rgba(0,0,0,0.15);">
+                                    <h3 style="border-bottom: 1px dashed var(--glass-border); padding-bottom: 8px;">Interactive Options</h3>
+                                    <div id="terminal-options-list">
+                                        <!-- Options list goes here -->
+                                    </div>
+                                    <button type="button" id="btn-add-terminal-option" class="btn-small" style="margin-top: 12px;">+ Add Option</button>
+                                </div>
+
+                                <div style="margin-top: 2rem; display: flex; justify-content: space-between;">
+                                    <button type="button" id="btn-delete-terminal-node" class="btn-remove">Delete Node</button>
+                                </div>
+                            </div>
+
+                            <div id="terminal-editor-placeholder" class="empty">
+                                <i data-lucide="terminal" style="width: 32px; height: 32px; opacity: 0.5; margin-bottom: 8px;"></i>
+                                <p>Select an existing dialogue node or create a new one to begin editing.</p>
+                            </div>
                         </div>
                     </div>
                 </div>

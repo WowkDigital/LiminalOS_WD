@@ -615,6 +615,15 @@ if ($method === 'GET') {
         echo json_encode($transitions, JSON_PRETTY_PRINT);
         exit;
     }
+    elseif ($action === 'get_terminal_dialogue') {
+        $filePath = __DIR__ . '/../terminal_dialogue.json';
+        if (file_exists($filePath)) {
+            echo file_get_contents($filePath);
+        } else {
+            echo json_encode((object)[]);
+        }
+        exit;
+    }
     else {
         // Default: get whole world
         echo json_encode(getFullWorld($pdo));
@@ -624,7 +633,24 @@ elseif ($method === 'POST') {
     $json = file_get_contents('php://input');
     $data = json_decode($json, true);
 
-    if ($action === 'save_taxonomy_item') {
+    if ($action === 'save_terminal_dialogue') {
+        $filePath = __DIR__ . '/../terminal_dialogue.json';
+        $dialogueData = $data['dialogue'] ?? null;
+        if ($dialogueData === null) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'No dialogue data provided']);
+            exit;
+        }
+        $jsonString = json_encode($dialogueData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if (file_put_contents($filePath, $jsonString) !== false) {
+            echo json_encode(['success' => true]);
+        } else {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Failed to write terminal dialogue file']);
+        }
+        exit;
+    }
+    elseif ($action === 'save_taxonomy_item') {
         $stmt = $pdo->prepare("INSERT OR IGNORE INTO taxonomy_definitions (type, label) VALUES (?, ?)");
         $stmt->execute([$data['type'], $data['label']]);
         echo json_encode(['success' => true]);
