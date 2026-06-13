@@ -354,6 +354,36 @@ function migrateDatabase($pdo) {
             throw $e;
         }
     }
+
+    // Version 4: Add area column to room_transitions table if missing
+    $version = 0;
+    try {
+        $stmt = $pdo->query("SELECT value FROM global_definitions WHERE type = 'db_version'");
+        if ($stmt) {
+            $val = $stmt->fetchColumn();
+            if ($val !== false) {
+                $version = (int)$val;
+            }
+        }
+    } catch (PDOException $e) {}
+
+    if ($version < 4) {
+        $pdo->beginTransaction();
+        try {
+            // Check if column already exists in room_transitions, if not add it
+            $stmt = $pdo->query("PRAGMA table_info(room_transitions)");
+            $columns = $stmt->fetchAll(PDO::FETCH_COLUMN, 1);
+            if (!in_array('area', $columns)) {
+                $pdo->exec("ALTER TABLE room_transitions ADD COLUMN area TEXT");
+            }
+
+            $pdo->exec("INSERT OR REPLACE INTO global_definitions (type, value) VALUES ('db_version', '4')");
+            $pdo->commit();
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+    }
 }
 
 try {
@@ -413,15 +443,17 @@ function getFullWorld($pdo)
         $rooms[$id]['tags'] = $stmtTags->fetchAll(PDO::FETCH_COLUMN);
 
         // Transitions
-        $stmtTrans = $pdo->prepare("SELECT category, requirements FROM room_transitions WHERE room_id = ?");
+        $stmtTrans = $pdo->prepare("SELECT category, requirements, area FROM room_transitions WHERE room_id = ?");
         $stmtTrans->execute([$id]);
         $rawTrans = $stmtTrans->fetchAll(PDO::FETCH_ASSOC);
         $rooms[$id]['transitions'] = array_map(function ($t) {
             $req = !empty($t['requirements']) ? json_decode($t['requirements'], true) : null;
+            $area = !empty($t['area']) ? json_decode($t['area'], true) : null;
             // Return object structure
             return [
-            'category' => $t['category'],
-            'requirements' => $req
+                'category' => $t['category'],
+                'requirements' => $req,
+                'area' => $area
             ];
         }, $rawTrans);
 
@@ -743,12 +775,14 @@ elseif ($method === 'POST') {
                 if (is_string($transItem)) {
                     $cat = $transItem;
                     $req = null;
+                    $area = null;
                 }
                 else {
                     $cat = $transItem['category'];
                     $req = !empty($transItem['requirements']) ? json_encode($transItem['requirements']) : null;
+                    $area = !empty($transItem['area']) ? json_encode($transItem['area']) : null;
                 }
-                $pdo->prepare("INSERT INTO room_transitions (room_id, category, requirements) VALUES (?, ?, ?)")->execute([$id, $cat, $req]);
+                $pdo->prepare("INSERT INTO room_transitions (room_id, category, requirements, area) VALUES (?, ?, ?, ?)")->execute([$id, $cat, $req, $area]);
             }
 
             $pdo->prepare("DELETE FROM room_interactables WHERE room_id = ?")->execute([$id]);

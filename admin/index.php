@@ -887,6 +887,49 @@ if (isset($_SESSION['admin_auth']) && $_SESSION['admin_auth'] === true):
         </div>
     </div>
 
+    <!-- Click Area Modal -->
+    <div id="click-area-modal" class="modal hidden">
+        <div class="modal-content" style="max-width: 800px; width: 90%;">
+            <header class="modal-header">
+                <h3 id="click-area-modal-title">Configure Transition Click Area</h3>
+                <button id="btn-close-click-area-modal" class="btn-close">&times;</button>
+            </header>
+            <div class="modal-body" style="display: flex; flex-direction: column; gap: 15px;">
+                <p class="small-dim" style="margin: 0; font-size: 0.8rem;">Click and drag on the image below to define the clickable area for this transition category.</p>
+                <div id="click-area-editor-container" style="position: relative; background: #000; display: flex; justify-content: center; align-items: center; min-height: 300px; max-height: 50vh; overflow: hidden; border: 1px solid var(--glass-border); border-radius: var(--radius-sm); user-select: none;">
+                    <img id="click-area-target-img" src="" alt="Room graphic" style="max-width: 100%; max-height: 50vh; width: auto; height: auto; display: block; pointer-events: none;">
+                    <div id="click-area-drawing-overlay" style="position: absolute; cursor: crosshair; z-index: 10;">
+                        <div id="click-area-selection-box" style="position: absolute; border: 2px dashed var(--accent-primary); background: rgba(234, 179, 8, 0.15); display: none; pointer-events: none; box-shadow: 0 0 8px var(--accent-glow);">
+                            <div style="position: absolute; right: 4px; bottom: 4px; background: rgba(0,0,0,0.8); color: var(--accent-primary); font-family: var(--font-mono); font-size: 0.65rem; padding: 2px 4px; border-radius: 2px;" id="click-area-box-coords">0% 0%</div>
+                        </div>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px; font-family: var(--font-mono); font-size: 0.8rem;">
+                    <div style="flex: 1;">
+                        <label style="font-size: 0.75rem; margin-bottom: 4px;">Left (%)</label>
+                        <input type="number" id="click-area-left" min="0" max="100" step="0.1" style="width: 100%; background: rgba(0,0,0,0.5); border: 1px solid var(--glass-border); color: #fff; padding: 6px; border-radius: 4px; font-size: 0.85rem;">
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="font-size: 0.75rem; margin-bottom: 4px;">Top (%)</label>
+                        <input type="number" id="click-area-top" min="0" max="100" step="0.1" style="width: 100%; background: rgba(0,0,0,0.5); border: 1px solid var(--glass-border); color: #fff; padding: 6px; border-radius: 4px; font-size: 0.85rem;">
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="font-size: 0.75rem; margin-bottom: 4px;">Width (%)</label>
+                        <input type="number" id="click-area-width" min="0" max="100" step="0.1" style="width: 100%; background: rgba(0,0,0,0.5); border: 1px solid var(--glass-border); color: #fff; padding: 6px; border-radius: 4px; font-size: 0.85rem;">
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="font-size: 0.75rem; margin-bottom: 4px;">Height (%)</label>
+                        <input type="number" id="click-area-height" min="0" max="100" step="0.1" style="width: 100%; background: rgba(0,0,0,0.5); border: 1px solid var(--glass-border); color: #fff; padding: 6px; border-radius: 4px; font-size: 0.85rem;">
+                    </div>
+                </div>
+            </div>
+            <footer class="modal-footer">
+                <button id="btn-clear-click-area" class="btn-secondary">Clear Area</button>
+                <button id="btn-save-click-area" class="btn-primary">Save Area</button>
+            </footer>
+        </div>
+    </div>
+
     <!-- Import Preview Modal -->
     <div id="import-preview-modal" class="modal hidden">
         <div class="modal-content" style="max-width: 600px;">

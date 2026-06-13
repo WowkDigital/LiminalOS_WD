@@ -129,7 +129,8 @@ class RoomLocation extends Location {
                 category,
                 isUnknown,
                 isRecommended,   // true if taking this exit leads toward undiscovered rooms
-                isLocked: !isMet
+                isLocked: !isMet,
+                area: t.area || null
             };
         });
     }
@@ -1275,6 +1276,78 @@ class BackroomsGame {
             const isExpanded = window.TerminalSystem.terminalContainer.classList.contains('expanded');
             window.TerminalSystem.updateHeaderStatus(isExpanded ? 'active' : 'online');
         }
+
+        // Render visual hotspots
+        this.renderHotspots(actions);
+    }
+
+    /**
+     * Renders rectangular hotspots dynamically on top of the room scene background image.
+     */
+    renderHotspots(actions) {
+        const container = document.getElementById('click-areas-container');
+        if (!container) return;
+        container.innerHTML = '';
+
+        if (this.state.isTransitioning) return;
+
+        actions.forEach(act => {
+            if (act.type === 'tra' && act.area) {
+                let coords = null;
+                if (act.area.shapes && act.area.shapes[0]) {
+                    coords = act.area.shapes[0].coords;
+                } else if (act.area.coords) {
+                    coords = act.area.coords;
+                }
+
+                if (coords) {
+                    const left = coords.x !== undefined ? coords.x : coords.left;
+                    const top = coords.y !== undefined ? coords.y : coords.top;
+                    const w = coords.width !== undefined ? coords.width : coords.w;
+                    const h = coords.height !== undefined ? coords.height : coords.h;
+
+                    const hotspot = document.createElement('div');
+                    hotspot.className = 'transition-hotspot';
+                    hotspot.style.left = `${left}%`;
+                    hotspot.style.top = `${top}%`;
+                    hotspot.style.width = `${w}%`;
+                    hotspot.style.height = `${h}%`;
+                    
+                    if (act.label) {
+                        hotspot.title = act.label;
+                    }
+
+                    if (act.isLocked) {
+                        hotspot.classList.add('locked');
+                        hotspot.style.cursor = 'not-allowed';
+                    } else {
+                        if (act.category) {
+                            const color = this.getCategoryColor(act.category);
+                            const glowColor = color.replace('hsl', 'hsla').replace(')', ', 0.35)');
+                            const hoverBg = color.replace('hsl', 'hsla').replace(')', ', 0.12)');
+                            
+                            hotspot.addEventListener('mouseenter', () => {
+                                hotspot.style.borderColor = color;
+                                hotspot.style.background = hoverBg;
+                                hotspot.style.boxShadow = `0 0 12px ${glowColor}`;
+                            });
+                            hotspot.addEventListener('mouseleave', () => {
+                                hotspot.style.borderColor = 'transparent';
+                                hotspot.style.background = 'transparent';
+                                hotspot.style.boxShadow = 'none';
+                            });
+                        }
+                        
+                        hotspot.onclick = (e) => {
+                            e.stopPropagation();
+                            this.handleAction(act.type, act.value, act.extra, e);
+                        };
+                    }
+
+                    container.appendChild(hotspot);
+                }
+            }
+        });
     }
 
     /**

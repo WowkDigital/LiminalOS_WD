@@ -2841,4 +2841,12 @@ input[type="checkbox"]:checked::before {
 .search-box-container .search-clear-btn:hover {
     background: rgba(239, 68, 68, 0.15);
     color: var(--error);
+}
+
+/* Click Area Configurations */
+.btn-cfg.btn-area.has-area {
+    color: var(--accent-primary) !important;
+    border-color: var(--accent-primary) !important;
+    background: rgba(234, 179, 8, 0.15) !important;
+    box-shadow: 0 0 8px var(--accent-glow) !important;
 }

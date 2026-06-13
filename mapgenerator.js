@@ -69,6 +69,7 @@ class MapGenerator {
                 target: roomId,
                 requirements: inc.requirements || null,
                 category: inc.category,
+                area: inc.area || null,
                 isDiscovery: true   // this edge leads to a room unknown at game-start
             });
         }
@@ -92,6 +93,7 @@ class MapGenerator {
                     target: targetRoom,
                     requirements: tDef.requirements || null,
                     category: tDef.category,
+                    area: tDef.area || null,
                     isDiscovery: false
                 });
             });
@@ -109,6 +111,7 @@ class MapGenerator {
                     target,
                     requirements: null,
                     category: tDef.category,
+                    area: tDef.area || null,
                     isDiscovery: true
                 });
             }
@@ -130,6 +133,7 @@ class MapGenerator {
                 target: w,
                 requirements: null, // Guarantee this return path is not locked
                 category: tDef.category,
+                area: tDef.area || null,
                 isDiscovery: false
             });
             
@@ -168,8 +172,9 @@ class MapGenerator {
             t => typeof t === 'object' && t !== null && t.category === category
         );
         const requirements = rawDef?.requirements || null;
+        const area = rawDef?.area || null;
 
-        return { id: def.id, label: def.label, category, requirements };
+        return { id: def.id, label: def.label, category, requirements, area };
     }
 
     /**

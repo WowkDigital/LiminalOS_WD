@@ -270,6 +270,7 @@ export function refreshCategorySelectors(selectedValues = null) {
             const hasReq = !!state.editorRequirements.transitions[cat];
 
             if (groupName === 'room-editor') {
+                const hasArea = !!state.editorRequirements.clickAreas?.[cat];
                 const row = el('div', { className: 'config-row' }, [
                     el('div', { className: 'cat-info-row' }, [
                         icon(getCategoryIcon(cat), { style: { width: '16px', height: '16px', color: 'var(--accent-primary)' } }),
@@ -278,6 +279,13 @@ export function refreshCategorySelectors(selectedValues = null) {
                         }, cat === 'universal' ? 'Universal' : cat.charAt(0).toUpperCase() + cat.slice(1))
                     ]),
                     el('div', { className: 'config-row-actions' }, [
+                        el('button', {
+                            type: 'button',
+                            className: `btn-cfg btn-area ${hasArea ? 'has-area' : ''}`,
+                            onClick: () => window.openClickAreaModal(cat),
+                            title: 'Configure click area',
+                            style: { marginRight: '6px' }
+                        }, [icon('maximize')]),
                         el('button', {
                             type: 'button',
                             className: `btn-cfg ${hasReq ? 'has-req' : ''}`,
@@ -367,8 +375,12 @@ export function openEditor(id = null) {
         document.getElementById('room-tags').value = (room.tags || []).join(', ');
 
         state.editorRequirements.transitions = {};
+        state.editorRequirements.clickAreas = {};
         (room.transitions || []).forEach(t => {
-            if (typeof t === 'object') state.editorRequirements.transitions[t.category] = t.requirements;
+            if (typeof t === 'object') {
+                state.editorRequirements.transitions[t.category] = t.requirements;
+                state.editorRequirements.clickAreas[t.category] = t.area || null;
+            }
         });
         state.editorRequirements.interactables = {};
         (room.interactables || []).forEach(i => {
@@ -391,7 +403,7 @@ export function openEditor(id = null) {
         const delBtn = document.getElementById('btn-delete-room');
         if (delBtn) delBtn.classList.add('hidden');
 
-        state.editorRequirements = { transitions: {}, interactables: {} };
+        state.editorRequirements = { transitions: {}, interactables: {}, clickAreas: {} };
 
         renderInteractablesCheckboxes([]);
         addTextField();
@@ -414,7 +426,11 @@ export function getRoomDataFromForm() {
 
     const transitions = Array.from(document.querySelectorAll('#transitions-container input:checked')).map(cb => {
         const cat = cb.value;
-        return { category: cat, requirements: state.editorRequirements.transitions[cat] || null };
+        return {
+            category: cat,
+            requirements: state.editorRequirements.transitions[cat] || null,
+            area: state.editorRequirements.clickAreas?.[cat] || null
+        };
     });
     const interactablesArr = Array.from(document.querySelectorAll('#interactables-checkbox-group input:checked')).map(cb => {
         const iid = cb.value;
@@ -454,8 +470,12 @@ export function applyRoomJSON() {
         document.getElementById('room-tags').value = (data.tags || []).join(', ');
 
         state.editorRequirements.transitions = {};
+        state.editorRequirements.clickAreas = {};
         (data.transitions || []).forEach(t => {
-            if (typeof t === 'object') state.editorRequirements.transitions[t.category] = t.requirements;
+            if (typeof t === 'object') {
+                state.editorRequirements.transitions[t.category] = t.requirements;
+                state.editorRequirements.clickAreas[t.category] = t.area || null;
+            }
         });
         state.editorRequirements.interactables = {};
         (data.interactables || []).forEach(i => {
@@ -788,3 +808,275 @@ export function getRoomTerminalDialogueData() {
         options: options
     };
 }
+
+let isDrawing = false;
+let startX = 0;
+let startY = 0;
+let currentRect = { x: 0, y: 0, w: 0, h: 0 };
+let drawingListenersBound = false;
+
+function setupClickAreaDrawing() {
+    if (drawingListenersBound) return;
+    
+    const overlay = document.getElementById('click-area-drawing-overlay');
+    const selectionBox = document.getElementById('click-area-selection-box');
+    const coordDisplay = document.getElementById('click-area-box-coords');
+    
+    if (!overlay || !selectionBox || !coordDisplay) return;
+    
+    const inputLeft = document.getElementById('click-area-left');
+    const inputTop = document.getElementById('click-area-top');
+    const inputWidth = document.getElementById('click-area-width');
+    const inputHeight = document.getElementById('click-area-height');
+    
+    function getMousePos(e) {
+        const rect = overlay.getBoundingClientRect();
+        const clientX = (e.touches && e.touches.length > 0) ? e.touches[0].clientX : e.clientX;
+        const clientY = (e.touches && e.touches.length > 0) ? e.touches[0].clientY : e.clientY;
+        return {
+            x: Math.max(0, Math.min(rect.width, clientX - rect.left)),
+            y: Math.max(0, Math.min(rect.height, clientY - rect.top))
+        };
+    }
+    
+    function updateSelectionBoxDOM() {
+        selectionBox.style.left = currentRect.x + 'px';
+        selectionBox.style.top = currentRect.y + 'px';
+        selectionBox.style.width = currentRect.w + 'px';
+        selectionBox.style.height = currentRect.h + 'px';
+        selectionBox.style.display = 'block';
+        
+        const overlayWidth = overlay.offsetWidth || 1;
+        const overlayHeight = overlay.offsetHeight || 1;
+        const leftPct = ((currentRect.x / overlayWidth) * 100).toFixed(0);
+        const topPct = ((currentRect.y / overlayHeight) * 100).toFixed(0);
+        const widthPct = ((currentRect.w / overlayWidth) * 100).toFixed(0);
+        const heightPct = ((currentRect.h / overlayHeight) * 100).toFixed(0);
+        coordDisplay.textContent = `${leftPct}%,${topPct}% (${widthPct}%x${heightPct}%)`;
+    }
+    
+    function startDrawing(e) {
+        if (e.target !== overlay && e.target !== selectionBox) return;
+        
+        isDrawing = true;
+        const pos = getMousePos(e);
+        startX = pos.x;
+        startY = pos.y;
+        
+        currentRect = { x: startX, y: startY, w: 0, h: 0 };
+        updateSelectionBoxDOM();
+        
+        document.addEventListener('mousemove', draw);
+        document.addEventListener('mouseup', stopDrawing);
+        document.addEventListener('touchmove', draw, { passive: false });
+        document.addEventListener('touchend', stopDrawing);
+    }
+    
+    function draw(e) {
+        if (!isDrawing) return;
+        if (e.cancelable) e.preventDefault();
+        
+        const pos = getMousePos(e);
+        
+        const x = Math.min(startX, pos.x);
+        const y = Math.min(startY, pos.y);
+        const w = Math.abs(startX - pos.x);
+        const h = Math.abs(startY - pos.y);
+        
+        currentRect = { x, y, w, h };
+        updateSelectionBoxDOM();
+    }
+    
+    function stopDrawing() {
+        if (!isDrawing) return;
+        isDrawing = false;
+        
+        document.removeEventListener('mousemove', draw);
+        document.removeEventListener('mouseup', stopDrawing);
+        document.removeEventListener('touchmove', draw);
+        document.removeEventListener('touchend', stopDrawing);
+        
+        const overlayWidth = overlay.offsetWidth;
+        const overlayHeight = overlay.offsetHeight;
+        if (overlayWidth > 0 && overlayHeight > 0) {
+            inputLeft.value = ((currentRect.x / overlayWidth) * 100).toFixed(1);
+            inputTop.value = ((currentRect.y / overlayHeight) * 100).toFixed(1);
+            inputWidth.value = ((currentRect.w / overlayWidth) * 100).toFixed(1);
+            inputHeight.value = ((currentRect.h / overlayHeight) * 100).toFixed(1);
+            
+            updateRoomExportArea();
+        }
+    }
+    
+    overlay.addEventListener('mousedown', startDrawing);
+    overlay.addEventListener('touchstart', startDrawing, { passive: true });
+    
+    [inputLeft, inputTop, inputWidth, inputHeight].forEach(input => {
+        input.addEventListener('input', () => {
+            const overlayWidth = overlay.offsetWidth;
+            const overlayHeight = overlay.offsetHeight;
+            if (overlayWidth > 0 && overlayHeight > 0) {
+                const x = (parseFloat(inputLeft.value) || 0) / 100 * overlayWidth;
+                const y = (parseFloat(inputTop.value) || 0) / 100 * overlayHeight;
+                const w = (parseFloat(inputWidth.value) || 0) / 100 * overlayWidth;
+                const h = (parseFloat(inputHeight.value) || 0) / 100 * overlayHeight;
+                currentRect = { x, y, w, h };
+                updateSelectionBoxDOM();
+                updateRoomExportArea();
+            }
+        });
+    });
+    
+    document.getElementById('btn-close-click-area-modal').addEventListener('click', () => {
+        document.getElementById('click-area-modal').classList.add('hidden');
+    });
+    
+    document.getElementById('btn-clear-click-area').addEventListener('click', () => {
+        if (!state.currentClickAreaCategory) return;
+        delete state.editorRequirements.clickAreas[state.currentClickAreaCategory];
+        document.getElementById('click-area-modal').classList.add('hidden');
+        showToast('Click area cleared.', 'info');
+        refreshCategorySelectors();
+        updateRoomExportArea();
+    });
+    
+    document.getElementById('btn-save-click-area').addEventListener('click', () => {
+        if (!state.currentClickAreaCategory) return;
+        
+        const left = parseFloat(inputLeft.value);
+        const top = parseFloat(inputTop.value);
+        const width = parseFloat(inputWidth.value);
+        const height = parseFloat(inputHeight.value);
+        
+        if (isNaN(left) || isNaN(top) || isNaN(width) || isNaN(height) || width <= 0 || height <= 0) {
+            showToast('Please draw a valid area or fill the dimensions.', 'warning');
+            return;
+        }
+        
+        state.editorRequirements.clickAreas[state.currentClickAreaCategory] = {
+            shapes: [
+                {
+                    type: 'rect',
+                    coords: {
+                        x: left,
+                        y: top,
+                        width: width,
+                        height: height
+                    }
+                }
+            ]
+        };
+        
+        document.getElementById('click-area-modal').classList.add('hidden');
+        showToast('Click area defined.', 'success');
+        refreshCategorySelectors();
+        updateRoomExportArea();
+    });
+    
+    drawingListenersBound = true;
+}
+
+window.openClickAreaModal = (category) => {
+    const roomId = state.currentEditId;
+    if (!roomId) {
+        showToast('Please save the room first.', 'error');
+        return;
+    }
+    
+    const roomMedia = state.mediaLibrary.filter(
+        m => m.context_type === 'room' && m.context_id === roomId
+    );
+    
+    if (roomMedia.length === 0) {
+        showToast('Please assign an image to this room first in the Graphics tab.', 'warning');
+        return;
+    }
+    
+    const modal = document.getElementById('click-area-modal');
+    const title = document.getElementById('click-area-modal-title');
+    const img = document.getElementById('click-area-target-img');
+    const overlay = document.getElementById('click-area-drawing-overlay');
+    const selectionBox = document.getElementById('click-area-selection-box');
+    
+    title.innerText = `Configure Click Area: ${category.toUpperCase()}`;
+    state.currentClickAreaCategory = category;
+    
+    img.src = `../${roomMedia[0].filepath}`;
+    
+    selectionBox.style.display = 'none';
+    document.getElementById('click-area-left').value = '';
+    document.getElementById('click-area-top').value = '';
+    document.getElementById('click-area-width').value = '';
+    document.getElementById('click-area-height').value = '';
+    
+    modal.classList.remove('hidden');
+    setupClickAreaDrawing();
+    
+    img.onload = () => {
+        overlay.style.width = img.offsetWidth + 'px';
+        overlay.style.height = img.offsetHeight + 'px';
+        overlay.style.left = img.offsetLeft + 'px';
+        overlay.style.top = img.offsetTop + 'px';
+        
+        const existingArea = state.editorRequirements.clickAreas?.[category];
+        if (existingArea) {
+            let coords = null;
+            if (existingArea.shapes && existingArea.shapes[0]) {
+                coords = existingArea.shapes[0].coords;
+            } else if (existingArea.coords) {
+                coords = existingArea.coords;
+            }
+            
+            if (coords) {
+                const left = parseFloat(coords.x !== undefined ? coords.x : coords.left);
+                const top = parseFloat(coords.y !== undefined ? coords.y : coords.top);
+                const width = parseFloat(coords.width !== undefined ? coords.width : coords.w);
+                const height = parseFloat(coords.height !== undefined ? coords.height : coords.h);
+                
+                document.getElementById('click-area-left').value = left;
+                document.getElementById('click-area-top').value = top;
+                document.getElementById('click-area-width').value = width;
+                document.getElementById('click-area-height').value = height;
+                
+                const ow = overlay.offsetWidth;
+                const oh = overlay.offsetHeight;
+                
+                selectionBox.style.left = ((left / 100) * ow) + 'px';
+                selectionBox.style.top = ((top / 100) * oh) + 'px';
+                selectionBox.style.width = ((width / 100) * ow) + 'px';
+                selectionBox.style.height = ((height / 100) * oh) + 'px';
+                selectionBox.style.display = 'block';
+                
+                document.getElementById('click-area-box-coords').textContent = `${left.toFixed(0)}%,${top.toFixed(0)}% (${width.toFixed(0)}%x${height.toFixed(0)}%)`;
+            }
+        }
+    };
+};
+
+window.addEventListener('resize', () => {
+    const modal = document.getElementById('click-area-modal');
+    if (modal && !modal.classList.contains('hidden')) {
+        const img = document.getElementById('click-area-target-img');
+        const overlay = document.getElementById('click-area-drawing-overlay');
+        const selectionBox = document.getElementById('click-area-selection-box');
+        
+        if (img && overlay && img.offsetWidth > 0) {
+            overlay.style.width = img.offsetWidth + 'px';
+            overlay.style.height = img.offsetHeight + 'px';
+            overlay.style.left = img.offsetLeft + 'px';
+            overlay.style.top = img.offsetTop + 'px';
+            
+            const leftVal = parseFloat(document.getElementById('click-area-left').value);
+            const topVal = parseFloat(document.getElementById('click-area-top').value);
+            const wVal = parseFloat(document.getElementById('click-area-width').value);
+            const hVal = parseFloat(document.getElementById('click-area-height').value);
+            
+            if (!isNaN(leftVal) && !isNaN(topVal) && !isNaN(wVal) && !isNaN(hVal)) {
+                selectionBox.style.left = ((leftVal / 100) * img.offsetWidth) + 'px';
+                selectionBox.style.top = ((topVal / 100) * img.offsetHeight) + 'px';
+                selectionBox.style.width = ((wVal / 100) * img.offsetWidth) + 'px';
+                selectionBox.style.height = ((hVal / 100) * img.offsetHeight) + 'px';
+            }
+        }
+    }
+});

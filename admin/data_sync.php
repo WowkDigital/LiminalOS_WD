@@ -27,12 +27,13 @@ function exportAllData($pdo) {
         $stmtTags->execute([$id]);
         $room['tags'] = $stmtTags->fetchAll(PDO::FETCH_COLUMN);
 
-        $stmtTrans = $pdo->prepare("SELECT category, requirements FROM room_transitions WHERE room_id = ?");
+        $stmtTrans = $pdo->prepare("SELECT category, requirements, area FROM room_transitions WHERE room_id = ?");
         $stmtTrans->execute([$id]);
         $rawTrans = $stmtTrans->fetchAll(PDO::FETCH_ASSOC);
         $room['transitions'] = array_map(function($t) {
             $req = !empty($t['requirements']) ? json_decode($t['requirements'], true) : null;
-            return ['category' => $t['category'], 'requirements' => $req];
+            $area = !empty($t['area']) ? json_decode($t['area'], true) : null;
+            return ['category' => $t['category'], 'requirements' => $req, 'area' => $area];
         }, $rawTrans);
 
         $stmtInt = $pdo->prepare("SELECT interactable_id, requirements FROM room_interactables WHERE room_id = ?");
@@ -129,11 +130,13 @@ function importAllData($pdo, $data) {
                     if (is_string($transItem)) {
                         $cat = $transItem;
                         $req = null;
+                        $area = null;
                     } else {
                         $cat = $transItem['category'];
                         $req = !empty($transItem['requirements']) ? json_encode($transItem['requirements']) : null;
+                        $area = !empty($transItem['area']) ? json_encode($transItem['area']) : null;
                     }
-                    $pdo->prepare("INSERT INTO room_transitions (room_id, category, requirements) VALUES (?, ?, ?)")->execute([$id, $cat, $req]);
+                    $pdo->prepare("INSERT INTO room_transitions (room_id, category, requirements, area) VALUES (?, ?, ?, ?)")->execute([$id, $cat, $req, $area]);
                 }
 
                 $pdo->prepare("DELETE FROM room_interactables WHERE room_id = ?")->execute([$id]);
