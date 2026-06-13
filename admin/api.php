@@ -153,10 +153,10 @@ function migrateDatabase($pdo) {
     // Check current version
     $version = 0;
     try {
-        $stmt = $pdo->query("SELECT value FROM global_definitions WHERE type = 'db_version'");
+        $stmt = $pdo->query("SELECT MAX(CAST(value AS INTEGER)) FROM global_definitions WHERE type = 'db_version'");
         if ($stmt) {
             $val = $stmt->fetchColumn();
-            if ($val !== false) {
+            if ($val !== false && $val !== null) {
                 $version = (int)$val;
             }
         }
@@ -308,7 +308,8 @@ function migrateDatabase($pdo) {
             $pdo->exec("ALTER TABLE audio_mappings_new RENAME TO audio_mappings");
 
             // Update version in global_definitions
-            $pdo->exec("INSERT OR REPLACE INTO global_definitions (type, value) VALUES ('db_version', '2')");
+            $pdo->exec("DELETE FROM global_definitions WHERE type = 'db_version'");
+            $pdo->exec("INSERT INTO global_definitions (type, value) VALUES ('db_version', '2')");
             $pdo->commit();
         } catch (Exception $e) {
             $pdo->rollBack();
@@ -321,10 +322,10 @@ function migrateDatabase($pdo) {
     // Version 3: Add effects column to rooms and transitions tables if missing
     $version = 0;
     try {
-        $stmt = $pdo->query("SELECT value FROM global_definitions WHERE type = 'db_version'");
+        $stmt = $pdo->query("SELECT MAX(CAST(value AS INTEGER)) FROM global_definitions WHERE type = 'db_version'");
         if ($stmt) {
             $val = $stmt->fetchColumn();
-            if ($val !== false) {
+            if ($val !== false && $val !== null) {
                 $version = (int)$val;
             }
         }
@@ -347,7 +348,8 @@ function migrateDatabase($pdo) {
                 $pdo->exec("ALTER TABLE transitions ADD COLUMN effects TEXT");
             }
 
-            $pdo->exec("INSERT OR REPLACE INTO global_definitions (type, value) VALUES ('db_version', '3')");
+            $pdo->exec("DELETE FROM global_definitions WHERE type = 'db_version'");
+            $pdo->exec("INSERT INTO global_definitions (type, value) VALUES ('db_version', '3')");
             $pdo->commit();
         } catch (Exception $e) {
             $pdo->rollBack();
@@ -358,10 +360,10 @@ function migrateDatabase($pdo) {
     // Version 4: Add area column to room_transitions table if missing
     $version = 0;
     try {
-        $stmt = $pdo->query("SELECT value FROM global_definitions WHERE type = 'db_version'");
+        $stmt = $pdo->query("SELECT MAX(CAST(value AS INTEGER)) FROM global_definitions WHERE type = 'db_version'");
         if ($stmt) {
             $val = $stmt->fetchColumn();
-            if ($val !== false) {
+            if ($val !== false && $val !== null) {
                 $version = (int)$val;
             }
         }
@@ -377,7 +379,8 @@ function migrateDatabase($pdo) {
                 $pdo->exec("ALTER TABLE room_transitions ADD COLUMN area TEXT");
             }
 
-            $pdo->exec("INSERT OR REPLACE INTO global_definitions (type, value) VALUES ('db_version', '4')");
+            $pdo->exec("DELETE FROM global_definitions WHERE type = 'db_version'");
+            $pdo->exec("INSERT INTO global_definitions (type, value) VALUES ('db_version', '4')");
             $pdo->commit();
         } catch (Exception $e) {
             $pdo->rollBack();
@@ -388,10 +391,10 @@ function migrateDatabase($pdo) {
     // Version 5: Create room_scenes, room_scene_hotspots, room_scene_commands and migrate existing rooms
     $version = 0;
     try {
-        $stmt = $pdo->query("SELECT value FROM global_definitions WHERE type = 'db_version'");
+        $stmt = $pdo->query("SELECT MAX(CAST(value AS INTEGER)) FROM global_definitions WHERE type = 'db_version'");
         if ($stmt) {
             $val = $stmt->fetchColumn();
-            if ($val !== false) {
+            if ($val !== false && $val !== null) {
                 $version = (int)$val;
             }
         }
@@ -483,7 +486,8 @@ function migrateDatabase($pdo) {
                 }
             }
 
-            $pdo->exec("INSERT OR REPLACE INTO global_definitions (type, value) VALUES ('db_version', '5')");
+            $pdo->exec("DELETE FROM global_definitions WHERE type = 'db_version'");
+            $pdo->exec("INSERT INTO global_definitions (type, value) VALUES ('db_version', '5')");
             $pdo->commit();
         } catch (Exception $e) {
             $pdo->rollBack();

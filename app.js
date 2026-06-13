@@ -1236,8 +1236,6 @@ class BackroomsGame {
 
                 this.elements.actionsContainer.appendChild(group);
             });
-        } else {
-            this.elements.interactableDesc.innerText = "";
         }
 
         // --- Render Actions (Exits / Transitions) ---
