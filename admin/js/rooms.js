@@ -1274,76 +1274,34 @@ window.addEventListener('resize', () => {
 });
 
 export function renderScenesSection() {
-    const list = document.getElementById('scenes-list');
-    if (!list) return;
-    list.innerHTML = '';
+    const selector = document.getElementById('scene-selector-dropdown');
+    if (!selector) return;
+    selector.innerHTML = '';
 
     if (!state.editorScenes) {
         state.editorScenes = [];
     }
 
     state.editorScenes.forEach(scene => {
-        const card = document.createElement('div');
-        card.className = `scene-list-card ${state.selectedSceneId === scene.id ? 'active' : ''}`;
-        card.style.cssText = `
-            padding: 10px;
-            background: ${state.selectedSceneId === scene.id ? 'rgba(56, 189, 248, 0.15)' : 'rgba(255,255,255,0.05)'};
-            border: 1px solid ${state.selectedSceneId === scene.id ? 'var(--color-primary)' : 'var(--glass-border)'};
-            border-radius: var(--radius-sm);
-            cursor: pointer;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            transition: all 0.2s ease;
-        `;
-        
-        card.addEventListener('mouseenter', () => {
-            if (state.selectedSceneId !== scene.id) {
-                card.style.background = 'rgba(255,255,255,0.08)';
-            }
-        });
-        card.addEventListener('mouseleave', () => {
-            if (state.selectedSceneId !== scene.id) {
-                card.style.background = 'rgba(255,255,255,0.05)';
-            }
-        });
-
-        const header = document.createElement('div');
-        header.style.cssText = 'display: flex; justify-content: space-between; align-items: center;';
-        
-        const nameSpan = document.createElement('span');
-        nameSpan.style.cssText = 'font-weight: 600; color: #fff; font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 160px;';
-        nameSpan.textContent = scene.id;
-
-        header.appendChild(nameSpan);
-
-        if (scene.is_default) {
-            const badge = document.createElement('span');
-            badge.style.cssText = 'font-size: 0.7rem; background: var(--color-primary); color: #000; padding: 2px 6px; border-radius: 4px; font-weight: bold;';
-            badge.textContent = 'DEFAULT';
-            header.appendChild(badge);
-        }
-
-        const info = document.createElement('div');
-        info.style.cssText = 'font-size: 0.75rem; color: #888; display: flex; gap: 8px;';
+        const opt = document.createElement('option');
+        opt.value = scene.id;
         
         const hCount = (scene.hotspots || []).length;
         const cCount = (scene.terminal_commands || []).length;
         const rCount = scene.requirements ? Object.keys(scene.requirements).length : 0;
+        const defaultIndicator = scene.is_default ? ' [DEFAULT]' : '';
         
-        info.textContent = `${hCount} Hotspots | ${cCount} Cmds | ${rCount} Req`;
-
-        card.appendChild(header);
-        card.appendChild(info);
-
-        card.onclick = () => {
-            state.selectedSceneId = scene.id;
-            renderScenesSection();
-            renderActiveSceneEditor();
-        };
-
-        list.appendChild(card);
+        opt.textContent = `${scene.id}${defaultIndicator} (${hCount} Hotspot${hCount === 1 ? '' : 's'} | ${cCount} Cmd${cCount === 1 ? '' : 's'} | ${rCount} Req)`;
+        if (state.selectedSceneId === scene.id) {
+            opt.selected = true;
+        }
+        selector.appendChild(opt);
     });
+
+    selector.onchange = (e) => {
+        state.selectedSceneId = e.target.value;
+        renderActiveSceneEditor();
+    };
 }
 
 export function renderActiveSceneEditor() {
@@ -1369,13 +1327,13 @@ export function renderActiveSceneEditor() {
                 <button type="button" id="btn-delete-scene" class="btn-small danger" style="padding: 4px 10px; border-radius: var(--radius-sm);">Delete Scene</button>
             </div>
 
-            <div class="form-row-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                <div class="form-group">
+            <div class="form-row-stacked" style="display: flex; flex-direction: column; gap: 1rem;">
+                <div class="form-group" style="margin-bottom: 0;">
                     <label style="font-weight: 600; margin-bottom: 6px; display: block;">Scene ID</label>
                     <input type="text" id="edit-scene-id" value="${scene.id}" placeholder="e.g. lobby_dark" required style="width: 100%;">
                     <small style="color: #888;">Must be unique within this room.</small>
                 </div>
-                <div class="form-group" style="display: flex; align-items: center; gap: 8px; margin-top: 1.8rem;">
+                <div class="form-group" style="display: flex; align-items: center; gap: 8px; margin-top: 0.5rem; margin-bottom: 0;">
                     <label class="checkbox-container" style="cursor: pointer; display: flex; align-items: center; gap: 8px;">
                         <input type="checkbox" id="edit-scene-default" ${scene.is_default ? 'checked' : ''}>
                         <span class="checkbox-label" style="font-weight: 600;">Default Scene</span>
@@ -1401,14 +1359,14 @@ export function renderActiveSceneEditor() {
                 </div>
             </div>
 
-            <div class="form-row-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                <div class="form-group">
+            <div class="form-row-stacked" style="display: flex; flex-direction: column; gap: 1rem;">
+                <div class="form-group" style="margin-bottom: 0;">
                     <label style="font-weight: 600; margin-bottom: 6px; display: block;">Dialogue Node ID</label>
                     <select id="edit-scene-dialogue-id" style="width: 100%;">
                         <!-- Will be populated dynamically -->
                     </select>
                 </div>
-                <div class="form-group">
+                <div class="form-group" style="margin-bottom: 0;">
                     <label style="font-weight: 600; margin-bottom: 6px; display: block;">Interactable Description</label>
                     <textarea id="edit-scene-interactable-desc" rows="2" placeholder="CRT description for this specific scene state..." style="width: 100%;">${scene.interactable_desc || ''}</textarea>
                 </div>
@@ -1637,7 +1595,6 @@ export function renderSceneRequirements(scene) {
     });
     container.appendChild(statesRow);
 }
-
 export function renderSceneHotspots(scene) {
     const list = document.getElementById('scene-hotspots-list');
     if (!list) return;
@@ -1649,25 +1606,75 @@ export function renderSceneHotspots(scene) {
         list.innerHTML = '<span style="font-size: 0.85rem; color: #666; font-style: italic;">No hotspots defined.</span>';
     } else {
         scene.hotspots.forEach((h, idx) => {
-            const row = document.createElement('div');
-            row.style.cssText = 'display: grid; grid-template-columns: 100px 140px 140px 100px 1fr 40px; gap: 8px; align-items: center; background: rgba(0,0,0,0.2); padding: 8px; border-radius: var(--radius-sm); border: 1px solid var(--glass-border);';
+            const card = document.createElement('div');
+            card.className = 'hotspot-config-card';
+            card.style.cssText = `
+                display: flex;
+                flex-direction: column;
+                gap: 0.75rem;
+                background: rgba(0,0,0,0.25);
+                padding: 1.25rem;
+                border-radius: var(--radius-md);
+                border: 1px solid var(--glass-border);
+                position: relative;
+                margin-bottom: 0.75rem;
+            `;
 
-            // 1. Type selector
+            // Card Header
+            const header = document.createElement('div');
+            header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 8px; margin-bottom: 4px;';
+            
+            const titleSpan = document.createElement('span');
+            titleSpan.style.cssText = 'font-weight: 600; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent-primary);';
+            titleSpan.textContent = `Hotspot #${idx + 1} (${h.type === 'tra' ? 'Transition' : 'Interactable'})`;
+            
+            const delBtn = document.createElement('button');
+            delBtn.type = 'button';
+            delBtn.className = 'btn-remove btn-remove-compact';
+            delBtn.style.cssText = 'padding: 4px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); width: 28px; height: 28px;';
+            delBtn.innerHTML = '<i data-lucide="trash-2" style="width: 14px; height: 14px; color: var(--error);"></i>';
+            delBtn.onclick = () => {
+                scene.hotspots = scene.hotspots.filter((_, i) => i !== idx);
+                renderSceneHotspots(scene);
+                updateRoomExportArea();
+            };
+
+            header.appendChild(titleSpan);
+            header.appendChild(delBtn);
+            card.appendChild(header);
+
+            // 1. Trigger Type
+            const typeGroup = document.createElement('div');
+            typeGroup.className = 'form-group compact';
+            typeGroup.style.margin = '0';
+            const typeLabel = document.createElement('label');
+            typeLabel.textContent = 'Trigger Action Type';
+            typeLabel.style.cssText = 'font-size: 0.8rem; margin-bottom: 4px; font-weight: 600; color: var(--text-secondary);';
+            
             const typeSel = document.createElement('select');
             typeSel.style.width = '100%';
             typeSel.innerHTML = `
                 <option value="tra" ${h.type === 'tra' ? 'selected' : ''}>Transition</option>
                 <option value="act" ${h.type === 'act' ? 'selected' : ''}>Interactable</option>
             `;
+            typeGroup.appendChild(typeLabel);
+            typeGroup.appendChild(typeSel);
+            card.appendChild(typeGroup);
+
+            // 2. Destination/Target ID
+            const targetGroup = document.createElement('div');
+            targetGroup.className = 'form-group compact';
+            targetGroup.style.margin = '0';
+            const targetLabel = document.createElement('label');
+            targetLabel.style.cssText = 'font-size: 0.8rem; margin-bottom: 4px; font-weight: 600; color: var(--text-secondary);';
             
-            // 2. Target selector/input
             const targetEl = document.createElement('select');
             targetEl.style.width = '100%';
             
             const updateTargetOptions = () => {
                 targetEl.innerHTML = '';
                 if (typeSel.value === 'tra') {
-                    // Populate with transitions categories
+                    targetLabel.textContent = 'Transition Destination Category';
                     const transitionsList = state.transitionTypes || {};
                     Object.keys(transitionsList).forEach(cat => {
                         const opt = document.createElement('option');
@@ -1676,7 +1683,6 @@ export function renderSceneHotspots(scene) {
                         if (cat === h.target_id) opt.selected = true;
                         targetEl.appendChild(opt);
                     });
-                    // Fallback input if empty
                     if (targetEl.options.length === 0) {
                         const opt = document.createElement('option');
                         opt.value = h.target_id || 'universal';
@@ -1685,7 +1691,7 @@ export function renderSceneHotspots(scene) {
                         targetEl.appendChild(opt);
                     }
                 } else {
-                    // Populate with interactables list
+                    targetLabel.textContent = 'Interactable Object';
                     const interactablesList = state.allInteractables || {};
                     Object.keys(interactablesList).forEach(iid => {
                         const opt = document.createElement('option');
@@ -1698,11 +1704,15 @@ export function renderSceneHotspots(scene) {
             };
             
             updateTargetOptions();
+            targetGroup.appendChild(targetLabel);
+            targetGroup.appendChild(targetEl);
+            card.appendChild(targetGroup);
 
             typeSel.addEventListener('change', () => {
                 h.type = typeSel.value;
                 updateTargetOptions();
                 h.target_id = targetEl.value;
+                titleSpan.textContent = `Hotspot #${idx + 1} (${h.type === 'tra' ? 'Transition' : 'Interactable'})`;
                 updateRoomExportArea();
             });
 
@@ -1711,7 +1721,14 @@ export function renderSceneHotspots(scene) {
                 updateRoomExportArea();
             });
 
-            // 3. Label
+            // 3. Hover Label
+            const labelGroup = document.createElement('div');
+            labelGroup.className = 'form-group compact';
+            labelGroup.style.margin = '0';
+            const labelLabel = document.createElement('label');
+            labelLabel.textContent = 'Active Hotspot Hover Label';
+            labelLabel.style.cssText = 'font-size: 0.8rem; margin-bottom: 4px; font-weight: 600; color: var(--text-secondary);';
+            
             const labelInput = document.createElement('input');
             labelInput.type = 'text';
             labelInput.placeholder = 'Label (e.g. Open Box)';
@@ -1720,37 +1737,48 @@ export function renderSceneHotspots(scene) {
                 h.label = labelInput.value.trim() || null;
                 updateRoomExportArea();
             });
+            labelGroup.appendChild(labelLabel);
+            labelGroup.appendChild(labelInput);
+            card.appendChild(labelGroup);
 
             // 4. Coordinates button
+            const coordGroup = document.createElement('div');
+            coordGroup.className = 'form-group compact';
+            coordGroup.style.margin = '0';
+            const coordLabel = document.createElement('label');
+            coordLabel.textContent = 'Hotspot Click Boundary';
+            coordLabel.style.cssText = 'font-size: 0.8rem; margin-bottom: 4px; font-weight: 600; color: var(--text-secondary);';
+            
             const coordBtn = document.createElement('button');
             coordBtn.type = 'button';
             coordBtn.className = 'btn-small btn-secondary';
             coordBtn.style.width = '100%';
+            coordBtn.style.height = '42px';
             
             const updateCoordBtnLabel = () => {
                 if (h.area) {
-                    coordBtn.textContent = 'Edit Area';
+                    coordBtn.textContent = 'Edit Boundary Coordinates';
                     coordBtn.classList.remove('btn-secondary');
                     coordBtn.style.borderColor = '#22c55e';
                     coordBtn.style.color = '#22c55e';
+                    coordBtn.style.background = 'rgba(34, 197, 94, 0.1)';
                 } else {
-                    coordBtn.textContent = 'Draw Area';
+                    coordBtn.textContent = 'Draw Bounding Box';
                     coordBtn.classList.add('btn-secondary');
                     coordBtn.style.borderColor = '';
                     coordBtn.style.color = '';
+                    coordBtn.style.background = '';
                 }
             };
             
             updateCoordBtnLabel();
 
             coordBtn.onclick = () => {
-                // Open the click area drawing overlay
                 window.onSaveSceneClickArea = (areaObj) => {
                     h.area = areaObj;
                     updateCoordBtnLabel();
                     updateRoomExportArea();
                 };
-                // Resolve image url: scene-specific bg_image or room-specific fallback
                 let bgUrl = null;
                 if (scene.bg_image) {
                     bgUrl = `../${scene.bg_image}`;
@@ -1762,18 +1790,26 @@ export function renderSceneHotspots(scene) {
                         bgUrl = `../${roomMedia[0].filepath}`;
                     }
                 }
-                
-                // Set temporary editorRequirements fields so that opening the modal works correctly
                 state.editorRequirements.interactableClickAreas = state.editorRequirements.interactableClickAreas || {};
                 state.editorRequirements.interactableClickAreas[h.target_id] = h.area || null;
-
                 window.openClickAreaModal(h.target_id, 'interactable', bgUrl);
             };
 
+            coordGroup.appendChild(coordLabel);
+            coordGroup.appendChild(coordBtn);
+            card.appendChild(coordGroup);
+
             // 5. Requirements input
+            const reqGroup = document.createElement('div');
+            reqGroup.className = 'form-group compact';
+            reqGroup.style.margin = '0';
+            const reqLabel = document.createElement('label');
+            reqLabel.textContent = 'Active Conditions / Requirements';
+            reqLabel.style.cssText = 'font-size: 0.8rem; margin-bottom: 4px; font-weight: 600; color: var(--text-secondary);';
+            
             const reqInput = document.createElement('input');
             reqInput.type = 'text';
-            reqInput.placeholder = 'Requirements (e.g. item:key_card)';
+            reqInput.placeholder = 'e.g. smin:30, item:key_card';
             
             const currentReqText = [];
             if (h.requirements) {
@@ -1812,26 +1848,11 @@ export function renderSceneHotspots(scene) {
                 updateRoomExportArea();
             });
 
-            // 6. Delete button
-            const delBtn = document.createElement('button');
-            delBtn.type = 'button';
-            delBtn.className = 'btn-small danger';
-            delBtn.style.padding = '4px';
-            delBtn.innerHTML = '<i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>';
-            delBtn.onclick = () => {
-                scene.hotspots = scene.hotspots.filter((_, i) => i !== idx);
-                renderSceneHotspots(scene);
-                updateRoomExportArea();
-            };
+            reqGroup.appendChild(reqLabel);
+            reqGroup.appendChild(reqInput);
+            card.appendChild(reqGroup);
 
-            row.appendChild(typeSel);
-            row.appendChild(targetEl);
-            row.appendChild(labelInput);
-            row.appendChild(coordBtn);
-            row.appendChild(reqInput);
-            row.appendChild(delBtn);
-
-            list.appendChild(row);
+            list.appendChild(card);
         });
     }
 
@@ -1861,42 +1882,101 @@ export function renderSceneCommands(scene) {
         list.innerHTML = '<span style="font-size: 0.85rem; color: #666; font-style: italic;">No custom terminal commands defined.</span>';
     } else {
         scene.terminal_commands.forEach((c, idx) => {
-            const row = document.createElement('div');
-            row.style.cssText = 'display: flex; flex-direction: column; gap: 8px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: var(--radius-sm); border: 1px solid var(--glass-border); position: relative;';
-
-            row.innerHTML = `
-                <div style="display: grid; grid-template-columns: 180px 1fr 40px; gap: 12px; align-items: center;">
-                    <div class="form-group" style="margin: 0;">
-                        <input type="text" class="cmd-trigger" value="${c.trigger || ''}" placeholder="Trigger (e.g. read paper)" style="width: 100%;" />
-                    </div>
-                    <div class="form-group" style="margin: 0;">
-                        <input type="text" class="cmd-success-text" value="${c.success_text || ''}" placeholder="Success text displayed on terminal..." style="width: 100%;" />
-                    </div>
-                    <button type="button" class="btn-small danger btn-delete-cmd" style="padding: 6px; height: 36px; display: flex; align-items: center; justify-content: center; margin-top: 0;">
-                        <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>
-                    </button>
-                </div>
-                <div style="display: flex; gap: 12px; align-items: center;">
-                    <span style="font-size: 0.8rem; color: #888;">Effects:</span>
-                    <input type="text" class="cmd-effects" value="${JSON.stringify(c.effects || [])}" placeholder='[{"type":"sfx","value":"paper_rustle"},{"type":"act","id":"manual","value":1}]' style="flex: 1; font-family: var(--font-mono); font-size: 0.75rem;" />
-                </div>
+            const card = document.createElement('div');
+            card.className = 'command-config-card';
+            card.style.cssText = `
+                display: flex;
+                flex-direction: column;
+                gap: 0.75rem;
+                background: rgba(0,0,0,0.25);
+                padding: 1.25rem;
+                border-radius: var(--radius-md);
+                border: 1px solid var(--glass-border);
+                position: relative;
+                margin-bottom: 0.75rem;
             `;
 
-            const triggerInput = row.querySelector('.cmd-trigger');
-            const successInput = row.querySelector('.cmd-success-text');
-            const effectsInput = row.querySelector('.cmd-effects');
-            const delBtn = row.querySelector('.btn-delete-cmd');
+            // Card Header
+            const header = document.createElement('div');
+            header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 8px; margin-bottom: 4px;';
+            
+            const titleSpan = document.createElement('span');
+            titleSpan.style.cssText = 'font-weight: 600; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent-primary);';
+            titleSpan.textContent = `Command #${idx + 1}`;
+            
+            const delBtn = document.createElement('button');
+            delBtn.type = 'button';
+            delBtn.className = 'btn-remove btn-remove-compact';
+            delBtn.style.cssText = 'padding: 4px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); width: 28px; height: 28px;';
+            delBtn.innerHTML = '<i data-lucide="trash-2" style="width: 14px; height: 14px; color: var(--error);"></i>';
+            delBtn.onclick = () => {
+                scene.terminal_commands = scene.terminal_commands.filter((_, i) => i !== idx);
+                renderSceneCommands(scene);
+                updateRoomExportArea();
+            };
 
+            header.appendChild(titleSpan);
+            header.appendChild(delBtn);
+            card.appendChild(header);
+
+            // 1. Trigger phrase
+            const triggerGroup = document.createElement('div');
+            triggerGroup.className = 'form-group compact';
+            triggerGroup.style.margin = '0';
+            const triggerLabel = document.createElement('label');
+            triggerLabel.textContent = 'Command Trigger Word/Phrase';
+            triggerLabel.style.cssText = 'font-size: 0.8rem; margin-bottom: 4px; font-weight: 600; color: var(--text-secondary);';
+            
+            const triggerInput = document.createElement('input');
+            triggerInput.type = 'text';
+            triggerInput.placeholder = 'Trigger (e.g. read paper)';
+            triggerInput.value = c.trigger || '';
+            triggerInput.style.width = '100%';
+            
             triggerInput.addEventListener('input', () => {
                 c.trigger = triggerInput.value.trim();
                 updateRoomExportArea();
             });
+            triggerGroup.appendChild(triggerLabel);
+            triggerGroup.appendChild(triggerInput);
+            card.appendChild(triggerGroup);
 
+            // 2. Success response text
+            const successGroup = document.createElement('div');
+            successGroup.className = 'form-group compact';
+            successGroup.style.margin = '0';
+            const successLabel = document.createElement('label');
+            successLabel.textContent = 'Terminal Response / Success Text';
+            successLabel.style.cssText = 'font-size: 0.8rem; margin-bottom: 4px; font-weight: 600; color: var(--text-secondary);';
+            
+            const successInput = document.createElement('input');
+            successInput.type = 'text';
+            successInput.placeholder = 'Success text displayed on terminal...';
+            successInput.value = c.success_text || '';
+            successInput.style.width = '100%';
+            
             successInput.addEventListener('input', () => {
                 c.success_text = successInput.value.trim() || null;
                 updateRoomExportArea();
             });
+            successGroup.appendChild(successLabel);
+            successGroup.appendChild(successInput);
+            card.appendChild(successGroup);
 
+            // 3. Effects (JSON)
+            const effectsGroup = document.createElement('div');
+            effectsGroup.className = 'form-group compact';
+            effectsGroup.style.margin = '0';
+            const effectsLabel = document.createElement('label');
+            effectsLabel.textContent = 'Trigger Action Effects (JSON)';
+            effectsLabel.style.cssText = 'font-size: 0.8rem; margin-bottom: 4px; font-weight: 600; color: var(--text-secondary);';
+            
+            const effectsInput = document.createElement('input');
+            effectsInput.type = 'text';
+            effectsInput.placeholder = '[{"type":"sfx","value":"paper_rustle"}]';
+            effectsInput.value = JSON.stringify(c.effects || []);
+            effectsInput.style.cssText = 'width: 100%; font-family: var(--font-mono); font-size: 0.8rem;';
+            
             effectsInput.addEventListener('input', () => {
                 try {
                     const parsed = JSON.parse(effectsInput.value);
@@ -1907,14 +1987,11 @@ export function renderSceneCommands(scene) {
                 }
                 updateRoomExportArea();
             });
+            effectsGroup.appendChild(effectsLabel);
+            effectsGroup.appendChild(effectsInput);
+            card.appendChild(effectsGroup);
 
-            delBtn.onclick = () => {
-                scene.terminal_commands = scene.terminal_commands.filter((_, i) => i !== idx);
-                renderSceneCommands(scene);
-                updateRoomExportArea();
-            };
-
-            list.appendChild(row);
+            list.appendChild(card);
         });
     }
 

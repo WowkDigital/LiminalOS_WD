@@ -601,7 +601,7 @@ export function createEffectRow(eff, index) {
 
     const row = el('div', {
         className: 'effect-config-row',
-        style: { display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '6px', width: '100%' }
+        style: { display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '6px', width: '100%', flexWrap: 'wrap' }
     }, [
         typeSelect,
         valueCont,

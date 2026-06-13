@@ -343,24 +343,22 @@ if (isset($_SESSION['admin_auth']) && $_SESSION['admin_auth'] === true):
 
                             <!-- Scenes Manager Tab Content -->
                             <div id="room-tab-scenes" class="room-tab-content hidden">
-                                <div class="scenes-manager-layout" style="display: grid; grid-template-columns: 280px 1fr; gap: 1.5rem; min-height: 480px;">
+                                <div class="scenes-manager-layout-v2" style="display: flex; flex-direction: column; gap: 1.5rem; min-height: 480px;">
                                     
-                                    <!-- Left Column: Scenes List -->
-                                    <div class="scenes-sidebar" style="background: rgba(0,0,0,0.2); border-right: 1px dashed var(--glass-border); padding: 1rem; display: flex; flex-direction: column; gap: 1rem; border-radius: var(--radius-sm);">
-                                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px;">
-                                            <h3 style="margin: 0; font-size: 1.1rem; color: var(--color-primary);">Scenes</h3>
-                                            <button type="button" id="btn-add-scene" class="btn-small">+ Add Scene</button>
+                                    <!-- Top Selection Bar (1 Column Layout) -->
+                                    <div class="scenes-top-bar" style="display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; background: rgba(0,0,0,0.15); padding: 1rem; border: 1px solid var(--glass-border); border-radius: var(--radius-sm); flex-wrap: wrap;">
+                                        <div style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 280px;">
+                                            <label for="scene-selector-dropdown" style="margin-bottom: 0; font-weight: 600; white-space: nowrap; color: var(--text-secondary);">Active Scene:</label>
+                                            <select id="scene-selector-dropdown" style="flex: 1; max-width: 400px;"></select>
                                         </div>
-                                        <div id="scenes-list" style="display: flex; flex-direction: column; gap: 8px; overflow-y: auto; flex: 1;">
-                                            <!-- Dynamically filled list of scene cards -->
-                                        </div>
+                                        <button type="button" id="btn-add-scene" class="btn-primary" style="margin-top: 0; width: auto; padding: 10px 20px; font-size: 0.9rem;">+ Add Scene State</button>
                                     </div>
 
-                                    <!-- Right Column: Active Scene Editor Form -->
-                                    <div id="active-scene-editor" class="scene-editor-panel" style="background: rgba(255,255,255,0.02); padding: 1.5rem; border-radius: var(--radius-sm); position: relative; border: 1px solid var(--glass-border);">
+                                    <!-- Active Scene Editor Form -->
+                                    <div id="active-scene-editor" class="scene-editor-panel" style="background: rgba(255,255,255,0.02); padding: 1.5rem; border-radius: var(--radius-sm); position: relative; border: 1px solid var(--glass-border); width: 100%;">
                                         <div class="empty-state" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #888;">
                                             <i data-lucide="image" style="width: 48px; height: 48px; margin-bottom: 1rem; opacity: 0.5;"></i>
-                                            <span>Select a scene from the left sidebar or create a new one to edit its sub-scene states.</span>
+                                            <span>Select a scene state from the dropdown or create a new one to edit its sub-scene states.</span>
                                         </div>
                                     </div>
 
