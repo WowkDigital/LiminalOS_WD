@@ -71,7 +71,7 @@ export function filterAndRenderRooms() {
             state.transitionTypes, 
             state.imageIndex, 
             Object.keys(state.roomsData).length, 
-            openEditor
+            (roomId) => navigate(`editor?id=${encodeURIComponent(roomId)}`)
         );
         list.appendChild(cardComponent.render());
     });
@@ -205,11 +205,21 @@ export function renderInteractablesCheckboxes(selectedItems) {
         return;
     }
 
-    const selectedIds = selectedItems.map(i => typeof i === 'string' ? i : i.id);
+    let selectedIds = selectedItems.map(i => typeof i === 'string' ? i : i.id);
+
+    // Auto-check any interactable that has a configured click area to ensure it saves!
+    if (state.editorRequirements?.interactableClickAreas) {
+        Object.keys(state.editorRequirements.interactableClickAreas).forEach(id => {
+            if (state.editorRequirements.interactableClickAreas[id] && !selectedIds.includes(id)) {
+                selectedIds.push(id);
+            }
+        });
+    }
 
     Object.entries(state.allInteractables).forEach(([id, data]) => {
         const isChecked = selectedIds.includes(id);
         const hasReq = !!state.editorRequirements.interactables[id];
+        const hasArea = !!state.editorRequirements.interactableClickAreas?.[id];
 
         const row = el('div', { className: 'config-row' }, [
             el('div', { className: 'inter-info' }, [
@@ -219,14 +229,23 @@ export function renderInteractablesCheckboxes(selectedItems) {
             el('div', { className: 'config-row-actions' }, [
                 el('button', {
                     type: 'button',
+                    className: `btn-cfg btn-area ${hasArea ? 'has-area' : ''}`,
+                    onClick: () => window.openClickAreaModal(id, 'interactable'),
+                    title: 'Configure click area',
+                    style: { marginRight: '6px' }
+                }, [icon('maximize')]),
+                el('button', {
+                    type: 'button',
                     className: `btn-cfg ${hasReq ? 'has-req' : ''}`,
                     onClick: () => window.openRequirementsModal('interactables', id),
-                    title: 'Configure requirements'
+                    title: 'Configure requirements',
+                    style: { marginRight: '6px' }
                 }, [icon('settings')]),
                 el('input', {
                     type: 'checkbox',
                     value: id,
-                    checked: isChecked
+                    checked: isChecked,
+                    onChange: () => updateRoomExportArea()
                 })
             ])
         ]);
@@ -313,7 +332,8 @@ export function refreshCategorySelectors(selectedValues = null) {
                         el('input', {
                             type: 'checkbox',
                             value: cat,
-                            checked: isChecked
+                            checked: isChecked,
+                            onChange: () => updateRoomExportArea()
                         })
                     ].filter(Boolean))
                 ]);
@@ -344,7 +364,10 @@ export function refreshCategorySelectors(selectedValues = null) {
 export function openEditor(id = null) {
     state.currentEditId = id;
     state.currentContext = 'room';
-    navigate('editor');
+    const targetHash = id ? `editor?id=${encodeURIComponent(id)}` : 'editor';
+    if (window.location.hash !== '#' + targetHash) {
+        navigate(targetHash);
+    }
 
     const title = document.getElementById('editor-title');
     const idInput = document.getElementById('room-id');
@@ -394,6 +417,7 @@ export function openEditor(id = null) {
 
         state.editorRequirements.transitions = {};
         state.editorRequirements.clickAreas = {};
+        state.editorRequirements.interactableClickAreas = {};
         (room.transitions || []).forEach(t => {
             if (typeof t === 'object') {
                 state.editorRequirements.transitions[t.category] = t.requirements;
@@ -402,7 +426,13 @@ export function openEditor(id = null) {
         });
         state.editorRequirements.interactables = {};
         (room.interactables || []).forEach(i => {
-            if (typeof i === 'object') state.editorRequirements.interactables[i.id] = i.requirements;
+            if (typeof i === 'object' && i !== null) {
+                state.editorRequirements.interactables[i.id] = i.requirements;
+                state.editorRequirements.interactableClickAreas[i.id] = i.area || null;
+            } else if (typeof i === 'string') {
+                state.editorRequirements.interactables[i] = null;
+                state.editorRequirements.interactableClickAreas[i] = null;
+            }
         });
 
         const selectedCats = (room.transitions || []).map(t => typeof t === 'string' ? t : t.category);
@@ -421,7 +451,7 @@ export function openEditor(id = null) {
         const delBtn = document.getElementById('btn-delete-room');
         if (delBtn) delBtn.classList.add('hidden');
 
-        state.editorRequirements = { transitions: {}, interactables: {}, clickAreas: {} };
+        state.editorRequirements = { transitions: {}, interactables: {}, clickAreas: {}, interactableClickAreas: {} };
 
         renderInteractablesCheckboxes([]);
         addTextField();
@@ -452,7 +482,11 @@ export function getRoomDataFromForm() {
     });
     const interactablesArr = Array.from(document.querySelectorAll('#interactables-checkbox-group input:checked')).map(cb => {
         const iid = cb.value;
-        return { id: iid, requirements: state.editorRequirements.interactables[iid] || null };
+        return { 
+            id: iid, 
+            requirements: state.editorRequirements.interactables[iid] || null,
+            area: state.editorRequirements.interactableClickAreas?.[iid] || null
+        };
     });
 
     return {
@@ -496,8 +530,15 @@ export function applyRoomJSON() {
             }
         });
         state.editorRequirements.interactables = {};
+        state.editorRequirements.interactableClickAreas = {};
         (data.interactables || []).forEach(i => {
-            if (typeof i === 'object') state.editorRequirements.interactables[i.id] = i.requirements;
+            if (typeof i === 'object' && i !== null) {
+                state.editorRequirements.interactables[i.id] = i.requirements;
+                state.editorRequirements.interactableClickAreas[i.id] = i.area || null;
+            } else if (typeof i === 'string') {
+                state.editorRequirements.interactables[i] = null;
+                state.editorRequirements.interactableClickAreas[i] = null;
+            }
         });
 
         const selectedCats = (data.transitions || []).map(t => typeof t === 'string' ? t : t.category);
@@ -951,10 +992,19 @@ function setupClickAreaDrawing() {
     
     document.getElementById('btn-clear-click-area').addEventListener('click', () => {
         if (!state.currentClickAreaCategory) return;
-        delete state.editorRequirements.clickAreas[state.currentClickAreaCategory];
+        
+        if (state.currentClickAreaType === 'interactable') {
+            delete state.editorRequirements.interactableClickAreas[state.currentClickAreaCategory];
+            showToast('Interactable click area cleared.', 'info');
+            const currentSelected = Array.from(document.querySelectorAll('#interactables-checkbox-group input:checked')).map(cb => cb.value);
+            renderInteractablesCheckboxes(currentSelected);
+        } else {
+            delete state.editorRequirements.clickAreas[state.currentClickAreaCategory];
+            showToast('Click area cleared.', 'info');
+            refreshCategorySelectors();
+        }
+        
         document.getElementById('click-area-modal').classList.add('hidden');
-        showToast('Click area cleared.', 'info');
-        refreshCategorySelectors();
         updateRoomExportArea();
     });
     
@@ -971,7 +1021,7 @@ function setupClickAreaDrawing() {
             return;
         }
         
-        state.editorRequirements.clickAreas[state.currentClickAreaCategory] = {
+        const areaObj = {
             shapes: [
                 {
                     type: 'rect',
@@ -985,16 +1035,25 @@ function setupClickAreaDrawing() {
             ]
         };
         
+        if (state.currentClickAreaType === 'interactable') {
+            state.editorRequirements.interactableClickAreas[state.currentClickAreaCategory] = areaObj;
+            showToast('Interactable click area defined.', 'success');
+            const currentSelected = Array.from(document.querySelectorAll('#interactables-checkbox-group input:checked')).map(cb => cb.value);
+            renderInteractablesCheckboxes(currentSelected);
+        } else {
+            state.editorRequirements.clickAreas[state.currentClickAreaCategory] = areaObj;
+            showToast('Click area defined.', 'success');
+            refreshCategorySelectors();
+        }
+        
         document.getElementById('click-area-modal').classList.add('hidden');
-        showToast('Click area defined.', 'success');
-        refreshCategorySelectors();
         updateRoomExportArea();
     });
     
     drawingListenersBound = true;
 }
 
-window.openClickAreaModal = (category) => {
+window.openClickAreaModal = (category, type = 'transition') => {
     const roomId = state.currentEditId;
     if (!roomId) {
         showToast('Please save the room first.', 'error');
@@ -1016,8 +1075,14 @@ window.openClickAreaModal = (category) => {
     const overlay = document.getElementById('click-area-drawing-overlay');
     const selectionBox = document.getElementById('click-area-selection-box');
     
-    title.innerText = `Configure Click Area: ${category.toUpperCase()}`;
+    state.currentClickAreaType = type;
     state.currentClickAreaCategory = category;
+    
+    if (type === 'interactable') {
+        title.innerText = `Configure Click Area: ${category.toUpperCase()} (Interactable)`;
+    } else {
+        title.innerText = `Configure Click Area: ${category.toUpperCase()}`;
+    }
     
     img.src = `../${roomMedia[0].filepath}`;
     
@@ -1036,7 +1101,10 @@ window.openClickAreaModal = (category) => {
         overlay.style.left = img.offsetLeft + 'px';
         overlay.style.top = img.offsetTop + 'px';
         
-        const existingArea = state.editorRequirements.clickAreas?.[category];
+        const existingArea = type === 'interactable'
+            ? state.editorRequirements.interactableClickAreas?.[category]
+            : state.editorRequirements.clickAreas?.[category];
+            
         if (existingArea) {
             let coords = null;
             if (existingArea.shapes && existingArea.shapes[0]) {

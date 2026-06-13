@@ -940,6 +940,19 @@ input[type="checkbox"]:checked::before {
     box-shadow: 0 0 10px rgba(234, 179, 8, 0.1);
 }
 
+.btn-cfg.has-area {
+    color: #38bdf8;
+    border-color: #38bdf8;
+    background: rgba(56, 189, 248, 0.1);
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.1);
+}
+
+.btn-cfg.btn-area:hover {
+    color: #38bdf8;
+    border-color: #38bdf8;
+    background: rgba(56, 189, 248, 0.05);
+}
+
 .loading,
 .empty {
     color: var(--text-muted);

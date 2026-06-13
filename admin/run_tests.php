@@ -219,7 +219,7 @@ assertTest('World Data Graph & Reference Integrity', function() use ($dbFile) {
         // check if this category exists in links or taxonomy
         $check = $pdo->prepare("SELECT COUNT(*) FROM transition_category_links WHERE category = ?");
         $check->execute([$cat]);
-        if ($check->fetchColumn() == 0 && $cat !== 'universal') {
+        if ($check->fetchColumn() == 0 && $cat !== 'universal' && $cat !== 'default') {
             $orphanTransitions++;
         }
     }

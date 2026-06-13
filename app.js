@@ -1302,6 +1302,7 @@ class BackroomsGame {
             }
         }
 
+        // 1. Render Transition Hotspots
         actions.forEach(act => {
             if (act.type === 'tra') {
                 const area = act.area || defaultArea;
@@ -1360,6 +1361,65 @@ class BackroomsGame {
                 }
             }
         });
+
+        // 2. Render Interactable Hotspots
+        if (roomDef && roomDef.interactables) {
+            roomDef.interactables.forEach(item => {
+                const itemObj = typeof item === 'string' ? { id: item } : item;
+                const interId = itemObj.id;
+                const area = itemObj.area;
+
+                if (area && this.checkRequirements(itemObj.requirements)) {
+                    let coords = null;
+                    if (area.shapes && area.shapes[0]) {
+                        coords = area.shapes[0].coords;
+                    } else if (area.coords) {
+                        coords = area.coords;
+                    }
+
+                    if (coords) {
+                        const left = coords.x !== undefined ? coords.x : coords.left;
+                        const top = coords.y !== undefined ? coords.y : coords.top;
+                        const w = coords.width !== undefined ? coords.width : coords.w;
+                        const h = coords.height !== undefined ? coords.height : coords.h;
+
+                        const hotspot = document.createElement('div');
+                        hotspot.className = 'transition-hotspot interactable-hotspot';
+                        hotspot.style.left = `${left}%`;
+                        hotspot.style.top = `${top}%`;
+                        hotspot.style.width = `${w}%`;
+                        hotspot.style.height = `${h}%`;
+
+                        const interactableDef = this.world.interactables[interId];
+                        if (interactableDef && interactableDef.label) {
+                            hotspot.title = interactableDef.label;
+                        }
+
+                        const color = '#38bdf8';
+                        const glowColor = 'rgba(56, 189, 248, 0.35)';
+                        const hoverBg = 'rgba(56, 189, 248, 0.12)';
+
+                        hotspot.addEventListener('mouseenter', () => {
+                            hotspot.style.borderColor = color;
+                            hotspot.style.background = hoverBg;
+                            hotspot.style.boxShadow = `0 0 12px ${glowColor}`;
+                        });
+                        hotspot.addEventListener('mouseleave', () => {
+                            hotspot.style.borderColor = '';
+                            hotspot.style.background = '';
+                            hotspot.style.boxShadow = '';
+                        });
+
+                        hotspot.onclick = (e) => {
+                            e.stopPropagation();
+                            this.handleAction('act', interId, null, e);
+                        };
+
+                        container.appendChild(hotspot);
+                    }
+                }
+            });
+        }
     }
 
     /**

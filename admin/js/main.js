@@ -84,7 +84,21 @@ document.addEventListener('DOMContentLoaded', () => {
         taxonomy: fetchTaxonomy,
         sfx: fetchAudioData,
         tests: () => {},
-        terminal: fetchTerminalDialogues
+        terminal: fetchTerminalDialogues,
+        editor: () => {
+            const hash = window.location.hash.replace('#', '');
+            const parts = hash.split('?');
+            let id = null;
+            if (parts[1]) {
+                parts[1].split('&').forEach(pair => {
+                    const [k, v] = pair.split('=');
+                    if (k === 'id') id = decodeURIComponent(v);
+                });
+            }
+            if (state.currentEditId !== id || state.currentContext !== 'room') {
+                openEditor(id);
+            }
+        }
     };
 
     const validViews = [
@@ -95,7 +109,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Navigation - Hash Based
     window.addEventListener('hashchange', () => {
-        const view = window.location.hash.replace('#', '') || 'dashboard';
+        const hash = window.location.hash.replace('#', '') || 'dashboard';
+        const view = hash.split('?')[0];
         if (validViews.includes(view)) {
             switchView(view, renderCallbacks);
         }
@@ -112,7 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-terminal').addEventListener('click', () => navigate('terminal'));
 
     // Create New Record bindings
-    document.getElementById('btn-add-room').addEventListener('click', () => { navigate('editor'); openEditor(); });
+    document.getElementById('btn-add-room').addEventListener('click', () => navigate('editor'));
     document.getElementById('btn-add-interactable').addEventListener('click', () => { navigate('interEditor'); openInteractableEditor(); });
     document.getElementById('btn-add-transition').addEventListener('click', () => { navigate('transEditor'); openTransitionEditor(); });
 
@@ -429,7 +444,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             // Re-render based on active hash
-            const currentView = window.location.hash.replace('#', '') || 'dashboard';
+            const currentView = (window.location.hash.replace('#', '') || 'dashboard').split('?')[0];
             switchView(currentView, renderCallbacks);
         } catch (err) {
             showToast('Error: ' + err.message, 'error');
@@ -443,7 +458,7 @@ document.addEventListener('DOMContentLoaded', () => {
         state.mediaLibrary = mData;
 
         // Final routing initialization
-        const initialView = window.location.hash.replace('#', '') || 'dashboard';
+        const initialView = (window.location.hash.replace('#', '') || 'dashboard').split('?')[0];
         switchView(initialView, renderCallbacks);
     });
 });
