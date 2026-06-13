@@ -1291,40 +1291,52 @@ class BackroomsGame {
 
         if (this.state.isTransitioning) return;
 
+        // Get default transit area if defined in current room's transitions
+        const currentRoomId = this.state.currentRoom;
+        const roomDef = this.world.rooms[currentRoomId];
+        let defaultArea = null;
+        if (roomDef && roomDef.transitions) {
+            const defTrans = roomDef.transitions.find(t => t && t.category === 'default');
+            if (defTrans && defTrans.area) {
+                defaultArea = defTrans.area;
+            }
+        }
+
         actions.forEach(act => {
-            if (act.type === 'tra' && act.area) {
-                let coords = null;
-                if (act.area.shapes && act.area.shapes[0]) {
-                    coords = act.area.shapes[0].coords;
-                } else if (act.area.coords) {
-                    coords = act.area.coords;
-                }
-
-                if (coords) {
-                    const left = coords.x !== undefined ? coords.x : coords.left;
-                    const top = coords.y !== undefined ? coords.y : coords.top;
-                    const w = coords.width !== undefined ? coords.width : coords.w;
-                    const h = coords.height !== undefined ? coords.height : coords.h;
-
-                    const hotspot = document.createElement('div');
-                    hotspot.className = 'transition-hotspot';
-                    hotspot.style.left = `${left}%`;
-                    hotspot.style.top = `${top}%`;
-                    hotspot.style.width = `${w}%`;
-                    hotspot.style.height = `${h}%`;
-                    
-                    if (act.label) {
-                        hotspot.title = act.label;
+            if (act.type === 'tra') {
+                const area = act.area || defaultArea;
+                if (area) {
+                    let coords = null;
+                    if (area.shapes && area.shapes[0]) {
+                        coords = area.shapes[0].coords;
+                    } else if (area.coords) {
+                        coords = area.coords;
                     }
 
-                    if (act.isLocked) {
-                        hotspot.classList.add('locked');
-                        hotspot.style.cursor = 'not-allowed';
-                    } else {
-                        if (act.category) {
-                            const color = this.getCategoryColor(act.category);
-                            const glowColor = color.replace('hsl', 'hsla').replace(')', ', 0.35)');
-                            const hoverBg = color.replace('hsl', 'hsla').replace(')', ', 0.12)');
+                    if (coords) {
+                        const left = coords.x !== undefined ? coords.x : coords.left;
+                        const top = coords.y !== undefined ? coords.y : coords.top;
+                        const w = coords.width !== undefined ? coords.width : coords.w;
+                        const h = coords.height !== undefined ? coords.height : coords.h;
+
+                        const hotspot = document.createElement('div');
+                        hotspot.className = 'transition-hotspot';
+                        hotspot.style.left = `${left}%`;
+                        hotspot.style.top = `${top}%`;
+                        hotspot.style.width = `${w}%`;
+                        hotspot.style.height = `${h}%`;
+                        
+                        if (act.label) {
+                            hotspot.title = act.label;
+                        }
+
+                        if (act.isLocked) {
+                            hotspot.classList.add('locked');
+                            hotspot.style.cursor = 'not-allowed';
+                        } else {
+                            const color = this.getCategoryColor(act.category || 'universal');
+                            const glowColor = color.replace('hsl', 'hsla').replace(')', ', 0.35)').replace('#eab308', 'rgba(234, 179, 8, 0.35)');
+                            const hoverBg = color.replace('hsl', 'hsla').replace(')', ', 0.12)').replace('#eab308', 'rgba(234, 179, 8, 0.12)');
                             
                             hotspot.addEventListener('mouseenter', () => {
                                 hotspot.style.borderColor = color;
@@ -1332,19 +1344,19 @@ class BackroomsGame {
                                 hotspot.style.boxShadow = `0 0 12px ${glowColor}`;
                             });
                             hotspot.addEventListener('mouseleave', () => {
-                                hotspot.style.borderColor = 'transparent';
-                                hotspot.style.background = 'transparent';
-                                hotspot.style.boxShadow = 'none';
+                                hotspot.style.borderColor = '';
+                                hotspot.style.background = '';
+                                hotspot.style.boxShadow = '';
                             });
+                            
+                            hotspot.onclick = (e) => {
+                                e.stopPropagation();
+                                this.handleAction(act.type, act.value, act.extra, e);
+                            };
                         }
-                        
-                        hotspot.onclick = (e) => {
-                            e.stopPropagation();
-                            this.handleAction(act.type, act.value, act.extra, e);
-                        };
-                    }
 
-                    container.appendChild(hotspot);
+                        container.appendChild(hotspot);
+                    }
                 }
             }
         });

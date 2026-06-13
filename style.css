@@ -2468,7 +2468,7 @@ body.is-resizing * {
 
 .transition-hotspot {
     position: absolute;
-    border: 1px dashed transparent;
+    border: 1px dashed rgba(255, 255, 255, 0.25);
     cursor: pointer;
     pointer-events: auto;
     transition: all var(--transition-fast);

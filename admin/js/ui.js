@@ -5,6 +5,7 @@
  */
 export function getCategoryColor(category) {
     if (!category || category === 'universal') return '#eab308'; // Default accent
+    if (category === 'default' || category === 'default_transit_area') return '#888888';
 
     let hash = 0;
     for (let i = 0; i < category.length; i++) {
@@ -23,6 +24,7 @@ export function getCategoryIcon(category) {
 
     // Primary taxonomy categories
     if (cat === 'universal') return 'infinity';
+    if (cat === 'default' || cat === 'default_transit_area') return 'compass';
     if (cat === 'formal') return 'briefcase';
     if (cat === 'aquatic') return 'waves';
     if (cat === 'concrete') return 'layers';

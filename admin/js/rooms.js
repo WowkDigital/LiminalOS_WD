@@ -257,12 +257,29 @@ export function refreshCategorySelectors(selectedValues = null) {
 
     const fillContainer = (container, groupName) => {
         if (!container) return;
-        const currentSelected = selectedValues || Array.from(container.querySelectorAll('input:checked')).map(cb => cb.value);
+        let currentSelected = selectedValues || Array.from(container.querySelectorAll('input:checked')).map(cb => cb.value);
+
+        // Auto-check any category that has a configured click area to ensure it saves!
+        if (groupName === 'room-editor' && state.editorRequirements?.clickAreas) {
+            Object.keys(state.editorRequirements.clickAreas).forEach(cat => {
+                if (state.editorRequirements.clickAreas[cat] && !currentSelected.includes(cat)) {
+                    currentSelected.push(cat);
+                }
+            });
+        }
+
         container.innerHTML = '';
 
-        Array.from(categories).sort((a, b) => {
+        const catsToRender = new Set(categories);
+        if (groupName === 'room-editor') {
+            catsToRender.add('default');
+        }
+
+        Array.from(catsToRender).sort((a, b) => {
             if (a === 'universal') return -1;
             if (b === 'universal') return 1;
+            if (a === 'default') return 1;
+            if (b === 'default') return -1;
             return a.localeCompare(b);
         }).forEach(cat => {
             if (!cat) return;
@@ -276,7 +293,7 @@ export function refreshCategorySelectors(selectedValues = null) {
                         icon(getCategoryIcon(cat), { style: { width: '16px', height: '16px', color: 'var(--accent-primary)' } }),
                         el('span', { 
                             className: 'cat-label'
-                        }, cat === 'universal' ? 'Universal' : cat.charAt(0).toUpperCase() + cat.slice(1))
+                        }, cat === 'universal' ? 'Universal' : (cat === 'default' ? 'Default transit area' : cat.charAt(0).toUpperCase() + cat.slice(1)))
                     ]),
                     el('div', { className: 'config-row-actions' }, [
                         el('button', {
@@ -286,18 +303,19 @@ export function refreshCategorySelectors(selectedValues = null) {
                             title: 'Configure click area',
                             style: { marginRight: '6px' }
                         }, [icon('maximize')]),
-                        el('button', {
+                        cat !== 'default' ? el('button', {
                             type: 'button',
                             className: `btn-cfg ${hasReq ? 'has-req' : ''}`,
                             onClick: () => window.openRequirementsModal('transitions', cat),
-                            title: 'Configure requirements'
-                        }, [icon('settings')]),
+                            title: 'Configure requirements',
+                            style: { marginRight: '6px' }
+                        }, [icon('settings')]) : null,
                         el('input', {
                             type: 'checkbox',
                             value: cat,
                             checked: isChecked
                         })
-                    ])
+                    ].filter(Boolean))
                 ]);
                 container.appendChild(row);
             } else {
