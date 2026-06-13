@@ -441,6 +441,54 @@ export function openEditor(id = null) {
 
         (room.texts || []).forEach(text => addTextField(text));
         renderRoomMediaPreview();
+
+        state.editorScenes = JSON.parse(JSON.stringify(room.scenes || []));
+        if (state.editorScenes.length === 0) {
+            // Generate a default scene from legacy data
+            const roomMedia = state.mediaLibrary.filter(
+                m => m.context_type === 'room' && m.context_id === id
+            );
+            const defaultBg = roomMedia.length > 0 ? roomMedia[0].filepath : null;
+            
+            const legacyHotspots = [];
+            (room.transitions || []).forEach(t => {
+                const cat = typeof t === 'string' ? t : t.category;
+                const req = typeof t === 'object' ? t.requirements : null;
+                const area = typeof t === 'object' ? t.area : null;
+                legacyHotspots.push({
+                    type: 'tra',
+                    target_id: cat,
+                    label: cat.toUpperCase(),
+                    area,
+                    requirements: req
+                });
+            });
+            
+            (room.interactables || []).forEach(i => {
+                const iid = typeof i === 'object' ? i.id : i;
+                const req = typeof i === 'object' ? i.requirements : null;
+                const area = typeof i === 'object' ? i.area : null;
+                legacyHotspots.push({
+                    type: 'act',
+                    target_id: iid,
+                    label: iid.toUpperCase(),
+                    area,
+                    requirements: req
+                });
+            });
+
+            state.editorScenes.push({
+                id: `${id}_default`,
+                is_default: true,
+                bg_image: defaultBg,
+                interactable_desc: null,
+                dialogue_id: null,
+                requirements: null,
+                hotspots: legacyHotspots,
+                terminal_commands: []
+            });
+        }
+        state.selectedSceneId = state.editorScenes[0]?.id || null;
     } else {
         title.innerText = "Define New Space";
         if (roomForm) roomForm.reset();
@@ -456,8 +504,45 @@ export function openEditor(id = null) {
         renderInteractablesCheckboxes([]);
         addTextField();
         refreshCategorySelectors(['universal']);
+
+        state.editorScenes = [{
+            id: 'new_room_default',
+            is_default: true,
+            bg_image: null,
+            interactable_desc: null,
+            dialogue_id: null,
+            requirements: null,
+            hotspots: [],
+            terminal_commands: []
+        }];
+        state.selectedSceneId = 'new_room_default';
     }
 
+    const addSceneBtn = document.getElementById('btn-add-scene');
+    if (addSceneBtn) {
+        addSceneBtn.onclick = () => {
+            const newId = `scene_${Date.now()}`;
+            state.editorScenes = state.editorScenes || [];
+            const newScene = {
+                id: newId,
+                is_default: state.editorScenes.length === 0,
+                bg_image: null,
+                interactable_desc: null,
+                dialogue_id: null,
+                requirements: null,
+                hotspots: [],
+                terminal_commands: []
+            };
+            state.editorScenes.push(newScene);
+            state.selectedSceneId = newId;
+            renderScenesSection();
+            renderActiveSceneEditor();
+            updateRoomExportArea();
+        };
+    }
+
+    renderScenesSection();
+    renderActiveSceneEditor();
     updateRoomExportArea();
 }
 
@@ -495,7 +580,8 @@ export function getRoomDataFromForm() {
         tags: (formData.get('tags') || '').split(',').map(s => s.trim()).filter(s => s),
         transitions,
         interactables: interactablesArr,
-        texts
+        texts,
+        scenes: state.editorScenes || []
     };
 }
 
@@ -548,6 +634,11 @@ export function applyRoomJSON() {
         const textsContainer = document.getElementById('texts-list');
         textsContainer.innerHTML = '';
         (data.texts || []).forEach(text => addTextField(text));
+
+        state.editorScenes = data.scenes || [];
+        state.selectedSceneId = state.editorScenes[0]?.id || null;
+        renderScenesSection();
+        renderActiveSceneEditor();
 
         showToast('JSON data applied to form. Remember to save.', 'info');
     } catch (e) {
@@ -991,6 +1082,13 @@ function setupClickAreaDrawing() {
     });
     
     document.getElementById('btn-clear-click-area').addEventListener('click', () => {
+        if (window.onSaveSceneClickArea) {
+            window.onSaveSceneClickArea(null);
+            window.onSaveSceneClickArea = null;
+            document.getElementById('click-area-modal').classList.add('hidden');
+            showToast('Hotspot click area cleared.', 'info');
+            return;
+        }
         if (!state.currentClickAreaCategory) return;
         
         if (state.currentClickAreaType === 'interactable') {
@@ -1009,8 +1107,6 @@ function setupClickAreaDrawing() {
     });
     
     document.getElementById('btn-save-click-area').addEventListener('click', () => {
-        if (!state.currentClickAreaCategory) return;
-        
         const left = parseFloat(inputLeft.value);
         const top = parseFloat(inputTop.value);
         const width = parseFloat(inputWidth.value);
@@ -1034,6 +1130,16 @@ function setupClickAreaDrawing() {
                 }
             ]
         };
+
+        if (window.onSaveSceneClickArea) {
+            window.onSaveSceneClickArea(areaObj);
+            window.onSaveSceneClickArea = null;
+            document.getElementById('click-area-modal').classList.add('hidden');
+            showToast('Hotspot click area defined.', 'success');
+            return;
+        }
+        
+        if (!state.currentClickAreaCategory) return;
         
         if (state.currentClickAreaType === 'interactable') {
             state.editorRequirements.interactableClickAreas[state.currentClickAreaCategory] = areaObj;
@@ -1166,3 +1272,661 @@ window.addEventListener('resize', () => {
         }
     }
 });
+
+export function renderScenesSection() {
+    const list = document.getElementById('scenes-list');
+    if (!list) return;
+    list.innerHTML = '';
+
+    if (!state.editorScenes) {
+        state.editorScenes = [];
+    }
+
+    state.editorScenes.forEach(scene => {
+        const card = document.createElement('div');
+        card.className = `scene-list-card ${state.selectedSceneId === scene.id ? 'active' : ''}`;
+        card.style.cssText = `
+            padding: 10px;
+            background: ${state.selectedSceneId === scene.id ? 'rgba(56, 189, 248, 0.15)' : 'rgba(255,255,255,0.05)'};
+            border: 1px solid ${state.selectedSceneId === scene.id ? 'var(--color-primary)' : 'var(--glass-border)'};
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            transition: all 0.2s ease;
+        `;
+        
+        card.addEventListener('mouseenter', () => {
+            if (state.selectedSceneId !== scene.id) {
+                card.style.background = 'rgba(255,255,255,0.08)';
+            }
+        });
+        card.addEventListener('mouseleave', () => {
+            if (state.selectedSceneId !== scene.id) {
+                card.style.background = 'rgba(255,255,255,0.05)';
+            }
+        });
+
+        const header = document.createElement('div');
+        header.style.cssText = 'display: flex; justify-content: space-between; align-items: center;';
+        
+        const nameSpan = document.createElement('span');
+        nameSpan.style.cssText = 'font-weight: 600; color: #fff; font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 160px;';
+        nameSpan.textContent = scene.id;
+
+        header.appendChild(nameSpan);
+
+        if (scene.is_default) {
+            const badge = document.createElement('span');
+            badge.style.cssText = 'font-size: 0.7rem; background: var(--color-primary); color: #000; padding: 2px 6px; border-radius: 4px; font-weight: bold;';
+            badge.textContent = 'DEFAULT';
+            header.appendChild(badge);
+        }
+
+        const info = document.createElement('div');
+        info.style.cssText = 'font-size: 0.75rem; color: #888; display: flex; gap: 8px;';
+        
+        const hCount = (scene.hotspots || []).length;
+        const cCount = (scene.terminal_commands || []).length;
+        const rCount = scene.requirements ? Object.keys(scene.requirements).length : 0;
+        
+        info.textContent = `${hCount} Hotspots | ${cCount} Cmds | ${rCount} Req`;
+
+        card.appendChild(header);
+        card.appendChild(info);
+
+        card.onclick = () => {
+            state.selectedSceneId = scene.id;
+            renderScenesSection();
+            renderActiveSceneEditor();
+        };
+
+        list.appendChild(card);
+    });
+}
+
+export function renderActiveSceneEditor() {
+    const editorPanel = document.getElementById('active-scene-editor');
+    if (!editorPanel) return;
+
+    const scene = state.editorScenes.find(s => s.id === state.selectedSceneId);
+    if (!scene) {
+        editorPanel.innerHTML = `
+            <div class="empty-state" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #888;">
+                <i data-lucide="image" style="width: 48px; height: 48px; margin-bottom: 1rem; opacity: 0.5;"></i>
+                <span>Select a scene from the left sidebar or create a new one to edit its sub-scene states.</span>
+            </div>
+        `;
+        if (window.lucide) window.lucide.createIcons();
+        return;
+    }
+
+    editorPanel.innerHTML = `
+        <div class="scene-editor-form" style="display: flex; flex-direction: column; gap: 1.5rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed var(--glass-border); padding-bottom: 8px;">
+                <h3 style="margin: 0; font-size: 1.2rem; color: #fff;">Edit Scene: <span style="color: var(--color-primary);">${scene.id}</span></h3>
+                <button type="button" id="btn-delete-scene" class="btn-small danger" style="padding: 4px 10px; border-radius: var(--radius-sm);">Delete Scene</button>
+            </div>
+
+            <div class="form-row-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label style="font-weight: 600; margin-bottom: 6px; display: block;">Scene ID</label>
+                    <input type="text" id="edit-scene-id" value="${scene.id}" placeholder="e.g. lobby_dark" required style="width: 100%;">
+                    <small style="color: #888;">Must be unique within this room.</small>
+                </div>
+                <div class="form-group" style="display: flex; align-items: center; gap: 8px; margin-top: 1.8rem;">
+                    <label class="checkbox-container" style="cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" id="edit-scene-default" ${scene.is_default ? 'checked' : ''}>
+                        <span class="checkbox-label" style="font-weight: 600;">Default Scene</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-section scene-graphics-section" style="border: 1px solid var(--glass-border); padding: 1rem; border-radius: var(--radius-sm); background: rgba(0,0,0,0.15);">
+                <label style="font-weight: 600; margin-bottom: 8px; display: block;">Scene Background Image</label>
+                <div style="display: flex; gap: 1rem; align-items: center;">
+                    <div id="scene-bg-preview-container" style="width: 120px; height: 80px; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative;">
+                        ${scene.bg_image 
+                            ? `<img src="../${scene.bg_image}" style="width: 100%; height: 100%; object-fit: cover;" />` 
+                            : `<i data-lucide="image" style="width: 24px; height: 24px; opacity: 0.3;"></i>`}
+                    </div>
+                    <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
+                        <span id="scene-bg-path-label" style="font-size: 0.8rem; color: #aaa; word-break: break-all; font-family: var(--font-mono);">${scene.bg_image || 'No image selected'}</span>
+                        <div style="display: flex; gap: 8px;">
+                            <button type="button" id="btn-select-scene-bg" class="btn-secondary btn-small">Choose Image</button>
+                            <button type="button" id="btn-clear-scene-bg" class="btn-small danger">Remove</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-row-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label style="font-weight: 600; margin-bottom: 6px; display: block;">Dialogue Node ID</label>
+                    <select id="edit-scene-dialogue-id" style="width: 100%;">
+                        <!-- Will be populated dynamically -->
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label style="font-weight: 600; margin-bottom: 6px; display: block;">Interactable Description</label>
+                    <textarea id="edit-scene-interactable-desc" rows="2" placeholder="CRT description for this specific scene state..." style="width: 100%;">${scene.interactable_desc || ''}</textarea>
+                </div>
+            </div>
+
+            <!-- Requirements Editor Section -->
+            <div class="form-section" style="background: rgba(0,0,0,0.15); padding: 1rem; border-radius: var(--radius-sm); border: 1px dashed var(--glass-border);">
+                <h4 style="margin: 0 0 12px 0; border-bottom: 1px dashed var(--glass-border); padding-bottom: 6px; font-size: 0.95rem; color: var(--color-primary);">Scene Entry Requirements</h4>
+                <div id="scene-requirements-container" style="display: flex; flex-direction: column; gap: 8px;">
+                    <!-- Requirements config -->
+                </div>
+            </div>
+
+            <!-- Hotspots Section -->
+            <div class="form-section" style="background: rgba(0,0,0,0.15); padding: 1rem; border-radius: var(--radius-sm); border: 1px dashed var(--glass-border);">
+                <h4 style="margin: 0 0 12px 0; border-bottom: 1px dashed var(--glass-border); padding-bottom: 6px; font-size: 0.95rem; color: var(--color-primary);">Hotspots & Click Areas</h4>
+                <div id="scene-hotspots-list" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 1rem;">
+                    <!-- list of hotspots -->
+                </div>
+                <button type="button" id="btn-add-scene-hotspot" class="btn-secondary btn-small">+ Add Hotspot</button>
+            </div>
+
+            <!-- Custom Terminal Commands Section -->
+            <div class="form-section" style="background: rgba(0,0,0,0.15); padding: 1rem; border-radius: var(--radius-sm); border: 1px dashed var(--glass-border);">
+                <h4 style="margin: 0 0 12px 0; border-bottom: 1px dashed var(--glass-border); padding-bottom: 6px; font-size: 0.95rem; color: var(--color-primary);">Custom Terminal Commands</h4>
+                <div id="scene-commands-list" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 1rem;">
+                    <!-- list of custom commands -->
+                </div>
+                <button type="button" id="btn-add-scene-command" class="btn-secondary btn-small">+ Add Custom Command</button>
+            </div>
+
+        </div>
+    `;
+
+    if (window.lucide) window.lucide.createIcons();
+
+    // Bind event handlers
+    const idInput = document.getElementById('edit-scene-id');
+    const defaultCheck = document.getElementById('edit-scene-default');
+    const descTextarea = document.getElementById('edit-scene-interactable-desc');
+    const dialogueSelect = document.getElementById('edit-scene-dialogue-id');
+    
+    // Populate Dialogue dropdown
+    const dialogueTree = getTerminalDialogueTree() || {};
+    dialogueSelect.innerHTML = '<option value="">-- None / Default --</option>';
+    Object.keys(dialogueTree).sort().forEach(nodeId => {
+        const opt = document.createElement('option');
+        opt.value = nodeId;
+        opt.textContent = nodeId;
+        if (nodeId === scene.dialogue_id) {
+            opt.selected = true;
+        }
+        dialogueSelect.appendChild(opt);
+    });
+
+    // Handle updates
+    idInput.addEventListener('input', () => {
+        const val = idInput.value.trim();
+        if (val && val !== scene.id) {
+            // Check uniqueness
+            const exists = state.editorScenes.some(s => s.id === val);
+            if (!exists) {
+                scene.id = val;
+                state.selectedSceneId = val;
+                renderScenesSection();
+                updateRoomExportArea();
+            }
+        }
+    });
+
+    defaultCheck.addEventListener('change', () => {
+        if (defaultCheck.checked) {
+            state.editorScenes.forEach(s => s.is_default = false);
+            scene.is_default = true;
+        } else {
+            scene.is_default = false;
+        }
+        renderScenesSection();
+        renderActiveSceneEditor();
+        updateRoomExportArea();
+    });
+
+    descTextarea.addEventListener('input', () => {
+        scene.interactable_desc = descTextarea.value.trim() || null;
+        updateRoomExportArea();
+    });
+
+    dialogueSelect.addEventListener('change', () => {
+        scene.dialogue_id = dialogueSelect.value || null;
+        updateRoomExportArea();
+    });
+
+    // Delete scene
+    document.getElementById('btn-delete-scene').onclick = () => {
+        if (confirm(`Are you sure you want to delete scene "${scene.id}"?`)) {
+            state.editorScenes = state.editorScenes.filter(s => s.id !== scene.id);
+            state.selectedSceneId = state.editorScenes[0]?.id || null;
+            renderScenesSection();
+            renderActiveSceneEditor();
+            updateRoomExportArea();
+        }
+    };
+
+    // Choose Background Image
+    document.getElementById('btn-select-scene-bg').onclick = () => {
+        state.currentContext = 'room'; // Keep context room so we see room media
+        state.mediaPickerCallback = (selectedMedia) => {
+            scene.bg_image = selectedMedia.filepath;
+            renderActiveSceneEditor();
+            updateRoomExportArea();
+        };
+        openMediaModal();
+    };
+
+    // Clear Background Image
+    document.getElementById('btn-clear-scene-bg').onclick = () => {
+        scene.bg_image = null;
+        renderActiveSceneEditor();
+        updateRoomExportArea();
+    };
+
+    // Render Sub-components
+    renderSceneRequirements(scene);
+    renderSceneHotspots(scene);
+    renderSceneCommands(scene);
+}
+
+export function renderSceneRequirements(scene) {
+    const container = document.getElementById('scene-requirements-container');
+    if (!container) return;
+    container.innerHTML = '';
+
+    scene.requirements = scene.requirements || {};
+
+    // Sanity requirement
+    const sanityRow = document.createElement('div');
+    sanityRow.style.cssText = 'display: flex; gap: 1rem; align-items: center;';
+    
+    const sMin = scene.requirements.sanity_min !== undefined ? scene.requirements.sanity_min : 0;
+    const sMax = scene.requirements.sanity_max !== undefined ? scene.requirements.sanity_max : 100;
+
+    sanityRow.innerHTML = `
+        <span style="font-size: 0.85rem; min-width: 100px;">Sanity Range:</span>
+        <input type="number" class="scene-sanity-min" value="${sMin}" min="0" max="100" style="width: 70px;" placeholder="Min" />
+        <span>to</span>
+        <input type="number" class="scene-sanity-max" value="${sMax}" min="0" max="100" style="width: 70px;" placeholder="Max" />
+    `;
+
+    const minInput = sanityRow.querySelector('.scene-sanity-min');
+    const maxInput = sanityRow.querySelector('.scene-sanity-max');
+    
+    const updateSanity = () => {
+        const minVal = parseInt(minInput.value);
+        const maxVal = parseInt(maxInput.value);
+        if (minVal === 0 && maxVal === 100) {
+            delete scene.requirements.sanity_min;
+            delete scene.requirements.sanity_max;
+        } else {
+            scene.requirements.sanity_min = minVal;
+            scene.requirements.sanity_max = maxVal;
+        }
+        updateRoomExportArea();
+        renderScenesSection();
+    };
+
+    minInput.addEventListener('input', updateSanity);
+    maxInput.addEventListener('input', updateSanity);
+
+    container.appendChild(sanityRow);
+
+    // Items requirement
+    const itemsRow = document.createElement('div');
+    itemsRow.style.cssText = 'display: flex; gap: 1rem; align-items: center; margin-top: 8px;';
+    const currentItems = (scene.requirements.items || []).join(', ');
+    itemsRow.innerHTML = `
+        <span style="font-size: 0.85rem; min-width: 100px;">Required Items:</span>
+        <input type="text" class="scene-items-input" value="${currentItems}" placeholder="key_card, screwdriver (comma separated)" style="flex: 1;" />
+    `;
+    const itemsInput = itemsRow.querySelector('.scene-items-input');
+    itemsInput.addEventListener('input', () => {
+        const val = itemsInput.value.trim();
+        if (val) {
+            scene.requirements.items = val.split(',').map(s => s.trim()).filter(s => s);
+        } else {
+            delete scene.requirements.items;
+        }
+        updateRoomExportArea();
+        renderScenesSection();
+    });
+    container.appendChild(itemsRow);
+
+    // World States requirement
+    const statesRow = document.createElement('div');
+    statesRow.style.cssText = 'display: flex; gap: 1rem; align-items: center; margin-top: 8px;';
+    
+    const currentStates = [];
+    if (scene.requirements.worldStates) {
+        for (const k in scene.requirements.worldStates) {
+            currentStates.push(`${k}:${scene.requirements.worldStates[k]}`);
+        }
+    }
+
+    statesRow.innerHTML = `
+        <span style="font-size: 0.85rem; min-width: 100px;">World States:</span>
+        <input type="text" class="scene-states-input" value="${currentStates.join(', ')}" placeholder="generator_active:1, console_power:0" style="flex: 1;" />
+    `;
+    const statesInput = statesRow.querySelector('.scene-states-input');
+    statesInput.addEventListener('input', () => {
+        const val = statesInput.value.trim();
+        if (val) {
+            const states = {};
+            val.split(',').forEach(pair => {
+                const parts = pair.split(':');
+                if (parts[0]) {
+                    const k = parts[0].trim();
+                    const v = parseInt(parts[1] !== undefined ? parts[1].trim() : '1');
+                    states[k] = isNaN(v) ? 1 : v;
+                }
+            });
+            scene.requirements.worldStates = states;
+        } else {
+            delete scene.requirements.worldStates;
+        }
+        updateRoomExportArea();
+        renderScenesSection();
+    });
+    container.appendChild(statesRow);
+}
+
+export function renderSceneHotspots(scene) {
+    const list = document.getElementById('scene-hotspots-list');
+    if (!list) return;
+    list.innerHTML = '';
+
+    scene.hotspots = scene.hotspots || [];
+
+    if (scene.hotspots.length === 0) {
+        list.innerHTML = '<span style="font-size: 0.85rem; color: #666; font-style: italic;">No hotspots defined.</span>';
+    } else {
+        scene.hotspots.forEach((h, idx) => {
+            const row = document.createElement('div');
+            row.style.cssText = 'display: grid; grid-template-columns: 100px 140px 140px 100px 1fr 40px; gap: 8px; align-items: center; background: rgba(0,0,0,0.2); padding: 8px; border-radius: var(--radius-sm); border: 1px solid var(--glass-border);';
+
+            // 1. Type selector
+            const typeSel = document.createElement('select');
+            typeSel.style.width = '100%';
+            typeSel.innerHTML = `
+                <option value="tra" ${h.type === 'tra' ? 'selected' : ''}>Transition</option>
+                <option value="act" ${h.type === 'act' ? 'selected' : ''}>Interactable</option>
+            `;
+            
+            // 2. Target selector/input
+            const targetEl = document.createElement('select');
+            targetEl.style.width = '100%';
+            
+            const updateTargetOptions = () => {
+                targetEl.innerHTML = '';
+                if (typeSel.value === 'tra') {
+                    // Populate with transitions categories
+                    const transitionsList = state.transitionTypes || {};
+                    Object.keys(transitionsList).forEach(cat => {
+                        const opt = document.createElement('option');
+                        opt.value = cat;
+                        opt.textContent = cat.toUpperCase();
+                        if (cat === h.target_id) opt.selected = true;
+                        targetEl.appendChild(opt);
+                    });
+                    // Fallback input if empty
+                    if (targetEl.options.length === 0) {
+                        const opt = document.createElement('option');
+                        opt.value = h.target_id || 'universal';
+                        opt.textContent = (h.target_id || 'universal').toUpperCase();
+                        opt.selected = true;
+                        targetEl.appendChild(opt);
+                    }
+                } else {
+                    // Populate with interactables list
+                    const interactablesList = state.allInteractables || {};
+                    Object.keys(interactablesList).forEach(iid => {
+                        const opt = document.createElement('option');
+                        opt.value = iid;
+                        opt.textContent = (interactablesList[iid].label || iid).toUpperCase();
+                        if (iid === h.target_id) opt.selected = true;
+                        targetEl.appendChild(opt);
+                    });
+                }
+            };
+            
+            updateTargetOptions();
+
+            typeSel.addEventListener('change', () => {
+                h.type = typeSel.value;
+                updateTargetOptions();
+                h.target_id = targetEl.value;
+                updateRoomExportArea();
+            });
+
+            targetEl.addEventListener('change', () => {
+                h.target_id = targetEl.value;
+                updateRoomExportArea();
+            });
+
+            // 3. Label
+            const labelInput = document.createElement('input');
+            labelInput.type = 'text';
+            labelInput.placeholder = 'Label (e.g. Open Box)';
+            labelInput.value = h.label || '';
+            labelInput.addEventListener('input', () => {
+                h.label = labelInput.value.trim() || null;
+                updateRoomExportArea();
+            });
+
+            // 4. Coordinates button
+            const coordBtn = document.createElement('button');
+            coordBtn.type = 'button';
+            coordBtn.className = 'btn-small btn-secondary';
+            coordBtn.style.width = '100%';
+            
+            const updateCoordBtnLabel = () => {
+                if (h.area) {
+                    coordBtn.textContent = 'Edit Area';
+                    coordBtn.classList.remove('btn-secondary');
+                    coordBtn.style.borderColor = '#22c55e';
+                    coordBtn.style.color = '#22c55e';
+                } else {
+                    coordBtn.textContent = 'Draw Area';
+                    coordBtn.classList.add('btn-secondary');
+                    coordBtn.style.borderColor = '';
+                    coordBtn.style.color = '';
+                }
+            };
+            
+            updateCoordBtnLabel();
+
+            coordBtn.onclick = () => {
+                // Open the click area drawing overlay
+                window.onSaveSceneClickArea = (areaObj) => {
+                    h.area = areaObj;
+                    updateCoordBtnLabel();
+                    updateRoomExportArea();
+                };
+                // Resolve image url: scene-specific bg_image or room-specific fallback
+                let bgUrl = null;
+                if (scene.bg_image) {
+                    bgUrl = `../${scene.bg_image}`;
+                } else {
+                    const roomMedia = state.mediaLibrary.filter(
+                        m => m.context_type === 'room' && m.context_id === state.currentEditId
+                    );
+                    if (roomMedia.length > 0) {
+                        bgUrl = `../${roomMedia[0].filepath}`;
+                    }
+                }
+                
+                // Set temporary editorRequirements fields so that opening the modal works correctly
+                state.editorRequirements.interactableClickAreas = state.editorRequirements.interactableClickAreas || {};
+                state.editorRequirements.interactableClickAreas[h.target_id] = h.area || null;
+
+                window.openClickAreaModal(h.target_id, 'interactable', bgUrl);
+            };
+
+            // 5. Requirements input
+            const reqInput = document.createElement('input');
+            reqInput.type = 'text';
+            reqInput.placeholder = 'Requirements (e.g. item:key_card)';
+            
+            const currentReqText = [];
+            if (h.requirements) {
+                if (h.requirements.sanity_min !== undefined) currentReqText.push(`smin:${h.requirements.sanity_min}`);
+                if (h.requirements.sanity_max !== undefined) currentReqText.push(`smax:${h.requirements.sanity_max}`);
+                if (h.requirements.items) h.requirements.items.forEach(i => currentReqText.push(`item:${i}`));
+                if (h.requirements.worldStates) {
+                    for (const k in h.requirements.worldStates) {
+                        currentReqText.push(`state:${k}:${h.requirements.worldStates[k]}`);
+                    }
+                }
+            }
+            
+            reqInput.value = currentReqText.join(', ');
+            reqInput.addEventListener('input', () => {
+                const val = reqInput.value.trim();
+                if (val) {
+                    const reqObj = {};
+                    val.split(',').forEach(term => {
+                        const parts = term.split(':');
+                        const type = parts[0]?.trim();
+                        if (type === 'smin') reqObj.sanity_min = parseInt(parts[1]);
+                        else if (type === 'smax') reqObj.sanity_max = parseInt(parts[1]);
+                        else if (type === 'item') {
+                            reqObj.items = reqObj.items || [];
+                            reqObj.items.push(parts[1].trim());
+                        } else if (type === 'state') {
+                            reqObj.worldStates = reqObj.worldStates || {};
+                            reqObj.worldStates[parts[1].trim()] = parseInt(parts[2] !== undefined ? parts[2].trim() : '1');
+                        }
+                    });
+                    h.requirements = reqObj;
+                } else {
+                    h.requirements = null;
+                }
+                updateRoomExportArea();
+            });
+
+            // 6. Delete button
+            const delBtn = document.createElement('button');
+            delBtn.type = 'button';
+            delBtn.className = 'btn-small danger';
+            delBtn.style.padding = '4px';
+            delBtn.innerHTML = '<i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>';
+            delBtn.onclick = () => {
+                scene.hotspots = scene.hotspots.filter((_, i) => i !== idx);
+                renderSceneHotspots(scene);
+                updateRoomExportArea();
+            };
+
+            row.appendChild(typeSel);
+            row.appendChild(targetEl);
+            row.appendChild(labelInput);
+            row.appendChild(coordBtn);
+            row.appendChild(reqInput);
+            row.appendChild(delBtn);
+
+            list.appendChild(row);
+        });
+    }
+
+    if (window.lucide) window.lucide.createIcons();
+
+    document.getElementById('btn-add-scene-hotspot').onclick = () => {
+        scene.hotspots.push({
+            type: 'tra',
+            target_id: '',
+            label: '',
+            area: null,
+            requirements: null
+        });
+        renderSceneHotspots(scene);
+        updateRoomExportArea();
+    };
+}
+
+export function renderSceneCommands(scene) {
+    const list = document.getElementById('scene-commands-list');
+    if (!list) return;
+    list.innerHTML = '';
+
+    scene.terminal_commands = scene.terminal_commands || [];
+
+    if (scene.terminal_commands.length === 0) {
+        list.innerHTML = '<span style="font-size: 0.85rem; color: #666; font-style: italic;">No custom terminal commands defined.</span>';
+    } else {
+        scene.terminal_commands.forEach((c, idx) => {
+            const row = document.createElement('div');
+            row.style.cssText = 'display: flex; flex-direction: column; gap: 8px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: var(--radius-sm); border: 1px solid var(--glass-border); position: relative;';
+
+            row.innerHTML = `
+                <div style="display: grid; grid-template-columns: 180px 1fr 40px; gap: 12px; align-items: center;">
+                    <div class="form-group" style="margin: 0;">
+                        <input type="text" class="cmd-trigger" value="${c.trigger || ''}" placeholder="Trigger (e.g. read paper)" style="width: 100%;" />
+                    </div>
+                    <div class="form-group" style="margin: 0;">
+                        <input type="text" class="cmd-success-text" value="${c.success_text || ''}" placeholder="Success text displayed on terminal..." style="width: 100%;" />
+                    </div>
+                    <button type="button" class="btn-small danger btn-delete-cmd" style="padding: 6px; height: 36px; display: flex; align-items: center; justify-content: center; margin-top: 0;">
+                        <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>
+                    </button>
+                </div>
+                <div style="display: flex; gap: 12px; align-items: center;">
+                    <span style="font-size: 0.8rem; color: #888;">Effects:</span>
+                    <input type="text" class="cmd-effects" value="${JSON.stringify(c.effects || [])}" placeholder='[{"type":"sfx","value":"paper_rustle"},{"type":"act","id":"manual","value":1}]' style="flex: 1; font-family: var(--font-mono); font-size: 0.75rem;" />
+                </div>
+            `;
+
+            const triggerInput = row.querySelector('.cmd-trigger');
+            const successInput = row.querySelector('.cmd-success-text');
+            const effectsInput = row.querySelector('.cmd-effects');
+            const delBtn = row.querySelector('.btn-delete-cmd');
+
+            triggerInput.addEventListener('input', () => {
+                c.trigger = triggerInput.value.trim();
+                updateRoomExportArea();
+            });
+
+            successInput.addEventListener('input', () => {
+                c.success_text = successInput.value.trim() || null;
+                updateRoomExportArea();
+            });
+
+            effectsInput.addEventListener('input', () => {
+                try {
+                    const parsed = JSON.parse(effectsInput.value);
+                    c.effects = parsed;
+                    effectsInput.style.borderColor = '';
+                } catch (e) {
+                    effectsInput.style.borderColor = '#ef4444';
+                }
+                updateRoomExportArea();
+            });
+
+            delBtn.onclick = () => {
+                scene.terminal_commands = scene.terminal_commands.filter((_, i) => i !== idx);
+                renderSceneCommands(scene);
+                updateRoomExportArea();
+            };
+
+            list.appendChild(row);
+        });
+    }
+
+    if (window.lucide) window.lucide.createIcons();
+
+    document.getElementById('btn-add-scene-command').onclick = () => {
+        scene.terminal_commands.push({
+            trigger: '',
+            effects: [],
+            success_text: ''
+        });
+        renderSceneCommands(scene);
+        updateRoomExportArea();
+    };
+}

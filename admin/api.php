@@ -384,6 +384,112 @@ function migrateDatabase($pdo) {
             throw $e;
         }
     }
+
+    // Version 5: Create room_scenes, room_scene_hotspots, room_scene_commands and migrate existing rooms
+    $version = 0;
+    try {
+        $stmt = $pdo->query("SELECT value FROM global_definitions WHERE type = 'db_version'");
+        if ($stmt) {
+            $val = $stmt->fetchColumn();
+            if ($val !== false) {
+                $version = (int)$val;
+            }
+        }
+    } catch (PDOException $e) {}
+
+    if ($version < 5) {
+        $pdo->beginTransaction();
+        try {
+            // Create room_scenes table
+            $pdo->exec("CREATE TABLE IF NOT EXISTS room_scenes (
+                id TEXT PRIMARY KEY,
+                room_id TEXT NOT NULL,
+                is_default INTEGER DEFAULT 0,
+                media_id INTEGER,
+                interactable_desc TEXT,
+                dialogue_id TEXT,
+                requirements TEXT,
+                FOREIGN KEY(room_id) REFERENCES rooms(id) ON DELETE CASCADE,
+                FOREIGN KEY(media_id) REFERENCES media_library(id) ON DELETE SET NULL
+            )");
+
+            // Create room_scene_hotspots table
+            $pdo->exec("CREATE TABLE IF NOT EXISTS room_scene_hotspots (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                scene_id TEXT NOT NULL,
+                type TEXT CHECK(type IN ('tra', 'act')),
+                target_id TEXT NOT NULL,
+                label TEXT,
+                coords_json TEXT,
+                requirements TEXT,
+                FOREIGN KEY(scene_id) REFERENCES room_scenes(id) ON DELETE CASCADE
+            )");
+
+            // Create room_scene_commands table
+            $pdo->exec("CREATE TABLE IF NOT EXISTS room_scene_commands (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                scene_id TEXT NOT NULL,
+                trigger TEXT NOT NULL,
+                effects TEXT,
+                success_text TEXT,
+                FOREIGN KEY(scene_id) REFERENCES room_scenes(id) ON DELETE CASCADE
+            )");
+
+            // Migrate existing rooms
+            $stmtRooms = $pdo->query("SELECT id FROM rooms");
+            $roomsList = $stmtRooms->fetchAll(PDO::FETCH_ASSOC);
+
+            foreach ($roomsList as $r) {
+                $roomId = $r['id'];
+                $sceneId = $roomId . "_default";
+
+                // Resolve media_id for this room's default scene
+                $mediaId = null;
+                $stmtRoomMedia = $pdo->prepare("SELECT id FROM media_library WHERE context_type = 'room' AND context_id = ? LIMIT 1");
+                $stmtRoomMedia->execute([$roomId]);
+                $mRow = $stmtRoomMedia->fetch(PDO::FETCH_ASSOC);
+                if ($mRow) {
+                    $mediaId = $mRow['id'];
+                }
+
+                // Insert default scene
+                $stmtInsertScene = $pdo->prepare("INSERT OR IGNORE INTO room_scenes (id, room_id, is_default, media_id, interactable_desc, dialogue_id, requirements) VALUES (?, ?, 1, ?, NULL, NULL, NULL)");
+                $stmtInsertScene->execute([$sceneId, $roomId, $mediaId]);
+
+                // Migrate existing transitions to hotspots
+                $stmtTrans = $pdo->prepare("SELECT category, requirements, area FROM room_transitions WHERE room_id = ?");
+                $stmtTrans->execute([$roomId]);
+                $transList = $stmtTrans->fetchAll(PDO::FETCH_ASSOC);
+                foreach ($transList as $t) {
+                    $stmtTransLabel = $pdo->prepare("SELECT label FROM transitions WHERE id = ? LIMIT 1");
+                    $stmtTransLabel->execute([$t['category']]);
+                    $tLabel = $stmtTransLabel->fetchColumn() ?: $t['category'];
+                    
+                    $stmtInsertHotspot = $pdo->prepare("INSERT INTO room_scene_hotspots (scene_id, type, target_id, label, coords_json, requirements) VALUES (?, 'tra', ?, ?, ?, ?)");
+                    $stmtInsertHotspot->execute([$sceneId, $t['category'], $tLabel, $t['area'], $t['requirements']]);
+                }
+
+                // Migrate existing interactables to hotspots
+                $stmtInts = $pdo->prepare("SELECT interactable_id, requirements FROM room_interactables WHERE room_id = ?");
+                $stmtInts->execute([$roomId]);
+                $intsList = $stmtInts->fetchAll(PDO::FETCH_ASSOC);
+                foreach ($intsList as $i) {
+                    $stmtIntLabel = $pdo->prepare("SELECT label FROM interactables WHERE id = ? LIMIT 1");
+                    $stmtIntLabel->execute([$i['interactable_id']]);
+                    $iLabel = $stmtIntLabel->fetchColumn() ?: $i['interactable_id'];
+                    
+                    $stmtInsertHotspot = $pdo->prepare("INSERT INTO room_scene_hotspots (scene_id, type, target_id, label, coords_json, requirements) VALUES (?, 'act', ?, ?, NULL, ?)");
+                    $stmtInsertHotspot->execute([$sceneId, $i['interactable_id'], $iLabel, $i['requirements']]);
+                }
+            }
+
+            $pdo->exec("INSERT OR REPLACE INTO global_definitions (type, value) VALUES ('db_version', '5')");
+            $pdo->commit();
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+    }
 }
 
 try {
@@ -473,6 +579,60 @@ function getFullWorld($pdo)
         $stmtTexts = $pdo->prepare("SELECT text, sanity_min, sanity_max, dialogue_id FROM room_texts WHERE room_id = ?");
         $stmtTexts->execute([$id]);
         $rooms[$id]['texts'] = $stmtTexts->fetchAll();
+
+        // Fetch Scenes for this room
+        $rooms[$id]['scenes'] = [];
+        $stmtScenes = $pdo->prepare("SELECT * FROM room_scenes WHERE room_id = ?");
+        $stmtScenes->execute([$id]);
+        $scenes = $stmtScenes->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($scenes as $scene) {
+            $sceneId = $scene['id'];
+            
+            // Get background image filename/filepath if media_id is set
+            $bgImage = null;
+            if ($scene['media_id']) {
+                $stmtMedia = $pdo->prepare("SELECT filepath FROM media_library WHERE id = ? LIMIT 1");
+                $stmtMedia->execute([$scene['media_id']]);
+                $bgImage = $stmtMedia->fetchColumn() ?: null;
+            }
+
+            // Get hotspots
+            $stmtHotspots = $pdo->prepare("SELECT * FROM room_scene_hotspots WHERE scene_id = ?");
+            $stmtHotspots->execute([$sceneId]);
+            $hotspotsRaw = $stmtHotspots->fetchAll(PDO::FETCH_ASSOC);
+            $hotspots = array_map(function($h) {
+                return [
+                    'type' => $h['type'],
+                    'target_id' => $h['target_id'],
+                    'label' => $h['label'],
+                    'area' => !empty($h['coords_json']) ? json_decode($h['coords_json'], true) : null,
+                    'requirements' => !empty($h['requirements']) ? json_decode($h['requirements'], true) : null
+                ];
+            }, $hotspotsRaw);
+
+            // Get commands
+            $stmtCmds = $pdo->prepare("SELECT * FROM room_scene_commands WHERE scene_id = ?");
+            $stmtCmds->execute([$sceneId]);
+            $cmdsRaw = $stmtCmds->fetchAll(PDO::FETCH_ASSOC);
+            $cmds = array_map(function($c) {
+                return [
+                    'trigger' => $c['trigger'],
+                    'effects' => !empty($c['effects']) ? json_decode($c['effects'], true) : null,
+                    'success_text' => $c['success_text']
+                ];
+            }, $cmdsRaw);
+
+            $rooms[$id]['scenes'][] = [
+                'id' => $scene['id'],
+                'is_default' => (bool)$scene['is_default'],
+                'bg_image' => $bgImage,
+                'interactable_desc' => $scene['interactable_desc'],
+                'dialogue_id' => $scene['dialogue_id'],
+                'requirements' => !empty($scene['requirements']) ? json_decode($scene['requirements'], true) : null,
+                'hotspots' => $hotspots,
+                'terminal_commands' => $cmds
+            ];
+        }
     }
 
     // 2. Transitions
@@ -770,31 +930,172 @@ elseif ($method === 'POST') {
                 $pdo->prepare("INSERT INTO room_tags (room_id, tag) VALUES (?, ?)")->execute([$id, $tag]);
             }
 
+            // Clear old scenes
+            $pdo->prepare("DELETE FROM room_scenes WHERE room_id = ?")->execute([$id]);
+
+            if (empty($room['scenes'])) {
+                // Legacy support: compile scenes from transitions and interactables
+                $sceneId = $id . "_default";
+                
+                // Get media_id if linked
+                $mediaId = null;
+                $stmtRoomMedia = $pdo->prepare("SELECT id FROM media_library WHERE context_type = 'room' AND context_id = ? LIMIT 1");
+                $stmtRoomMedia->execute([$id]);
+                $mRow = $stmtRoomMedia->fetch(PDO::FETCH_ASSOC);
+                if ($mRow) {
+                    $mediaId = $mRow['id'];
+                }
+
+                $pdo->prepare("INSERT INTO room_scenes (id, room_id, is_default, media_id, interactable_desc, dialogue_id, requirements) VALUES (?, ?, 1, ?, NULL, NULL, NULL)")
+                    ->execute([$sceneId, $id, $mediaId]);
+
+                foreach (($room['transitions'] ?? []) as $transItem) {
+                    if (is_string($transItem)) {
+                        $cat = $transItem;
+                        $req = null;
+                        $area = null;
+                    } else {
+                        $cat = $transItem['category'];
+                        $req = !empty($transItem['requirements']) ? json_encode($transItem['requirements']) : null;
+                        $area = !empty($transItem['area']) ? json_encode($transItem['area']) : null;
+                    }
+                    $stmtTransLabel = $pdo->prepare("SELECT label FROM transitions WHERE id = ? LIMIT 1");
+                    $stmtTransLabel->execute([$cat]);
+                    $tLabel = $stmtTransLabel->fetchColumn() ?: $cat;
+
+                    $pdo->prepare("INSERT INTO room_scene_hotspots (scene_id, type, target_id, label, coords_json, requirements) VALUES (?, 'tra', ?, ?, ?, ?)")
+                        ->execute([$sceneId, $cat, $tLabel, $area, $req]);
+                }
+
+                foreach (($room['interactables'] ?? []) as $interItem) {
+                    if (is_string($interItem)) {
+                        $iid = $interItem;
+                        $req = null;
+                        $area = null;
+                    } else {
+                        $iid = $interItem['id'];
+                        $req = !empty($interItem['requirements']) ? json_encode($interItem['requirements']) : null;
+                        $area = !empty($interItem['area']) ? json_encode($interItem['area']) : null;
+                    }
+                    $stmtIntLabel = $pdo->prepare("SELECT label FROM interactables WHERE id = ? LIMIT 1");
+                    $stmtIntLabel->execute([$iid]);
+                    $iLabel = $stmtIntLabel->fetchColumn() ?: $iid;
+
+                    $pdo->prepare("INSERT INTO room_scene_hotspots (scene_id, type, target_id, label, coords_json, requirements) VALUES (?, 'act', ?, ?, ?, ?)")
+                        ->execute([$sceneId, $iid, $iLabel, $area, $req]);
+                }
+            } else {
+                // New scene-based format
+                foreach ($room['scenes'] as $scene) {
+                    $sceneId = $scene['id'];
+                    $isDefault = !empty($scene['is_default']) ? 1 : 0;
+                    
+                    $mediaId = null;
+                    if (!empty($scene['bg_image'])) {
+                        $stmtM = $pdo->prepare("SELECT id FROM media_library WHERE filepath = ? LIMIT 1");
+                        $stmtM->execute([$scene['bg_image']]);
+                        $mediaId = $stmtM->fetchColumn() ?: null;
+                    }
+
+                    $reqJson = !empty($scene['requirements']) ? json_encode($scene['requirements']) : null;
+
+                    $stmtInsertScene = $pdo->prepare("INSERT INTO room_scenes (id, room_id, is_default, media_id, interactable_desc, dialogue_id, requirements) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                    $stmtInsertScene->execute([
+                        $sceneId,
+                        $id,
+                        $isDefault,
+                        $mediaId,
+                        $scene['interactable_desc'] ?? null,
+                        $scene['dialogue_id'] ?? null,
+                        $reqJson
+                    ]);
+
+                    // Save hotspots
+                    if (!empty($scene['hotspots'])) {
+                        foreach ($scene['hotspots'] as $h) {
+                            $stmtInsertHotspot = $pdo->prepare("INSERT INTO room_scene_hotspots (scene_id, type, target_id, label, coords_json, requirements) VALUES (?, ?, ?, ?, ?, ?)");
+                            $stmtInsertHotspot->execute([
+                                $sceneId,
+                                $h['type'],
+                                $h['target_id'],
+                                $h['label'] ?? null,
+                                !empty($h['area']) ? json_encode($h['area']) : null,
+                                !empty($h['requirements']) ? json_encode($h['requirements']) : null
+                            ]);
+                        }
+                    }
+
+                    // Save commands
+                    if (!empty($scene['terminal_commands'])) {
+                        foreach ($scene['terminal_commands'] as $c) {
+                            $stmtInsertCmd = $pdo->prepare("INSERT INTO room_scene_commands (scene_id, trigger, effects, success_text) VALUES (?, ?, ?, ?)");
+                            $stmtInsertCmd->execute([
+                                $sceneId,
+                                $c['trigger'],
+                                !empty($c['effects']) ? json_encode($c['effects']) : null,
+                                $c['success_text'] ?? null
+                            ]);
+                        }
+                    }
+                }
+            }
+
+            // Always write legacy room_transitions and room_interactables for tests & backwards compatibility
+            $legacyTransitions = [];
+            $legacyInteractables = [];
+
+            if (!empty($room['scenes'])) {
+                foreach ($room['scenes'] as $scene) {
+                    if (!empty($scene['hotspots'])) {
+                        foreach ($scene['hotspots'] as $h) {
+                            if ($h['type'] === 'tra') {
+                                $legacyTransitions[$h['target_id']] = [
+                                    'requirements' => $h['requirements'] ?? null,
+                                    'area' => $h['area'] ?? null
+                                ];
+                            } elseif ($h['type'] === 'act') {
+                                $legacyInteractables[$h['target_id']] = [
+                                    'requirements' => $h['requirements'] ?? null,
+                                    'area' => $h['area'] ?? null
+                                ];
+                            }
+                        }
+                    }
+                }
+            } else {
+                // If scenes was empty, we use the room's direct lists
+                foreach (($room['transitions'] ?? []) as $transItem) {
+                    if (is_string($transItem)) {
+                        $legacyTransitions[$transItem] = ['requirements' => null, 'area' => null];
+                    } else {
+                        $legacyTransitions[$transItem['category']] = [
+                            'requirements' => $transItem['requirements'] ?? null,
+                            'area' => $transItem['area'] ?? null
+                        ];
+                    }
+                }
+                foreach (($room['interactables'] ?? []) as $interItem) {
+                    if (is_string($interItem)) {
+                        $legacyInteractables[$interItem] = ['requirements' => null, 'area' => null];
+                    } else {
+                        $legacyInteractables[$interItem['id']] = [
+                            'requirements' => $interItem['requirements'] ?? null,
+                            'area' => $interItem['area'] ?? null
+                        ];
+                    }
+                }
+            }
+
             $pdo->prepare("DELETE FROM room_transitions WHERE room_id = ?")->execute([$id]);
-            foreach (($room['transitions'] ?? []) as $transItem) {
-                if (is_string($transItem)) {
-                    $cat = $transItem;
-                    $req = null;
-                    $area = null;
-                }
-                else {
-                    $cat = $transItem['category'];
-                    $req = !empty($transItem['requirements']) ? json_encode($transItem['requirements']) : null;
-                    $area = !empty($transItem['area']) ? json_encode($transItem['area']) : null;
-                }
+            foreach ($legacyTransitions as $cat => $tData) {
+                $req = !empty($tData['requirements']) ? json_encode($tData['requirements']) : null;
+                $area = !empty($tData['area']) ? json_encode($tData['area']) : null;
                 $pdo->prepare("INSERT INTO room_transitions (room_id, category, requirements, area) VALUES (?, ?, ?, ?)")->execute([$id, $cat, $req, $area]);
             }
 
             $pdo->prepare("DELETE FROM room_interactables WHERE room_id = ?")->execute([$id]);
-            foreach (($room['interactables'] ?? []) as $interItem) {
-                if (is_string($interItem)) {
-                    $iid = $interItem;
-                    $req = null;
-                }
-                else {
-                    $iid = $interItem['id'];
-                    $req = !empty($interItem['requirements']) ? json_encode($interItem['requirements']) : null;
-                }
+            foreach ($legacyInteractables as $iid => $iData) {
+                $req = !empty($iData['requirements']) ? json_encode($iData['requirements']) : null;
                 $pdo->prepare("INSERT INTO room_interactables (room_id, interactable_id, requirements) VALUES (?, ?, ?)")->execute([$id, $iid, $req]);
             }
 

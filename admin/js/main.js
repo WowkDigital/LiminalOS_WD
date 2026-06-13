@@ -392,6 +392,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Expose media modal globally
+    window.openMediaModal = openMediaModal;
+
     // Media Modal bindings
     document.getElementById('btn-manage-room-media').addEventListener('click', () => { state.currentContext = 'room'; openMediaModal(); });
     document.getElementById('btn-manage-trans-media').addEventListener('click', () => { state.currentContext = 'transition'; openMediaModal(); });

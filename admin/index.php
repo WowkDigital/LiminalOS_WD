@@ -210,6 +210,7 @@ if (isset($_SESSION['admin_auth']) && $_SESSION['admin_auth'] === true):
                             <div class="editor-tabs">
                                 <button type="button" class="tab-btn active" data-room-tab="room-tab-general">General Config</button>
                                 <button type="button" class="tab-btn" data-room-tab="room-tab-terminal">Terminal Interaction</button>
+                                <button type="button" class="tab-btn" data-room-tab="room-tab-scenes">Scenes Manager</button>
                             </div>
 
                             <!-- General Config Tab Content -->
@@ -337,6 +338,32 @@ if (isset($_SESSION['admin_auth']) && $_SESSION['admin_auth'] === true):
                                             <button type="button" id="btn-add-room-terminal-option" class="btn-small" style="margin-top: 12px;">+ Add Option</button>
                                         </div>
                                     </div>
+                                </div>
+                            </div>
+
+                            <!-- Scenes Manager Tab Content -->
+                            <div id="room-tab-scenes" class="room-tab-content hidden">
+                                <div class="scenes-manager-layout" style="display: grid; grid-template-columns: 280px 1fr; gap: 1.5rem; min-height: 480px;">
+                                    
+                                    <!-- Left Column: Scenes List -->
+                                    <div class="scenes-sidebar" style="background: rgba(0,0,0,0.2); border-right: 1px dashed var(--glass-border); padding: 1rem; display: flex; flex-direction: column; gap: 1rem; border-radius: var(--radius-sm);">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px;">
+                                            <h3 style="margin: 0; font-size: 1.1rem; color: var(--color-primary);">Scenes</h3>
+                                            <button type="button" id="btn-add-scene" class="btn-small">+ Add Scene</button>
+                                        </div>
+                                        <div id="scenes-list" style="display: flex; flex-direction: column; gap: 8px; overflow-y: auto; flex: 1;">
+                                            <!-- Dynamically filled list of scene cards -->
+                                        </div>
+                                    </div>
+
+                                    <!-- Right Column: Active Scene Editor Form -->
+                                    <div id="active-scene-editor" class="scene-editor-panel" style="background: rgba(255,255,255,0.02); padding: 1.5rem; border-radius: var(--radius-sm); position: relative; border: 1px solid var(--glass-border);">
+                                        <div class="empty-state" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #888;">
+                                            <i data-lucide="image" style="width: 48px; height: 48px; margin-bottom: 1rem; opacity: 0.5;"></i>
+                                            <span>Select a scene from the left sidebar or create a new one to edit its sub-scene states.</span>
+                                        </div>
+                                    </div>
+
                                 </div>
                             </div>
                         </div>

@@ -727,8 +727,16 @@ const TerminalSystem = {
                 return true;
             }
         }
+
+        // 2. Check if the active scene has a scene-specific dialogue_id
+        if (window.game.state && window.game.state.currentRoom) {
+            const activeScene = window.game.getActiveScene(window.game.state.currentRoom);
+            if (activeScene && activeScene.dialogue_id && this.dialogueTree[activeScene.dialogue_id]) {
+                return true;
+            }
+        }
         
-        // 2. Check if the current room has a room-specific dialogue node
+        // 3. Check if the current room has a room-specific dialogue node
         if (window.game.state && window.game.state.currentRoom) {
             const roomDialogueId = "ROOM_" + window.game.state.currentRoom.toUpperCase();
             if (this.dialogueTree[roomDialogueId]) {
@@ -736,7 +744,7 @@ const TerminalSystem = {
             }
         }
 
-        // 3. If the current terminal state is not INITIAL
+        // 4. If the current terminal state is not INITIAL
         if (this.currentState !== "INITIAL") {
             return true;
         }
@@ -769,6 +777,14 @@ const TerminalSystem = {
             const atm = window.game.state.activeAtmosphericText;
             if (atm && typeof atm === 'object' && atm.dialogue_id && this.dialogueTree[atm.dialogue_id]) {
                 stateId = atm.dialogue_id;
+            }
+        }
+
+        // Check if there is an active scene dialogue node
+        if (stateId === "INITIAL" && window.game && window.game.state && window.game.state.currentRoom) {
+            const activeScene = window.game.getActiveScene(window.game.state.currentRoom);
+            if (activeScene && activeScene.dialogue_id && this.dialogueTree[activeScene.dialogue_id]) {
+                stateId = activeScene.dialogue_id;
             }
         }
 
@@ -1014,6 +1030,23 @@ const TerminalSystem = {
         if (matchedOption) {
             this.selectChoice(matchedOption);
             return;
+        }
+
+        // 3.5 Intercept scene-specific custom terminal commands:
+        if (window.game && window.game.state && window.game.state.currentRoom) {
+            const activeScene = window.game.getActiveScene(window.game.state.currentRoom);
+            if (activeScene && activeScene.terminal_commands) {
+                const matchingCmd = activeScene.terminal_commands.find(c => c.trigger.trim().toLowerCase() === rawCmd.toLowerCase());
+                if (matchingCmd) {
+                    if (matchingCmd.effects) {
+                        window.game.processEffects(matchingCmd.effects);
+                    }
+                    const successText = matchingCmd.success_text || "COMMAND EXECUTED.";
+                    this.typeResponse(successText, null, 'info', '✓');
+                    if (window.game && window.game.audio) window.game.audio.playUiSound('success');
+                    return;
+                }
+            }
         }
 
         // 4. Otherwise, parse standard terminal commands:

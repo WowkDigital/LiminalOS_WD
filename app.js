@@ -62,6 +62,11 @@ class RoomLocation extends Location {
     }
 
     getImage() {
+        const activeScene = this.game.getActiveScene(this.id);
+        if (activeScene && activeScene.bg_image) {
+            return this.game.resolveImagePath(activeScene.bg_image);
+        }
+
         // Logic specific to Room Image resolution
         if (this.game.state.activeInteractableId) {
             const interId = this.game.state.activeInteractableId;
@@ -100,6 +105,13 @@ class RoomLocation extends Location {
     }
 
     getInteractables() {
+        const activeScene = this.game.getActiveScene(this.id);
+        if (activeScene && activeScene.hotspots) {
+            return activeScene.hotspots
+                .filter(h => h.type === 'act' && this.game.checkRequirements(h.requirements))
+                .map(h => h.target_id);
+        }
+
         return (this.data.interactables || []).filter(item => {
             const req = typeof item === 'string' ? null : item.requirements;
             return this.game.checkRequirements(req);
@@ -107,6 +119,42 @@ class RoomLocation extends Location {
     }
 
     getActions() {
+        const activeScene = this.game.getActiveScene(this.id);
+        if (activeScene && activeScene.hotspots) {
+            const recommended = (typeof getRecommendedExits === 'function')
+                ? getRecommendedExits(this.game)
+                : new Set();
+
+            const roomTransitions = this.game.state.roomTransitions[this.id] || [];
+            
+            return activeScene.hotspots
+                .filter(h => h.type === 'tra')
+                .map(h => {
+                    const isMet = this.game.checkRequirements(h.requirements);
+                    const category = h.target_id;
+                    
+                    const matchingTrans = roomTransitions.find(rt => rt.category === category);
+                    const target = matchingTrans ? matchingTrans.target : null;
+                    const rtId = matchingTrans ? matchingTrans.id : category;
+
+                    const isUnknown = target ? !this.game.state.visitedRooms.includes(target) : true;
+                    const isRecommended = recommended.has(rtId);
+
+                    return {
+                        type: 'tra',
+                        label: h.label || category,
+                        value: rtId,
+                        extra: target,
+                        id: rtId,
+                        category,
+                        isUnknown,
+                        isRecommended,
+                        isLocked: !isMet,
+                        area: h.area || null
+                    };
+                });
+        }
+
         const stored = this.game.state.roomTransitions[this.id] || [];
 
         // Compute recommended exits using BFS pathfinding hint
@@ -691,6 +739,65 @@ class BackroomsGame {
     }
 
     /**
+     * Resolves active scene for a given room.
+     */
+    getActiveScene(roomId) {
+        if (!this.world || !this.world.rooms) return null;
+        const room = this.world.rooms[roomId];
+        if (!room) return null;
+        if (!room.scenes || room.scenes.length === 0) {
+            // If there are no scenes, create a virtual default scene mapping the room's direct attributes
+            return {
+                id: `${roomId}_default`,
+                is_default: true,
+                bg_image: room.image || null,
+                interactable_desc: null,
+                dialogue_id: null,
+                requirements: null,
+                hotspots: [
+                    ...((room.transitions || []).map(t => ({
+                        type: 'tra',
+                        target_id: t.category,
+                        label: t.label || t.category,
+                        area: t.area || null,
+                        requirements: t.requirements || null
+                    }))),
+                    ...((room.interactables || []).map(i => {
+                        const iId = typeof i === 'string' ? i : i.id;
+                        const req = typeof i === 'string' ? null : i.requirements;
+                        const area = typeof i === 'object' ? i.area : null;
+                        const label = this.world.interactables?.[iId]?.label || iId;
+                        return {
+                            type: 'act',
+                            target_id: iId,
+                            label: label,
+                            area: area || null,
+                            requirements: req || null
+                        };
+                    }))
+                ],
+                terminal_commands: []
+            };
+        }
+
+        // Loop over the scenes, evaluating requirements
+        let activeScene = null;
+        for (const scene of room.scenes) {
+            if (!scene.is_default && this.checkRequirements(scene.requirements)) {
+                activeScene = scene;
+                break;
+            }
+        }
+
+        // Fallback to default scene
+        if (!activeScene) {
+            activeScene = room.scenes.find(s => s.is_default) || room.scenes[0];
+        }
+
+        return activeScene;
+    }
+
+    /**
      * Factory method to get the current abstract Location object
      */
     getCurrentLocation() {
@@ -1076,18 +1183,28 @@ class BackroomsGame {
         }
 
         // --- Render Interactables (Unified) ---
+        const activeScene = !loc.isTransition ? this.getActiveScene(this.state.currentRoom) : null;
+        if (activeScene && activeScene.interactable_desc) {
+            this.elements.interactableDesc.innerText = this.glitchText(activeScene.interactable_desc, sanity);
+        } else {
+            const interactableIds = loc.getInteractables();
+            if (interactableIds.length > 0) {
+                const descriptions = interactableIds.map(interId => {
+                    const interactable = this.world.interactables[interId];
+                    if (!interactable) return '';
+                    const stateIndex = worldStates[interId] || 0;
+                    const state = interactable.states[stateIndex];
+                    return state ? state.desc : '';
+                }).filter(desc => desc.length > 0);
+
+                this.elements.interactableDesc.innerText = this.glitchText(descriptions.join(' '), sanity);
+            } else {
+                this.elements.interactableDesc.innerText = '';
+            }
+        }
+
         const interactableIds = loc.getInteractables();
         if (interactableIds.length > 0) {
-            const descriptions = interactableIds.map(interId => {
-                const interactable = this.world.interactables[interId];
-                if (!interactable) return '';
-                const stateIndex = worldStates[interId] || 0;
-                const state = interactable.states[stateIndex];
-                return state ? state.desc : '';
-            }).filter(desc => desc.length > 0);
-
-            this.elements.interactableDesc.innerText = descriptions.join(' ');
-
             interactableIds.forEach(interId => {
                 const interactable = this.world.interactables[interId];
                 if (!interactable) return;
@@ -1363,7 +1480,68 @@ class BackroomsGame {
         });
 
         // 2. Render Interactable Hotspots
-        if (roomDef && roomDef.interactables) {
+        const activeScene = this.getActiveScene(currentRoomId);
+        if (activeScene && activeScene.hotspots) {
+            activeScene.hotspots
+                .filter(h => h.type === 'act')
+                .forEach(h => {
+                    const isMet = this.checkRequirements(h.requirements);
+                    if (isMet) {
+                        const area = h.area;
+                        if (area) {
+                            let coords = null;
+                            if (area.shapes && area.shapes[0]) {
+                                coords = area.shapes[0].coords;
+                            } else if (area.coords) {
+                                coords = area.coords;
+                            }
+
+                            if (coords) {
+                                const left = coords.x !== undefined ? coords.x : coords.left;
+                                const top = coords.y !== undefined ? coords.y : coords.top;
+                                const w = coords.width !== undefined ? coords.width : coords.w;
+                                const hCoord = coords.height !== undefined ? coords.height : coords.h;
+
+                                const hotspot = document.createElement('div');
+                                hotspot.className = 'transition-hotspot interactable-hotspot';
+                                hotspot.style.left = `${left}%`;
+                                hotspot.style.top = `${top}%`;
+                                hotspot.style.width = `${w}%`;
+                                hotspot.style.height = `${hCoord}%`;
+
+                                const interactableDef = this.world.interactables[h.target_id];
+                                if (interactableDef && interactableDef.label) {
+                                    hotspot.title = interactableDef.label;
+                                } else if (h.label) {
+                                    hotspot.title = h.label;
+                                }
+
+                                const color = '#38bdf8';
+                                const glowColor = 'rgba(56, 189, 248, 0.35)';
+                                const hoverBg = 'rgba(56, 189, 248, 0.12)';
+
+                                hotspot.addEventListener('mouseenter', () => {
+                                    hotspot.style.borderColor = color;
+                                    hotspot.style.background = hoverBg;
+                                    hotspot.style.boxShadow = `0 0 12px ${glowColor}`;
+                                });
+                                hotspot.addEventListener('mouseleave', () => {
+                                    hotspot.style.borderColor = '';
+                                    hotspot.style.background = '';
+                                    hotspot.style.boxShadow = '';
+                                });
+
+                                hotspot.onclick = (e) => {
+                                    e.stopPropagation();
+                                    this.handleAction('act', h.target_id, null, e);
+                                };
+
+                                container.appendChild(hotspot);
+                            }
+                        }
+                    }
+                });
+        } else if (roomDef && roomDef.interactables) {
             roomDef.interactables.forEach(item => {
                 const itemObj = typeof item === 'string' ? { id: item } : item;
                 const interId = itemObj.id;
