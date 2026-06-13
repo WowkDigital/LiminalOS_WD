@@ -139,14 +139,25 @@ function exportAllData($pdo) {
         $id = $row['id'];
         $inter = [
             'id' => $id,
+            'room_id' => $row['room_id'] ?? null,
             'label' => $row['label'],
+            'requirements' => !empty($row['requirements']) ? json_decode($row['requirements'], true) : null,
             'current_state_index' => $row['current_state_index'],
             'states' => []
         ];
 
-        $stmtStates = $pdo->prepare("SELECT state_id, desc, image, sort_order FROM interactable_states WHERE interactable_id = ? ORDER BY sort_order ASC");
+        $stmtStates = $pdo->prepare("SELECT state_id, desc, image, sort_order, effects FROM interactable_states WHERE interactable_id = ? ORDER BY sort_order ASC");
         $stmtStates->execute([$id]);
-        $inter['states'] = $stmtStates->fetchAll();
+        $rawStates = $stmtStates->fetchAll();
+        $inter['states'] = array_map(function($s) {
+            return [
+                'state_id' => $s['state_id'],
+                'desc' => $s['desc'],
+                'image' => $s['image'] ?? null,
+                'sort_order' => $s['sort_order'],
+                'effects' => !empty($s['effects']) ? json_decode($s['effects'], true) : null
+            ];
+        }, $rawStates);
 
         $data['interactables'][] = $inter;
     }
@@ -396,14 +407,23 @@ function importAllData($pdo, $data) {
                 if (empty($inter['id'])) continue;
                 $id = $inter['id'];
 
-                $stmt = $pdo->prepare("INSERT INTO interactables (id, label, current_state_index) VALUES (?, ?, ?) 
-                                      ON CONFLICT(id) DO UPDATE SET label=excluded.label, current_state_index=excluded.current_state_index");
-                $stmt->execute([$id, $inter['label'] ?? '', $inter['current_state_index'] ?? 0]);
+                $stmt = $pdo->prepare("INSERT INTO interactables (id, room_id, label, requirements, current_state_index) VALUES (?, ?, ?, ?, ?) 
+                                      ON CONFLICT(id) DO UPDATE SET room_id=excluded.room_id, label=excluded.label, requirements=excluded.requirements, current_state_index=excluded.current_state_index");
+                $reqJson = !empty($inter['requirements']) ? (is_string($inter['requirements']) ? $inter['requirements'] : json_encode($inter['requirements'])) : null;
+                $stmt->execute([$id, $inter['room_id'] ?? null, $inter['label'] ?? '', $reqJson, $inter['current_state_index'] ?? 0]);
+
+                // Also populate room_interactables for compatibility
+                $pdo->prepare("DELETE FROM room_interactables WHERE interactable_id = ?")->execute([$id]);
+                if (!empty($inter['room_id'])) {
+                    $pdo->prepare("INSERT OR REPLACE INTO room_interactables (room_id, interactable_id, requirements) VALUES (?, ?, ?)")
+                        ->execute([$inter['room_id'], $id, $reqJson]);
+                }
 
                 $pdo->prepare("DELETE FROM interactable_states WHERE interactable_id = ?")->execute([$id]);
                 foreach (($inter['states'] ?? []) as $state) {
-                    $stmtState = $pdo->prepare("INSERT INTO interactable_states (interactable_id, state_id, desc, image, sort_order) VALUES (?, ?, ?, ?, ?)");
-                    $stmtState->execute([$id, $state['state_id'] ?? $state['id'], $state['desc'] ?? '', $state['image'] ?? null, $state['sort_order'] ?? 0]);
+                    $stmtState = $pdo->prepare("INSERT INTO interactable_states (interactable_id, state_id, desc, image, sort_order, effects) VALUES (?, ?, ?, ?, ?, ?)");
+                    $effects = !empty($state['effects']) ? (is_string($state['effects']) ? $state['effects'] : json_encode($state['effects'])) : null;
+                    $stmtState->execute([$id, $state['state_id'] ?? $state['id'], $state['desc'] ?? '', $state['image'] ?? null, $state['sort_order'] ?? 0, $effects]);
                 }
             }
         }

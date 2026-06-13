@@ -121,8 +121,11 @@ function migrateDatabase($pdo) {
     )");
     $pdo->exec("CREATE TABLE IF NOT EXISTS interactables (
         id TEXT PRIMARY KEY,
+        room_id TEXT,
         label TEXT,
-        current_state_index INTEGER DEFAULT 0
+        requirements TEXT,
+        current_state_index INTEGER DEFAULT 0,
+        FOREIGN KEY(room_id) REFERENCES rooms(id) ON DELETE CASCADE
     )");
     $pdo->exec("CREATE TABLE IF NOT EXISTS global_definitions (
         type TEXT,
@@ -494,6 +497,48 @@ function migrateDatabase($pdo) {
             throw $e;
         }
     }
+
+    // Version 6: Add room_id and requirements columns to interactables, and migrate existing room_interactables data
+    $version = 0;
+    try {
+        $stmt = $pdo->query("SELECT MAX(CAST(value AS INTEGER)) FROM global_definitions WHERE type = 'db_version'");
+        if ($stmt) {
+            $val = $stmt->fetchColumn();
+            if ($val !== false && $val !== null) {
+                $version = (int)$val;
+            }
+        }
+    } catch (PDOException $e) {}
+
+    if ($version < 6) {
+        $pdo->beginTransaction();
+        try {
+            // Check columns, alter table
+            $stmt = $pdo->query("PRAGMA table_info(interactables)");
+            $columns = $stmt->fetchAll(PDO::FETCH_COLUMN, 1);
+            if (!in_array('room_id', $columns)) {
+                $pdo->exec("ALTER TABLE interactables ADD COLUMN room_id TEXT");
+            }
+            if (!in_array('requirements', $columns)) {
+                $pdo->exec("ALTER TABLE interactables ADD COLUMN requirements TEXT");
+            }
+
+            // Sync existing data from room_interactables
+            $pdo->exec("UPDATE interactables SET room_id = (
+                SELECT room_id FROM room_interactables WHERE room_interactables.interactable_id = interactables.id LIMIT 1
+            ) WHERE room_id IS NULL");
+            $pdo->exec("UPDATE interactables SET requirements = (
+                SELECT requirements FROM room_interactables WHERE room_interactables.interactable_id = interactables.id LIMIT 1
+            ) WHERE requirements IS NULL");
+
+            $pdo->exec("DELETE FROM global_definitions WHERE type = 'db_version'");
+            $pdo->exec("INSERT INTO global_definitions (type, value) VALUES ('db_version', '6')");
+            $pdo->commit();
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+    }
 }
 
 try {
@@ -690,6 +735,8 @@ function getFullWorld($pdo)
         $interactables[$id] = [
             'label' => $row['label'],
             'current_state_index' => $row['current_state_index'],
+            'room_id' => $row['room_id'] ?? null,
+            'requirements' => !empty($row['requirements']) ? json_decode($row['requirements'], true) : null,
             'states' => []
         ];
 
@@ -1101,6 +1148,8 @@ elseif ($method === 'POST') {
             foreach ($legacyInteractables as $iid => $iData) {
                 $req = !empty($iData['requirements']) ? json_encode($iData['requirements']) : null;
                 $pdo->prepare("INSERT INTO room_interactables (room_id, interactable_id, requirements) VALUES (?, ?, ?)")->execute([$id, $iid, $req]);
+                // Update room_id and requirements in interactables table
+                $pdo->prepare("UPDATE interactables SET room_id = ?, requirements = ? WHERE id = ?")->execute([$id, $req, $iid]);
             }
 
             $pdo->prepare("DELETE FROM room_texts WHERE room_id = ?")->execute([$id]);
@@ -1167,6 +1216,8 @@ elseif ($method === 'POST') {
                         $req = !empty($interItem['requirements']) ? json_encode($interItem['requirements']) : null;
                     }
                     $pdo->prepare("INSERT INTO room_interactables (room_id, interactable_id, requirements) VALUES (?, ?, ?)")->execute([$id, $iid, $req]);
+                    // Update interactables table
+                    $pdo->prepare("UPDATE interactables SET room_id = ?, requirements = ? WHERE id = ?")->execute([$id, $req, $iid]);
                 }
 
                 // Texts
@@ -1244,8 +1295,9 @@ elseif ($method === 'POST') {
         $pdo->beginTransaction();
         try {
             // Upsert Interactable
-            $stmt = $pdo->prepare("INSERT INTO interactables (id, label, current_state_index) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET label=excluded.label");
-            $stmt->execute([$id, $inter['label'], $inter['current_state_index'] ?? 0]);
+            $stmt = $pdo->prepare("INSERT INTO interactables (id, room_id, label, requirements, current_state_index) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET room_id=excluded.room_id, label=excluded.label, requirements=excluded.requirements, current_state_index=excluded.current_state_index");
+            $reqJson = !empty($inter['requirements']) ? (is_string($inter['requirements']) ? $inter['requirements'] : json_encode($inter['requirements'])) : null;
+            $stmt->execute([$id, $inter['room_id'] ?? null, $inter['label'], $reqJson, $inter['current_state_index'] ?? 0]);
 
             // Rewrite states
             $pdo->prepare("DELETE FROM interactable_states WHERE interactable_id = ?")->execute([$id]);
@@ -1253,6 +1305,13 @@ elseif ($method === 'POST') {
                 $stmtState = $pdo->prepare("INSERT INTO interactable_states (interactable_id, state_id, desc, image, sort_order, effects) VALUES (?, ?, ?, ?, ?, ?)");
                 $effects = !empty($state['effects']) ? json_encode($state['effects']) : null;
                 $stmtState->execute([$id, $state['id'], $state['desc'], $state['image'] ?? null, $idx, $effects]);
+            }
+
+            // Sync to room_interactables
+            $pdo->prepare("DELETE FROM room_interactables WHERE interactable_id = ?")->execute([$id]);
+            if (!empty($inter['room_id'])) {
+                $pdo->prepare("INSERT OR REPLACE INTO room_interactables (room_id, interactable_id, requirements) VALUES (?, ?, ?)")
+                    ->execute([$inter['room_id'], $id, $reqJson]);
             }
 
             $pdo->commit();

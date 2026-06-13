@@ -37,6 +37,16 @@ export function openInteractableEditor(id = null) {
 
     statesContainer.innerHTML = '';
 
+    // Populate room_id dropdown
+    const roomSelect = document.getElementById('inter-room-id');
+    if (roomSelect) {
+        roomSelect.innerHTML = '';
+        roomSelect.appendChild(el('option', { value: '' }, '-- Select Room --'));
+        Object.entries(state.roomsData).forEach(([rId, rData]) => {
+            roomSelect.appendChild(el('option', { value: rId }, rData.name || rId));
+        });
+    }
+
     if (id) {
         title.innerText = `Edit Object: ${state.allInteractables[id].label}`;
         idInput.value = id;
@@ -44,18 +54,38 @@ export function openInteractableEditor(id = null) {
         labelInput.value = state.allInteractables[id].label;
         if (deleteBtn) deleteBtn.classList.remove('hidden');
 
+        if (roomSelect) {
+            roomSelect.value = state.allInteractables[id].room_id || '';
+            roomSelect.disabled = false;
+        }
+
         (state.allInteractables[id].states || []).forEach(state => addStateField(state));
     } else {
         title.innerText = "Define New Object";
-        if (interForm) interForm.reset();
+        if (interForm) {
+            interForm.reset();
+        }
         idInput.value = '';
         idInput.readOnly = false;
         if (deleteBtn) deleteBtn.classList.add('hidden');
+
+        if (roomSelect) {
+            if (state.prefilledRoomId) {
+                roomSelect.value = state.prefilledRoomId;
+                roomSelect.disabled = true;
+                idInput.value = state.prefilledRoomId + '_';
+            } else {
+                roomSelect.value = '';
+                roomSelect.disabled = false;
+            }
+        }
+
         addStateField({ id: 'default', desc: 'Default state description' });
     }
 
     updateInteractableExportArea();
 }
+window.openInteractableEditor = openInteractableEditor;
 
 export function getInteractableDataFromForm() {
     const interForm = document.getElementById('inter-form');
@@ -65,8 +95,15 @@ export function getInteractableDataFromForm() {
     const sImages = Array.from(document.querySelectorAll('input[name="state_image[]"]')).map(i => i.value);
     const states = sIds.map((sid, idx) => ({ id: sid, desc: sDescs[idx], image: sImages[idx] }));
 
+    const id = document.getElementById('inter-id')?.value.trim();
+    const roomSelect = document.getElementById('inter-room-id');
+    const roomId = roomSelect ? roomSelect.value : null;
+    const existingReq = (id && state.allInteractables[id] && state.allInteractables[id].requirements) || null;
+
     return {
         label: formData.get('label').trim(),
+        room_id: roomId || null,
+        requirements: existingReq,
         states: states
     };
 }
@@ -157,7 +194,15 @@ export async function handleInteractableSubmit(e) {
             state.imageIndex = syncRes.image_index || { rooms: {}, transitions: {} };
             state.allInteractables = syncRes.interactables || {};
             state.systemTaxonomy = syncRes.taxonomy || [];
-            navigate('interactables');
+            
+            if (state.backToRoom) {
+                const backRoom = state.backToRoom;
+                state.backToRoom = null;
+                state.prefilledRoomId = null;
+                navigate(`editor?id=${encodeURIComponent(backRoom)}`);
+            } else {
+                navigate('interactables');
+            }
         } else {
             throw new Error(result.error);
         }
@@ -179,7 +224,15 @@ export async function handleDeleteInteractable() {
             state.imageIndex = syncRes.image_index || { rooms: {}, transitions: {} };
             state.allInteractables = syncRes.interactables || {};
             state.systemTaxonomy = syncRes.taxonomy || [];
-            navigate('interactables');
+            
+            if (state.backToRoom) {
+                const backRoom = state.backToRoom;
+                state.backToRoom = null;
+                state.prefilledRoomId = null;
+                navigate(`editor?id=${encodeURIComponent(backRoom)}`);
+            } else {
+                navigate('interactables');
+            }
         } else {
             throw new Error(result.error);
         }

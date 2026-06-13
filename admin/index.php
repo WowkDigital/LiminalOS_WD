@@ -263,7 +263,7 @@ if (isset($_SESSION['admin_auth']) && $_SESSION['admin_auth'] === true):
                                     <!-- Dynamically filled by script.js -->
                                     <small class="loading">Loading interactables...</small>
                                 </div>
-                                <small>Select interactables associated with this room.</small>
+                                <small>Manage objects defined in this room.</small>
                             </div>
 
                             <div class="form-section">
@@ -399,7 +399,7 @@ if (isset($_SESSION['admin_auth']) && $_SESSION['admin_auth'] === true):
                 <form id="inter-form">
                     <div class="editor-layout">
                         <div class="editor-main">
-                            <div class="form-row-2">
+                            <div class="form-row-3">
                                 <div class="form-group">
                                     <label for="inter-id">Object ID</label>
                                     <input type="text" id="inter-id" name="id" placeholder="e.g. wall_switch" required>
@@ -410,6 +410,14 @@ if (isset($_SESSION['admin_auth']) && $_SESSION['admin_auth'] === true):
                                     <label for="inter-label">Label</label>
                                     <input type="text" id="inter-label" name="label" placeholder="e.g. Old Light Switch"
                                         required>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="inter-room-id">Belongs to Room</label>
+                                    <select id="inter-room-id" name="room_id" required>
+                                        <!-- Injected via JS -->
+                                    </select>
+                                    <small>Select the parent room for this object.</small>
                                 </div>
                             </div>
 

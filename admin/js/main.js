@@ -133,7 +133,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Cancel edit bindings
     document.getElementById('btn-cancel-edit').addEventListener('click', () => navigate('dashboard'));
-    document.getElementById('btn-cancel-inter-edit').addEventListener('click', () => navigate('interactables'));
+    document.getElementById('btn-cancel-inter-edit').addEventListener('click', () => {
+        if (state.backToRoom) {
+            const backRoom = state.backToRoom;
+            state.backToRoom = null;
+            state.prefilledRoomId = null;
+            navigate(`editor?id=${encodeURIComponent(backRoom)}`);
+        } else {
+            navigate('interactables');
+        }
+    });
     document.getElementById('btn-cancel-trans-edit').addEventListener('click', () => navigate('transitions'));
 
     // Dynamic fields add bindings

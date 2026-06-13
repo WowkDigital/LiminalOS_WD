@@ -1,7 +1,7 @@
 // Room rendering, integrity check, and editor logic using ES6 Components
 import { state } from './state.js';
 import { getCategoryColor, getThumbPath, showToast, getCategoryIcon } from './ui.js';
-import { fetchWorld, fetchMedia, saveRoom, assignMedia, deleteRoom } from './api.js';
+import { fetchWorld, fetchMedia, saveRoom, assignMedia, deleteRoom, deleteInteractable } from './api.js';
 import { navigate } from './router.js';
 import { el, icon } from './dom.js';
 import { RoomCard } from './components/RoomCard.js';
@@ -200,59 +200,114 @@ export function renderInteractablesCheckboxes(selectedItems) {
     const container = document.getElementById('interactables-checkbox-group');
     if (!container) return;
     container.innerHTML = '';
-    if (Object.keys(state.allInteractables).length === 0) {
-        container.appendChild(el('small', {}, 'No interactables defined in system.'));
-        return;
-    }
 
-    let selectedIds = selectedItems.map(i => typeof i === 'string' ? i : i.id);
+    const roomId = state.currentEditId;
+    const roomInteractables = Object.entries(state.allInteractables).filter(([id, data]) => {
+        return data.room_id === roomId;
+    });
 
-    // Auto-check any interactable that has a configured click area to ensure it saves!
-    if (state.editorRequirements?.interactableClickAreas) {
-        Object.keys(state.editorRequirements.interactableClickAreas).forEach(id => {
-            if (state.editorRequirements.interactableClickAreas[id] && !selectedIds.includes(id)) {
-                selectedIds.push(id);
-            }
+    if (roomInteractables.length === 0) {
+        container.appendChild(el('small', { style: { display: 'block', marginBottom: '10px', color: 'var(--text-muted)' } }, 'No interactables defined for this room.'));
+    } else {
+        roomInteractables.forEach(([id, data]) => {
+            const hasReq = !!state.editorRequirements.interactables[id];
+            const hasArea = !!state.editorRequirements.interactableClickAreas?.[id];
+
+            const row = el('div', { className: 'config-row' }, [
+                el('div', { className: 'inter-info' }, [
+                    el('span', { className: 'inter-label' }, data.label || id),
+                    el('span', { className: 'inter-id' }, id)
+                ]),
+                el('div', { className: 'config-row-actions' }, [
+                    el('button', {
+                        type: 'button',
+                        className: 'btn-cfg btn-edit',
+                        onClick: () => window.editRoomInteractable(id),
+                        title: 'Edit Object',
+                        style: { marginRight: '6px' }
+                    }, [icon('edit-3')]),
+                    el('button', {
+                        type: 'button',
+                        className: `btn-cfg btn-area ${hasArea ? 'has-area' : ''}`,
+                        onClick: () => window.openClickAreaModal(id, 'interactable'),
+                        title: 'Configure click area',
+                        style: { marginRight: '6px' }
+                    }, [icon('maximize')]),
+                    el('button', {
+                        type: 'button',
+                        className: `btn-cfg ${hasReq ? 'has-req' : ''}`,
+                        onClick: () => window.openRequirementsModal('interactables', id),
+                        title: 'Configure requirements',
+                        style: { marginRight: '6px' }
+                    }, [icon('settings')]),
+                    el('button', {
+                        type: 'button',
+                        className: 'btn-cfg btn-danger btn-delete',
+                        onClick: () => window.deleteRoomInteractable(id),
+                        title: 'Delete Object'
+                    }, [icon('trash-2')])
+                ])
+            ]);
+            container.appendChild(row);
         });
     }
 
-    Object.entries(state.allInteractables).forEach(([id, data]) => {
-        const isChecked = selectedIds.includes(id);
-        const hasReq = !!state.editorRequirements.interactables[id];
-        const hasArea = !!state.editorRequirements.interactableClickAreas?.[id];
+    if (roomId) {
+        const createBtn = el('button', {
+            type: 'button',
+            className: 'btn-small btn-primary-outline',
+            onClick: () => window.createRoomInteractable(roomId),
+            style: { marginTop: '10px' }
+        }, '+ Create Object for Room');
+        container.appendChild(createBtn);
+    } else {
+        container.appendChild(el('small', { style: { display: 'block', marginTop: '10px', color: 'var(--text-muted)' } }, 'Save the room first to define objects for it.'));
+    }
 
-        const row = el('div', { className: 'config-row' }, [
-            el('div', { className: 'inter-info' }, [
-                el('span', { className: 'inter-label' }, data.label || id),
-                el('span', { className: 'inter-id' }, id)
-            ]),
-            el('div', { className: 'config-row-actions' }, [
-                el('button', {
-                    type: 'button',
-                    className: `btn-cfg btn-area ${hasArea ? 'has-area' : ''}`,
-                    onClick: () => window.openClickAreaModal(id, 'interactable'),
-                    title: 'Configure click area',
-                    style: { marginRight: '6px' }
-                }, [icon('maximize')]),
-                el('button', {
-                    type: 'button',
-                    className: `btn-cfg ${hasReq ? 'has-req' : ''}`,
-                    onClick: () => window.openRequirementsModal('interactables', id),
-                    title: 'Configure requirements',
-                    style: { marginRight: '6px' }
-                }, [icon('settings')]),
-                el('input', {
-                    type: 'checkbox',
-                    value: id,
-                    checked: isChecked,
-                    onChange: () => updateRoomExportArea()
-                })
-            ])
-        ]);
-        container.appendChild(row);
-    });
     if (window.lucide) lucide.createIcons();
 }
+
+window.editRoomInteractable = (id) => {
+    state.backToRoom = state.currentEditId;
+    if (window.openInteractableEditor) {
+        window.openInteractableEditor(id);
+    }
+};
+
+window.createRoomInteractable = (roomId) => {
+    state.backToRoom = roomId;
+    state.prefilledRoomId = roomId;
+    if (window.openInteractableEditor) {
+        window.openInteractableEditor(null);
+    }
+};
+
+window.deleteRoomInteractable = async (id) => {
+    if (!confirm(`Are you sure you want to delete the object '${id}'? This will completely remove it from the system.`)) return;
+    try {
+        const result = await deleteInteractable(id);
+        if (result.success) {
+            showToast('Object deleted.', 'success');
+            const syncRes = await fetchWorld();
+            state.roomsData = syncRes.rooms;
+            state.allInteractables = syncRes.interactables || {};
+            
+            // Clean up state
+            if (state.editorRequirements && state.editorRequirements.interactables) {
+                delete state.editorRequirements.interactables[id];
+                delete state.editorRequirements.interactableClickAreas[id];
+            }
+            
+            renderInteractablesCheckboxes([]);
+            updateRoomExportArea();
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (err) {
+        showToast('Delete failed: ' + err.message, 'error');
+    }
+};
+
 
 export function refreshCategorySelectors(selectedValues = null) {
     const transGroup = document.getElementById('trans-category-group');
@@ -565,14 +620,16 @@ export function getRoomDataFromForm() {
             area: state.editorRequirements.clickAreas?.[cat] || null
         };
     });
-    const interactablesArr = Array.from(document.querySelectorAll('#interactables-checkbox-group input:checked')).map(cb => {
-        const iid = cb.value;
-        return { 
-            id: iid, 
-            requirements: state.editorRequirements.interactables[iid] || null,
-            area: state.editorRequirements.interactableClickAreas?.[iid] || null
-        };
-    });
+    const roomId = state.currentEditId;
+    const interactablesArr = roomId ? Object.entries(state.allInteractables)
+        .filter(([id, data]) => data.room_id === roomId)
+        .map(([iid, data]) => {
+            return { 
+                id: iid, 
+                requirements: state.editorRequirements.interactables[iid] || null,
+                area: state.editorRequirements.interactableClickAreas?.[iid] || null
+            };
+        }) : [];
 
     return {
         name: formData.get('name'),
