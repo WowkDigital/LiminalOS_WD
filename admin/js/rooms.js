@@ -1361,6 +1361,13 @@ export function renderScenesSection() {
     };
 }
 
+window.toggleCollapsibleSection = (id) => {
+    const el = document.getElementById(id);
+    if (el) {
+        el.classList.toggle('collapsed');
+    }
+};
+
 export function renderActiveSceneEditor() {
     const editorPanel = document.getElementById('active-scene-editor');
     if (!editorPanel) return;
@@ -1377,82 +1384,127 @@ export function renderActiveSceneEditor() {
         return;
     }
 
+    // Calculate metadata counts
+    const hotspotCount = (scene.hotspots || []).length;
+    const commandCount = (scene.terminal_commands || []).length;
+    const reqs = scene.requirements || {};
+    const hasReqs = (reqs.sanity_min !== undefined && reqs.sanity_min !== 0) || 
+                    (reqs.sanity_max !== undefined && reqs.sanity_max !== 100) || 
+                    (reqs.items && reqs.items.length > 0) || 
+                    (reqs.interactables && Object.keys(reqs.interactables).length > 0);
+
     editorPanel.innerHTML = `
-        <div class="scene-editor-form" style="display: flex; flex-direction: column; gap: 1.5rem;">
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed var(--glass-border); padding-bottom: 8px;">
+        <div class="scene-editor-form" style="display: flex; flex-direction: column; gap: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed var(--glass-border); padding-bottom: 8px; margin-bottom: 8px;">
                 <h3 style="margin: 0; font-size: 1.2rem; color: #fff;">Edit Scene: <span style="color: var(--color-primary);">${scene.id}</span></h3>
                 <button type="button" id="btn-delete-scene" class="btn-small danger" style="padding: 4px 10px; border-radius: var(--radius-sm);">Delete Scene</button>
             </div>
 
-            <div class="form-row-stacked" style="display: flex; flex-direction: column; gap: 1rem;">
-                <div class="form-group" style="margin-bottom: 0;">
-                    <label style="font-weight: 600; margin-bottom: 6px; display: block;">Scene ID</label>
-                    <input type="text" id="edit-scene-id" value="${scene.id}" placeholder="e.g. lobby_dark" required style="width: 100%;">
-                    <small style="color: #888;">Must be unique within this room.</small>
-                </div>
-                <div class="form-group" style="display: flex; align-items: center; gap: 8px; margin-top: 0.5rem; margin-bottom: 0;">
-                    <label class="checkbox-container" style="cursor: pointer; display: flex; align-items: center; gap: 8px;">
-                        <input type="checkbox" id="edit-scene-default" ${scene.is_default ? 'checked' : ''}>
-                        <span class="checkbox-label" style="font-weight: 600;">Default Scene</span>
-                    </label>
-                </div>
-            </div>
-
-            <div class="form-section scene-graphics-section" style="border: 1px solid var(--glass-border); padding: 1rem; border-radius: var(--radius-sm); background: rgba(0,0,0,0.15);">
-                <label style="font-weight: 600; margin-bottom: 8px; display: block;">Scene Background Image</label>
-                <div style="display: flex; gap: 1rem; align-items: center;">
-                    <div id="scene-bg-preview-container" style="width: 120px; height: 80px; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative;">
-                        ${scene.bg_image 
-                            ? `<img src="../${scene.bg_image}" style="width: 100%; height: 100%; object-fit: cover;" />` 
-                            : `<i data-lucide="image" style="width: 24px; height: 24px; opacity: 0.3;"></i>`}
+            <!-- 1. General Config & Graphics (Expanded by default) -->
+            <div class="collapsible-section" id="sec-scene-general">
+                <div class="collapsible-header" onclick="toggleCollapsibleSection('sec-scene-general')">
+                    <h4><i data-lucide="settings" style="width: 16px; height: 16px;"></i> General Settings & Visuals</h4>
+                    <div class="collapsible-header-actions">
+                        <span style="font-size: 0.8rem; color: var(--text-muted);">${scene.bg_image ? 'Background Set' : 'No Image'}</span>
+                        <i data-lucide="chevron-down" class="collapsible-icon" style="width: 16px; height: 16px;"></i>
                     </div>
-                    <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
-                        <span id="scene-bg-path-label" style="font-size: 0.8rem; color: #aaa; word-break: break-all; font-family: var(--font-mono);">${scene.bg_image || 'No image selected'}</span>
-                        <div style="display: flex; gap: 8px;">
-                            <button type="button" id="btn-select-scene-bg" class="btn-secondary btn-small">Choose Image</button>
-                            <button type="button" id="btn-clear-scene-bg" class="btn-small danger">Remove</button>
+                </div>
+                <div class="collapsible-content">
+                    <div class="form-row-stacked" style="display: flex; flex-direction: column; gap: 1rem;">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label style="font-weight: 600; margin-bottom: 6px; display: block;">Scene ID</label>
+                            <input type="text" id="edit-scene-id" value="${scene.id}" placeholder="e.g. lobby_dark" required style="width: 100%;">
+                            <small style="color: #888;">Must be unique within this room.</small>
+                        </div>
+                        <div class="form-group" style="display: flex; align-items: center; gap: 8px; margin-top: 0.5rem; margin-bottom: 0;">
+                            <label class="checkbox-container" style="cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" id="edit-scene-default" ${scene.is_default ? 'checked' : ''}>
+                                <span class="checkbox-label" style="font-weight: 600;">Default Scene</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 1.25rem; border: 1px solid var(--glass-border); padding: 1rem; border-radius: var(--radius-sm); background: rgba(0,0,0,0.15);">
+                        <label style="font-weight: 600; margin-bottom: 8px; display: block;">Scene Background Image</label>
+                        <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                            <div id="scene-bg-preview-container" style="width: 120px; height: 80px; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; flex-shrink: 0;">
+                                ${scene.bg_image 
+                                    ? `<img src="../${scene.bg_image}" style="width: 100%; height: 100%; object-fit: cover;" />` 
+                                    : `<i data-lucide="image" style="width: 24px; height: 24px; opacity: 0.3;"></i>`}
+                            </div>
+                            <div style="flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 200px;">
+                                <span id="scene-bg-path-label" style="font-size: 0.8rem; color: #aaa; word-break: break-all; font-family: var(--font-mono);">${scene.bg_image || 'No image selected'}</span>
+                                <div style="display: flex; gap: 8px;">
+                                    <button type="button" id="btn-select-scene-bg" class="btn-secondary btn-small">Choose Image</button>
+                                    <button type="button" id="btn-clear-scene-bg" class="btn-small danger">Remove</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-row-stacked" style="display: flex; flex-direction: column; gap: 1rem; margin-top: 1.25rem;">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label style="font-weight: 600; margin-bottom: 6px; display: block;">Dialogue Node ID</label>
+                            <select id="edit-scene-dialogue-id" style="width: 100%;">
+                                <!-- Will be populated dynamically -->
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label style="font-weight: 600; margin-bottom: 6px; display: block;">Interactable Description</label>
+                            <textarea id="edit-scene-interactable-desc" rows="2" placeholder="CRT description for this specific scene state..." style="width: 100%;">${scene.interactable_desc || ''}</textarea>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="form-row-stacked" style="display: flex; flex-direction: column; gap: 1rem;">
-                <div class="form-group" style="margin-bottom: 0;">
-                    <label style="font-weight: 600; margin-bottom: 6px; display: block;">Dialogue Node ID</label>
-                    <select id="edit-scene-dialogue-id" style="width: 100%;">
-                        <!-- Will be populated dynamically -->
-                    </select>
+            <!-- 2. Scene Entry Requirements (Collapsed by default) -->
+            <div class="collapsible-section collapsed" id="sec-scene-reqs">
+                <div class="collapsible-header" onclick="toggleCollapsibleSection('sec-scene-reqs')">
+                    <h4><i data-lucide="shield-alert" style="width: 16px; height: 16px;"></i> Scene Entry Requirements</h4>
+                    <div class="collapsible-header-actions">
+                        <span style="font-size: 0.8rem; font-weight: 600; color: ${hasReqs ? 'var(--accent-primary)' : 'var(--text-muted)'};">${hasReqs ? 'Active Conditions' : 'No requirements'}</span>
+                        <i data-lucide="chevron-down" class="collapsible-icon" style="width: 16px; height: 16px;"></i>
+                    </div>
                 </div>
-                <div class="form-group" style="margin-bottom: 0;">
-                    <label style="font-weight: 600; margin-bottom: 6px; display: block;">Interactable Description</label>
-                    <textarea id="edit-scene-interactable-desc" rows="2" placeholder="CRT description for this specific scene state..." style="width: 100%;">${scene.interactable_desc || ''}</textarea>
-                </div>
-            </div>
-
-            <!-- Requirements Editor Section -->
-            <div class="form-section" style="background: rgba(0,0,0,0.15); padding: 1rem; border-radius: var(--radius-sm); border: 1px dashed var(--glass-border);">
-                <h4 style="margin: 0 0 12px 0; border-bottom: 1px dashed var(--glass-border); padding-bottom: 6px; font-size: 0.95rem; color: var(--color-primary);">Scene Entry Requirements</h4>
-                <div id="scene-requirements-container" style="display: flex; flex-direction: column; gap: 8px;">
-                    <!-- Requirements config -->
+                <div class="collapsible-content">
+                    <div id="scene-requirements-container" style="display: flex; flex-direction: column; gap: 8px;">
+                        <!-- Requirements config -->
+                    </div>
                 </div>
             </div>
 
-            <!-- Hotspots Section -->
-            <div class="form-section" style="background: rgba(0,0,0,0.15); padding: 1rem; border-radius: var(--radius-sm); border: 1px dashed var(--glass-border);">
-                <h4 style="margin: 0 0 12px 0; border-bottom: 1px dashed var(--glass-border); padding-bottom: 6px; font-size: 0.95rem; color: var(--color-primary);">Hotspots & Click Areas</h4>
-                <div id="scene-hotspots-list" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 1rem;">
-                    <!-- list of hotspots -->
+            <!-- 3. Hotspots & Click Areas (Expanded by default) -->
+            <div class="collapsible-section" id="sec-scene-hotspots">
+                <div class="collapsible-header" onclick="toggleCollapsibleSection('sec-scene-hotspots')">
+                    <h4><i data-lucide="maximize" style="width: 16px; height: 16px;"></i> Hotspots & Click Areas</h4>
+                    <div class="collapsible-header-actions">
+                        <span style="font-size: 0.8rem; color: var(--text-muted);">${hotspotCount} defined</span>
+                        <i data-lucide="chevron-down" class="collapsible-icon" style="width: 16px; height: 16px;"></i>
+                    </div>
                 </div>
-                <button type="button" id="btn-add-scene-hotspot" class="btn-secondary btn-small">+ Add Hotspot</button>
+                <div class="collapsible-content">
+                    <div id="scene-hotspots-list" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 1rem;">
+                        <!-- list of hotspots -->
+                    </div>
+                    <button type="button" id="btn-add-scene-hotspot" class="btn-secondary btn-small">+ Add Hotspot</button>
+                </div>
             </div>
 
-            <!-- Custom Terminal Commands Section -->
-            <div class="form-section" style="background: rgba(0,0,0,0.15); padding: 1rem; border-radius: var(--radius-sm); border: 1px dashed var(--glass-border);">
-                <h4 style="margin: 0 0 12px 0; border-bottom: 1px dashed var(--glass-border); padding-bottom: 6px; font-size: 0.95rem; color: var(--color-primary);">Custom Terminal Commands</h4>
-                <div id="scene-commands-list" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 1rem;">
-                    <!-- list of custom commands -->
+            <!-- 4. Custom Terminal Commands (Collapsed by default) -->
+            <div class="collapsible-section collapsed" id="sec-scene-commands">
+                <div class="collapsible-header" onclick="toggleCollapsibleSection('sec-scene-commands')">
+                    <h4><i data-lucide="terminal" style="width: 16px; height: 16px;"></i> Custom Terminal Commands</h4>
+                    <div class="collapsible-header-actions">
+                        <span style="font-size: 0.8rem; color: var(--text-muted);">${commandCount} defined</span>
+                        <i data-lucide="chevron-down" class="collapsible-icon" style="width: 16px; height: 16px;"></i>
+                    </div>
                 </div>
-                <button type="button" id="btn-add-scene-command" class="btn-secondary btn-small">+ Add Custom Command</button>
+                <div class="collapsible-content">
+                    <div id="scene-commands-list" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 1rem;">
+                        <!-- list of custom commands -->
+                    </div>
+                    <button type="button" id="btn-add-scene-command" class="btn-secondary btn-small">+ Add Custom Command</button>
+                </div>
             </div>
 
         </div>
@@ -1558,6 +1610,18 @@ export function renderSceneRequirements(scene) {
 
     scene.requirements = scene.requirements || {};
 
+    // Update collapsible header status
+    const reqs = scene.requirements;
+    const hasReqs = (reqs.sanity_min !== undefined && reqs.sanity_min !== 0) || 
+                    (reqs.sanity_max !== undefined && reqs.sanity_max !== 100) || 
+                    (reqs.items && reqs.items.length > 0) || 
+                    (reqs.interactables && Object.keys(reqs.interactables).length > 0);
+    const reqBadge = document.querySelector('#sec-scene-reqs .collapsible-header-actions span');
+    if (reqBadge) {
+        reqBadge.textContent = hasReqs ? 'Active Conditions' : 'No requirements';
+        reqBadge.style.color = hasReqs ? 'var(--accent-primary)' : 'var(--text-muted)';
+    }
+
     // Sanity requirement
     const sanityRow = document.createElement('div');
     sanityRow.style.cssText = 'display: flex; gap: 1rem; align-items: center;';
@@ -1658,6 +1722,12 @@ export function renderSceneHotspots(scene) {
     list.innerHTML = '';
 
     scene.hotspots = scene.hotspots || [];
+
+    // Update collapsible header count
+    const hotspotBadge = document.querySelector('#sec-scene-hotspots .collapsible-header-actions span');
+    if (hotspotBadge) {
+        hotspotBadge.textContent = `${scene.hotspots.length} defined`;
+    }
 
     if (scene.hotspots.length === 0) {
         list.innerHTML = '<span style="font-size: 0.85rem; color: #666; font-style: italic;">No hotspots defined.</span>';
@@ -1934,6 +2004,12 @@ export function renderSceneCommands(scene) {
     list.innerHTML = '';
 
     scene.terminal_commands = scene.terminal_commands || [];
+
+    // Update collapsible header count
+    const commandBadge = document.querySelector('#sec-scene-commands .collapsible-header-actions span');
+    if (commandBadge) {
+        commandBadge.textContent = `${scene.terminal_commands.length} defined`;
+    }
 
     if (scene.terminal_commands.length === 0) {
         list.innerHTML = '<span style="font-size: 0.85rem; color: #666; font-style: italic;">No custom terminal commands defined.</span>';

@@ -2917,4 +2917,63 @@ input[type="checkbox"]:checked::before {
     border-color: var(--accent-primary) !important;
     background: rgba(234, 179, 8, 0.15) !important;
     box-shadow: 0 0 8px var(--accent-glow) !important;
+}
+
+/* Collapsible Sections */
+.collapsible-section {
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-sm);
+    background: rgba(0, 0, 0, 0.15);
+    margin-bottom: 1rem;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.collapsible-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    background: rgba(255, 255, 255, 0.03);
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s ease;
+}
+
+.collapsible-header:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.collapsible-header h4 {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--accent-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+}
+
+.collapsible-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.collapsible-icon {
+    transition: transform 0.2s ease;
+    color: var(--text-muted);
+}
+
+.collapsible-section.collapsed .collapsible-icon {
+    transform: rotate(-90deg);
+}
+
+.collapsible-content {
+    padding: 1rem;
+    border-top: 1px solid var(--glass-border);
+}
+
+.collapsible-section.collapsed .collapsible-content {
+    display: none;
 }
