@@ -215,68 +215,24 @@ if (isset($_SESSION['admin_auth']) && $_SESSION['admin_auth'] === true):
 
                             <!-- General Config Tab Content -->
                             <div id="room-tab-general" class="room-tab-content">
-                                <div class="form-row-2">
+                                <div class="form-row-3">
                                     <div class="form-group">
-                                    <label for="room-id">Unique Room ID</label>
-                                    <input type="text" id="room-id" name="id" placeholder="e.g. infinite_hallway" required>
-                                    <small>Must be unique, lowercase, no spaces.</small>
-                                </div>
+                                        <label for="room-id">Unique Room ID</label>
+                                        <input type="text" id="room-id" name="id" placeholder="e.g. infinite_hallway" required>
+                                        <small>Must be unique, lowercase, no spaces.</small>
+                                    </div>
 
-                                <div class="form-group">
-                                    <label for="room-name">Display Name</label>
-                                    <input type="text" id="room-name" name="name" placeholder="e.g. The Infinite Hallway"
-                                        required>
-                                </div>
-                            </div>
+                                    <div class="form-group">
+                                        <label for="room-name">Display Name</label>
+                                        <input type="text" id="room-name" name="name" placeholder="e.g. The Infinite Hallway"
+                                            required>
+                                    </div>
 
-                            <div class="form-section graphics-card">
-                                <h3>Room Graphics</h3>
-                                <div id="room-images-preview" class="image-preview-grid">
-                                    <!-- Currently assigned images -->
+                                    <div class="form-group">
+                                        <label for="room-tags">Tags (comma separated)</label>
+                                        <input type="text" id="room-tags" name="tags" placeholder="liminal, dark, industrial">
+                                    </div>
                                 </div>
-                                <button type="button" id="btn-manage-room-media" class="btn-secondary full-width">Manage
-                                    Graphics</button>
-                            </div>
-
-                            <div class="form-row-2">
-                                <div class="form-group">
-                                    <label for="room-desc">Description</label>
-                                    <textarea id="room-desc" name="desc" rows="2" placeholder="..." required></textarea>
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="room-tags">Tags (comma separated)</label>
-                                    <input type="text" id="room-tags" name="tags" placeholder="liminal, dark, industrial">
-                                </div>
-                            </div>
-
-                            <div class="form-section">
-                                <h3>Transitions Categories</h3>
-                                <div id="transitions-container">
-                                    <!-- Dynamically filled by script.js -->
-                                </div>
-                            </div>
-
-                            <div class="form-section interactables-section">
-                                <h3>Interactables Available</h3>
-                                <div id="interactables-checkbox-group">
-                                    <!-- Dynamically filled by script.js -->
-                                    <small class="loading">Loading interactables...</small>
-                                </div>
-                                <small>Manage objects defined in this room.</small>
-                            </div>
-
-                            <div class="form-section">
-                                <h3>Atmospheric Texts</h3>
-                                <div class="text-list-header">
-                                    <span class="col-text">Atmospheric Line</span>
-                                    <span class="col-sanity">Sanity Range</span>
-                                    <span class="col-dialog">Dialog ID</span>
-                                    <span class="col-action"></span>
-                                </div>
-                                <div id="texts-list"></div>
-                                <button type="button" id="btn-add-text" class="btn-small">+ Add Text Line</button>
-                            </div>
 
                             <div class="form-section json-control-section">
                                 <h3 style="margin-bottom: 0.75rem;">Data Control (JSON)</h3>

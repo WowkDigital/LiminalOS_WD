@@ -54,10 +54,18 @@ class RoomLocation extends Location {
     }
 
     getDescription() {
+        const activeScene = this.game.getActiveScene(this.id);
+        if (activeScene && activeScene.desc) {
+            return activeScene.desc;
+        }
         return this.data.desc || "No description.";
     }
 
     getTerminalTexts() {
+        const activeScene = this.game.getActiveScene(this.id);
+        if (activeScene && activeScene.texts && activeScene.texts.length > 0) {
+            return activeScene.texts;
+        }
         return this.data.texts || [];
     }
 

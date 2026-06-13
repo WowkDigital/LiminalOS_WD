@@ -94,6 +94,8 @@ function exportAllData($pdo) {
                 'id' => $scene['id'],
                 'is_default' => (bool)$scene['is_default'],
                 'bg_image' => $bgImage,
+                'desc' => $scene['desc'],
+                'texts' => !empty($scene['texts']) ? json_decode($scene['texts'], true) : [],
                 'interactable_desc' => $scene['interactable_desc'],
                 'dialogue_id' => $scene['dialogue_id'],
                 'requirements' => !empty($scene['requirements']) ? json_decode($scene['requirements'], true) : null,
@@ -257,7 +259,9 @@ function importAllData($pdo, $data) {
 
                         $reqJson = !empty($scene['requirements']) ? json_encode($scene['requirements']) : null;
 
-                        $stmtInsertScene = $pdo->prepare("INSERT INTO room_scenes (id, room_id, is_default, media_id, interactable_desc, dialogue_id, requirements) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                        $textsJson = !empty($scene['texts']) ? json_encode($scene['texts']) : null;
+
+                        $stmtInsertScene = $pdo->prepare("INSERT INTO room_scenes (id, room_id, is_default, media_id, interactable_desc, dialogue_id, requirements, desc, texts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
                         $stmtInsertScene->execute([
                             $sceneId,
                             $id,
@@ -265,7 +269,9 @@ function importAllData($pdo, $data) {
                             $mediaId,
                             $scene['interactable_desc'] ?? null,
                             $scene['dialogue_id'] ?? null,
-                            $reqJson
+                            $reqJson,
+                            $scene['desc'] ?? null,
+                            $textsJson
                         ]);
 
                         // Save hotspots

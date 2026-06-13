@@ -467,7 +467,8 @@ export function openEditor(id = null) {
         if (delBtn) delBtn.classList.remove('hidden');
 
         document.getElementById('room-name').value = room.name || '';
-        document.getElementById('room-desc').value = room.desc || '';
+        const roomDescInput = document.getElementById('room-desc');
+        if (roomDescInput) roomDescInput.value = room.desc || '';
         document.getElementById('room-tags').value = (room.tags || []).join(', ');
 
         state.editorRequirements.transitions = {};
@@ -492,10 +493,11 @@ export function openEditor(id = null) {
 
         const selectedCats = (room.transitions || []).map(t => typeof t === 'string' ? t : t.category);
         refreshCategorySelectors(selectedCats);
-        renderInteractablesCheckboxes(room.interactables || []);
-
-        (room.texts || []).forEach(text => addTextField(text));
-        renderRoomMediaPreview();
+        
+        const mediaPreview = document.getElementById('room-images-preview');
+        if (mediaPreview) {
+            renderRoomMediaPreview();
+        }
 
         state.editorScenes = JSON.parse(JSON.stringify(room.scenes || []));
         if (state.editorScenes.length === 0) {
@@ -536,6 +538,8 @@ export function openEditor(id = null) {
                 id: `${id}_default`,
                 is_default: true,
                 bg_image: defaultBg,
+                desc: room.desc || '',
+                texts: room.texts || [],
                 interactable_desc: null,
                 dialogue_id: null,
                 requirements: null,
@@ -549,7 +553,9 @@ export function openEditor(id = null) {
         if (roomForm) roomForm.reset();
         idInput.value = '';
         idInput.readOnly = false;
-        document.getElementById('room-images-preview').innerHTML = '';
+        
+        const imagesPreview = document.getElementById('room-images-preview');
+        if (imagesPreview) imagesPreview.innerHTML = '';
 
         const delBtn = document.getElementById('btn-delete-room');
         if (delBtn) delBtn.classList.add('hidden');
@@ -557,13 +563,19 @@ export function openEditor(id = null) {
         state.editorRequirements = { transitions: {}, interactables: {}, clickAreas: {}, interactableClickAreas: {} };
 
         renderInteractablesCheckboxes([]);
-        addTextField();
+        const textsList = document.getElementById('texts-list');
+        if (textsList) {
+            textsList.innerHTML = '';
+            addTextField();
+        }
         refreshCategorySelectors(['universal']);
 
         state.editorScenes = [{
             id: 'new_room_default',
             is_default: true,
             bg_image: null,
+            desc: '',
+            texts: [],
             interactable_desc: null,
             dialogue_id: null,
             requirements: null,
@@ -604,40 +616,62 @@ export function openEditor(id = null) {
 export function getRoomDataFromForm() {
     const roomForm = document.getElementById('room-form');
     const formData = new FormData(roomForm);
-    const textRows = document.querySelectorAll('#texts-list .text-config-row');
-    const texts = Array.from(textRows).map(row => ({
-        text: row.querySelector('.text-content').value.trim(),
-        sanity_min: parseInt(row.querySelector('.text-smin').value) || 0,
-        sanity_max: parseInt(row.querySelector('.text-smax').value) || 100,
-        dialogue_id: row.querySelector('.text-did').value.trim() || null
-    })).filter(t => t.text);
 
-    const transitions = Array.from(document.querySelectorAll('#transitions-container input:checked')).map(cb => {
-        const cat = cb.value;
-        return {
-            category: cat,
-            requirements: state.editorRequirements.transitions[cat] || null,
-            area: state.editorRequirements.clickAreas?.[cat] || null
-        };
-    });
+    let roomDesc = null;
+    let roomTexts = [];
+    if (state.editorScenes && state.editorScenes.length > 0) {
+        const defaultScene = state.editorScenes.find(s => s.is_default) || state.editorScenes[0];
+        roomDesc = defaultScene.desc || null;
+        roomTexts = defaultScene.texts || [];
+    }
+
+    const transitions = [];
+    const transSeen = new Set();
+    if (state.editorScenes) {
+        state.editorScenes.forEach(scene => {
+            (scene.hotspots || []).forEach(h => {
+                if (h.type === 'tra' && !transSeen.has(h.target_id)) {
+                    transSeen.add(h.target_id);
+                    transitions.push({
+                        category: h.target_id,
+                        requirements: h.requirements || null,
+                        area: h.area || null
+                    });
+                }
+            });
+        });
+    }
+
     const roomId = state.currentEditId;
     const interactablesArr = roomId ? Object.entries(state.allInteractables)
         .filter(([id, data]) => data.room_id === roomId)
         .map(([iid, data]) => {
+            let req = null;
+            let area = null;
+            if (state.editorScenes) {
+                for (const scene of state.editorScenes) {
+                    const h = (scene.hotspots || []).find(hs => hs.type === 'act' && hs.target_id === iid);
+                    if (h) {
+                        req = h.requirements || null;
+                        area = h.area || null;
+                        break;
+                    }
+                }
+            }
             return { 
                 id: iid, 
-                requirements: state.editorRequirements.interactables[iid] || null,
-                area: state.editorRequirements.interactableClickAreas?.[iid] || null
+                requirements: req || state.editorRequirements.interactables[iid] || null,
+                area: area || state.editorRequirements.interactableClickAreas?.[iid] || null
             };
         }) : [];
 
     return {
         name: formData.get('name'),
-        desc: formData.get('desc'),
+        desc: roomDesc,
         tags: (formData.get('tags') || '').split(',').map(s => s.trim()).filter(s => s),
         transitions,
         interactables: interactablesArr,
-        texts,
+        texts: roomTexts,
         scenes: state.editorScenes || []
     };
 }
@@ -661,11 +695,13 @@ export function applyRoomJSON() {
         if (typeof data !== 'object') throw new Error("Invalid structure");
 
         document.getElementById('room-name').value = data.name || '';
-        document.getElementById('room-desc').value = data.desc || '';
+        const roomDescInput = document.getElementById('room-desc');
+        if (roomDescInput) roomDescInput.value = data.desc || '';
         document.getElementById('room-tags').value = (data.tags || []).join(', ');
 
         state.editorRequirements.transitions = {};
         state.editorRequirements.clickAreas = {};
+        state.editorRequirements.interactableClickAreas = {};
         (data.transitions || []).forEach(t => {
             if (typeof t === 'object') {
                 state.editorRequirements.transitions[t.category] = t.requirements;
@@ -673,7 +709,6 @@ export function applyRoomJSON() {
             }
         });
         state.editorRequirements.interactables = {};
-        state.editorRequirements.interactableClickAreas = {};
         (data.interactables || []).forEach(i => {
             if (typeof i === 'object' && i !== null) {
                 state.editorRequirements.interactables[i.id] = i.requirements;
@@ -689,10 +724,58 @@ export function applyRoomJSON() {
         renderInteractablesCheckboxes(data.interactables || []);
 
         const textsContainer = document.getElementById('texts-list');
-        textsContainer.innerHTML = '';
-        (data.texts || []).forEach(text => addTextField(text));
+        if (textsContainer) {
+            textsContainer.innerHTML = '';
+            (data.texts || []).forEach(text => addTextField(text));
+        }
 
-        state.editorScenes = data.scenes || [];
+        state.editorScenes = JSON.parse(JSON.stringify(data.scenes || []));
+        if (state.editorScenes.length === 0) {
+            const roomMedia = state.mediaLibrary.filter(
+                m => m.context_type === 'room' && m.context_id === state.currentEditId
+            );
+            const defaultBg = roomMedia.length > 0 ? roomMedia[0].filepath : null;
+            
+            const legacyHotspots = [];
+            (data.transitions || []).forEach(t => {
+                const cat = typeof t === 'string' ? t : t.category;
+                const req = typeof t === 'object' ? t.requirements : null;
+                const area = typeof t === 'object' ? t.area : null;
+                legacyHotspots.push({
+                    type: 'tra',
+                    target_id: cat,
+                    label: cat.toUpperCase(),
+                    area,
+                    requirements: req
+                });
+            });
+            
+            (data.interactables || []).forEach(i => {
+                const iid = typeof i === 'object' ? i.id : i;
+                const req = typeof i === 'object' ? i.requirements : null;
+                const area = typeof i === 'object' ? i.area : null;
+                legacyHotspots.push({
+                    type: 'act',
+                    target_id: iid,
+                    label: iid.toUpperCase(),
+                    area,
+                    requirements: req
+                });
+            });
+
+            state.editorScenes.push({
+                id: `${state.currentEditId || 'new_room'}_default`,
+                is_default: true,
+                bg_image: defaultBg,
+                desc: data.desc || '',
+                texts: data.texts || [],
+                interactable_desc: null,
+                dialogue_id: null,
+                requirements: null,
+                hotspots: legacyHotspots,
+                terminal_commands: []
+            });
+        }
         state.selectedSceneId = state.editorScenes[0]?.id || null;
         renderScenesSection();
         renderActiveSceneEditor();
@@ -1387,6 +1470,7 @@ export function renderActiveSceneEditor() {
     // Calculate metadata counts
     const hotspotCount = (scene.hotspots || []).length;
     const commandCount = (scene.terminal_commands || []).length;
+    const textsCount = (scene.texts || []).length;
     const reqs = scene.requirements || {};
     const hasReqs = (reqs.sanity_min !== undefined && reqs.sanity_min !== 0) || 
                     (reqs.sanity_max !== undefined && reqs.sanity_max !== 100) || 
@@ -1450,6 +1534,10 @@ export function renderActiveSceneEditor() {
                             </select>
                         </div>
                         <div class="form-group" style="margin-bottom: 0;">
+                            <label style="font-weight: 600; margin-bottom: 6px; display: block;">Scene Description</label>
+                            <textarea id="edit-scene-desc" rows="2" placeholder="Main description displayed when entering this scene state..." style="width: 100%;">${scene.desc || ''}</textarea>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
                             <label style="font-weight: 600; margin-bottom: 6px; display: block;">Interactable Description</label>
                             <textarea id="edit-scene-interactable-desc" rows="2" placeholder="CRT description for this specific scene state..." style="width: 100%;">${scene.interactable_desc || ''}</textarea>
                         </div>
@@ -1473,7 +1561,40 @@ export function renderActiveSceneEditor() {
                 </div>
             </div>
 
-            <!-- 3. Hotspots & Click Areas (Expanded by default) -->
+            <!-- 3. Atmospheric Texts (Collapsed by default) -->
+            <div class="collapsible-section collapsed" id="sec-scene-texts">
+                <div class="collapsible-header" onclick="toggleCollapsibleSection('sec-scene-texts')">
+                    <h4><i data-lucide="align-left" style="width: 16px; height: 16px;"></i> Atmospheric Texts</h4>
+                    <div class="collapsible-header-actions">
+                        <span style="font-size: 0.8rem; color: var(--text-muted);">${textsCount} lines</span>
+                        <i data-lucide="chevron-down" class="collapsible-icon" style="width: 16px; height: 16px;"></i>
+                    </div>
+                </div>
+                <div class="collapsible-content">
+                    <div id="scene-texts-list" class="texts-list" style="display: flex; flex-direction: column; gap: 8px;">
+                        <!-- Rendered list of TextConfigRows -->
+                    </div>
+                    <button type="button" id="btn-add-scene-text" class="btn-secondary btn-small" style="margin-top: 10px;">+ Add Text Line</button>
+                </div>
+            </div>
+
+            <!-- 4. Room Objects / Interactables (Collapsed by default) -->
+            <div class="collapsible-section collapsed" id="sec-scene-interactables">
+                <div class="collapsible-header" onclick="toggleCollapsibleSection('sec-scene-interactables')">
+                    <h4><i data-lucide="package" style="width: 16px; height: 16px;"></i> Room Objects (Interactables)</h4>
+                    <div class="collapsible-header-actions">
+                        <i data-lucide="chevron-down" class="collapsible-icon" style="width: 16px; height: 16px;"></i>
+                    </div>
+                </div>
+                <div class="collapsible-content">
+                    <div id="interactables-checkbox-group" style="display: flex; flex-direction: column; gap: 8px;">
+                        <!-- Injected by renderInteractablesCheckboxes -->
+                    </div>
+                    <small style="display: block; margin-top: 8px; color: var(--text-muted);">Manage objects defined in this room.</small>
+                </div>
+            </div>
+
+            <!-- 5. Hotspots & Click Areas (Expanded by default) -->
             <div class="collapsible-section" id="sec-scene-hotspots">
                 <div class="collapsible-header" onclick="toggleCollapsibleSection('sec-scene-hotspots')">
                     <h4><i data-lucide="maximize" style="width: 16px; height: 16px;"></i> Hotspots & Click Areas</h4>
@@ -1490,7 +1611,7 @@ export function renderActiveSceneEditor() {
                 </div>
             </div>
 
-            <!-- 4. Custom Terminal Commands (Collapsed by default) -->
+            <!-- 6. Custom Terminal Commands (Collapsed by default) -->
             <div class="collapsible-section collapsed" id="sec-scene-commands">
                 <div class="collapsible-header" onclick="toggleCollapsibleSection('sec-scene-commands')">
                     <h4><i data-lucide="terminal" style="width: 16px; height: 16px;"></i> Custom Terminal Commands</h4>
@@ -1515,6 +1636,7 @@ export function renderActiveSceneEditor() {
     // Bind event handlers
     const idInput = document.getElementById('edit-scene-id');
     const defaultCheck = document.getElementById('edit-scene-default');
+    const sceneDescInput = document.getElementById('edit-scene-desc');
     const descTextarea = document.getElementById('edit-scene-interactable-desc');
     const dialogueSelect = document.getElementById('edit-scene-dialogue-id');
     
@@ -1558,6 +1680,13 @@ export function renderActiveSceneEditor() {
         updateRoomExportArea();
     });
 
+    if (sceneDescInput) {
+        sceneDescInput.addEventListener('input', () => {
+            scene.desc = sceneDescInput.value.trim() || null;
+            updateRoomExportArea();
+        });
+    }
+
     descTextarea.addEventListener('input', () => {
         scene.interactable_desc = descTextarea.value.trim() || null;
         updateRoomExportArea();
@@ -1599,8 +1728,58 @@ export function renderActiveSceneEditor() {
 
     // Render Sub-components
     renderSceneRequirements(scene);
+    renderSceneTexts(scene);
+    renderInteractablesCheckboxes();
     renderSceneHotspots(scene);
     renderSceneCommands(scene);
+}
+
+export function renderSceneTexts(scene) {
+    const container = document.getElementById('scene-texts-list');
+    if (!container) return;
+    container.innerHTML = '';
+
+    scene.texts = scene.texts || [];
+
+    const textsBadge = document.querySelector('#sec-scene-texts .collapsible-header-actions span');
+    if (textsBadge) {
+        textsBadge.textContent = `${scene.texts.length} lines`;
+    }
+
+    if (scene.texts.length === 0) {
+        container.innerHTML = '<span style="font-size: 0.85rem; color: #666; font-style: italic;">No atmospheric texts defined.</span>';
+    } else {
+        scene.texts.forEach((textObj, index) => {
+            const onRemove = () => {
+                scene.texts.splice(index, 1);
+                renderSceneTexts(scene);
+                updateRoomExportArea();
+            };
+            const rowComponent = new TextConfigRow(textObj, onRemove);
+            const rendered = rowComponent.render();
+
+            rendered.addEventListener('input', () => {
+                scene.texts[index] = {
+                    text: rendered.querySelector('.text-content').value.trim(),
+                    sanity_min: parseInt(rendered.querySelector('.text-smin').value) || 0,
+                    sanity_max: parseInt(rendered.querySelector('.text-smax').value) || 100,
+                    dialogue_id: rendered.querySelector('.text-did').value.trim() || null
+                };
+                updateRoomExportArea();
+            });
+
+            container.appendChild(rendered);
+        });
+    }
+
+    const addSceneTextBtn = document.getElementById('btn-add-scene-text');
+    if (addSceneTextBtn) {
+        addSceneTextBtn.onclick = () => {
+            scene.texts.push({ text: '', sanity_min: 0, sanity_max: 100, dialogue_id: null });
+            renderSceneTexts(scene);
+            updateRoomExportArea();
+        };
+    }
 }
 
 export function renderSceneRequirements(scene) {
@@ -1819,8 +1998,10 @@ export function renderSceneHotspots(scene) {
                     }
                 } else {
                     targetLabel.textContent = 'Interactable Object';
+                    const roomId = state.currentEditId;
                     const interactablesList = state.allInteractables || {};
                     Object.keys(interactablesList).forEach(iid => {
+                        if (interactablesList[iid].room_id !== roomId && iid !== h.target_id) return;
                         const opt = document.createElement('option');
                         opt.value = iid;
                         opt.textContent = (interactablesList[iid].label || iid).toUpperCase();

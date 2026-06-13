@@ -539,6 +539,60 @@ function migrateDatabase($pdo) {
             throw $e;
         }
     }
+
+    // Version 7: Add desc and texts columns to room_scenes, and migrate existing room descriptions/texts
+    $version = 0;
+    try {
+        $stmt = $pdo->query("SELECT MAX(CAST(value AS INTEGER)) FROM global_definitions WHERE type = 'db_version'");
+        if ($stmt) {
+            $val = $stmt->fetchColumn();
+            if ($val !== false && $val !== null) {
+                $version = (int)$val;
+            }
+        }
+    } catch (PDOException $e) {}
+
+    if ($version < 7) {
+        $pdo->beginTransaction();
+        try {
+            // Check columns, alter table
+            $stmt = $pdo->query("PRAGMA table_info(room_scenes)");
+            $columns = $stmt->fetchAll(PDO::FETCH_COLUMN, 1);
+            if (!in_array('desc', $columns)) {
+                $pdo->exec("ALTER TABLE room_scenes ADD COLUMN desc TEXT");
+            }
+            if (!in_array('texts', $columns)) {
+                $pdo->exec("ALTER TABLE room_scenes ADD COLUMN texts TEXT");
+            }
+
+            // Sync existing room description to default scene
+            $pdo->exec("UPDATE room_scenes SET desc = (
+                SELECT desc FROM rooms WHERE rooms.id = room_scenes.room_id LIMIT 1
+            ) WHERE is_default = 1 AND desc IS NULL");
+
+            // Sync existing room texts to default scene as JSON
+            $stmtRooms = $pdo->query("SELECT id FROM rooms");
+            $roomsList = $stmtRooms->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($roomsList as $r) {
+                $roomId = $r['id'];
+                $stmtTexts = $pdo->prepare("SELECT text, sanity_min, sanity_max, dialogue_id FROM room_texts WHERE room_id = ?");
+                $stmtTexts->execute([$roomId]);
+                $texts = $stmtTexts->fetchAll(PDO::FETCH_ASSOC);
+                if (!empty($texts)) {
+                    $textsJson = json_encode($texts);
+                    $pdo->prepare("UPDATE room_scenes SET texts = ? WHERE room_id = ? AND is_default = 1")
+                        ->execute([$textsJson, $roomId]);
+                }
+            }
+
+            $pdo->exec("DELETE FROM global_definitions WHERE type = 'db_version'");
+            $pdo->exec("INSERT INTO global_definitions (type, value) VALUES ('db_version', '7')");
+            $pdo->commit();
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+    }
 }
 
 try {
@@ -675,6 +729,8 @@ function getFullWorld($pdo)
                 'id' => $scene['id'],
                 'is_default' => (bool)$scene['is_default'],
                 'bg_image' => $bgImage,
+                'desc' => $scene['desc'],
+                'texts' => !empty($scene['texts']) ? json_decode($scene['texts'], true) : [],
                 'interactable_desc' => $scene['interactable_desc'],
                 'dialogue_id' => $scene['dialogue_id'],
                 'requirements' => !empty($scene['requirements']) ? json_decode($scene['requirements'], true) : null,
@@ -970,10 +1026,35 @@ elseif ($method === 'POST') {
 
         $pdo->beginTransaction();
         try {
+            // Determine room description and texts from default scene (for backwards compatibility)
+            $roomDesc = $room['desc'] ?? null;
+            $roomTexts = $room['texts'] ?? [];
+
+            if (!empty($room['scenes'])) {
+                foreach ($room['scenes'] as $scene) {
+                    if (!empty($scene['is_default'])) {
+                        if (isset($scene['desc'])) {
+                            $roomDesc = $scene['desc'];
+                        }
+                        if (!empty($scene['texts'])) {
+                            $roomTexts = $scene['texts'];
+                        }
+                        break;
+                    }
+                }
+                // fallback to first scene
+                if ($roomDesc === null && !empty($room['scenes'][0]['desc'])) {
+                    $roomDesc = $room['scenes'][0]['desc'];
+                }
+                if (empty($roomTexts) && !empty($room['scenes'][0]['texts'])) {
+                    $roomTexts = $room['scenes'][0]['texts'];
+                }
+            }
+
             // Update/Insert Room
             $stmt = $pdo->prepare("INSERT INTO rooms (id, name, desc, effects) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, desc=excluded.desc, effects=excluded.effects");
             $effectsJson = !empty($room['effects']) ? (is_string($room['effects']) ? $room['effects'] : json_encode($room['effects'])) : null;
-            $stmt->execute([$id, $room['name'], $room['desc'], $effectsJson]);
+            $stmt->execute([$id, $room['name'], $roomDesc, $effectsJson]);
 
             // Clear and rewrite relations
             $pdo->prepare("DELETE FROM room_tags WHERE room_id = ?")->execute([$id]);
@@ -997,8 +1078,9 @@ elseif ($method === 'POST') {
                     $mediaId = $mRow['id'];
                 }
 
-                $pdo->prepare("INSERT INTO room_scenes (id, room_id, is_default, media_id, interactable_desc, dialogue_id, requirements) VALUES (?, ?, 1, ?, NULL, NULL, NULL)")
-                    ->execute([$sceneId, $id, $mediaId]);
+                $textsJson = !empty($roomTexts) ? json_encode($roomTexts) : null;
+                $pdo->prepare("INSERT INTO room_scenes (id, room_id, is_default, media_id, interactable_desc, dialogue_id, requirements, desc, texts) VALUES (?, ?, 1, ?, NULL, NULL, NULL, ?, ?)")
+                    ->execute([$sceneId, $id, $mediaId, $roomDesc, $textsJson]);
 
                 foreach (($room['transitions'] ?? []) as $transItem) {
                     if (is_string($transItem)) {
@@ -1049,8 +1131,9 @@ elseif ($method === 'POST') {
                     }
 
                     $reqJson = !empty($scene['requirements']) ? json_encode($scene['requirements']) : null;
+                    $textsJson = !empty($scene['texts']) ? json_encode($scene['texts']) : null;
 
-                    $stmtInsertScene = $pdo->prepare("INSERT INTO room_scenes (id, room_id, is_default, media_id, interactable_desc, dialogue_id, requirements) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                    $stmtInsertScene = $pdo->prepare("INSERT INTO room_scenes (id, room_id, is_default, media_id, interactable_desc, dialogue_id, requirements, desc, texts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
                     $stmtInsertScene->execute([
                         $sceneId,
                         $id,
@@ -1058,7 +1141,9 @@ elseif ($method === 'POST') {
                         $mediaId,
                         $scene['interactable_desc'] ?? null,
                         $scene['dialogue_id'] ?? null,
-                        $reqJson
+                        $reqJson,
+                        $scene['desc'] ?? null,
+                        $textsJson
                     ]);
 
                     // Save hotspots
@@ -1153,7 +1238,7 @@ elseif ($method === 'POST') {
             }
 
             $pdo->prepare("DELETE FROM room_texts WHERE room_id = ?")->execute([$id]);
-            foreach (($room['texts'] ?? []) as $textObj) {
+            foreach (($roomTexts ?? []) as $textObj) {
                 $content = is_string($textObj) ? $textObj : ($textObj['text'] ?? '');
                 $s_min = (int)($textObj['sanity_min'] ?? 0);
                 $s_max = (int)($textObj['sanity_max'] ?? 100);
