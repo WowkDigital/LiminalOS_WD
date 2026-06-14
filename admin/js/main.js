@@ -146,9 +146,14 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-cancel-trans-edit').addEventListener('click', () => navigate('transitions'));
 
     // Dynamic fields add bindings
-    document.getElementById('btn-add-text').addEventListener('click', () => addTextField());
-    document.getElementById('btn-add-state').addEventListener('click', () => addStateField());
-    document.getElementById('btn-add-trans-text').addEventListener('click', () => addTransTextField());
+    const addTextBtn = document.getElementById('btn-add-text');
+    if (addTextBtn) addTextBtn.addEventListener('click', () => addTextField());
+    
+    const addStateBtn = document.getElementById('btn-add-state');
+    if (addStateBtn) addStateBtn.addEventListener('click', () => addStateField());
+    
+    const addTransTextBtn = document.getElementById('btn-add-trans-text');
+    if (addTransTextBtn) addTransTextBtn.addEventListener('click', () => addTransTextField());
 
     // Delete bindings
     document.getElementById('btn-delete-room').addEventListener('click', handleDeleteRoom);
@@ -405,8 +410,11 @@ document.addEventListener('DOMContentLoaded', () => {
     window.openMediaModal = openMediaModal;
 
     // Media Modal bindings
-    document.getElementById('btn-manage-room-media').addEventListener('click', () => { state.currentContext = 'room'; openMediaModal(); });
-    document.getElementById('btn-manage-trans-media').addEventListener('click', () => { state.currentContext = 'transition'; openMediaModal(); });
+    const manageRoomMediaBtn = document.getElementById('btn-manage-room-media');
+    if (manageRoomMediaBtn) manageRoomMediaBtn.addEventListener('click', () => { state.currentContext = 'room'; openMediaModal(); });
+    
+    const manageTransMediaBtn = document.getElementById('btn-manage-trans-media');
+    if (manageTransMediaBtn) manageTransMediaBtn.addEventListener('click', () => { state.currentContext = 'transition'; openMediaModal(); });
     document.getElementById('btn-close-modal').addEventListener('click', () => {
         document.getElementById('media-modal').classList.add('hidden');
         state.mediaPickerCallback = null;
