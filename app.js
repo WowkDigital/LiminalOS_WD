@@ -791,7 +791,8 @@ class BackroomsGame {
         // Loop over the scenes, evaluating requirements
         let activeScene = null;
         for (const scene of room.scenes) {
-            if (!scene.is_default && this.checkRequirements(scene.requirements)) {
+            const hasReqs = scene.requirements && (typeof scene.requirements === 'object' ? Object.keys(scene.requirements).length > 0 : String(scene.requirements).trim().length > 0);
+            if (!scene.is_default && hasReqs && this.checkRequirements(scene.requirements)) {
                 activeScene = scene;
                 break;
             }
