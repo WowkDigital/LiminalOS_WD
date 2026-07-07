@@ -70,11 +70,6 @@ class RoomLocation extends Location {
     }
 
     getImage() {
-        const activeScene = this.game.getActiveScene(this.id);
-        if (activeScene && activeScene.bg_image) {
-            return this.game.resolveImagePath(activeScene.bg_image);
-        }
-
         // Logic specific to Room Image resolution
         if (this.game.state.activeInteractableId) {
             const interId = this.game.state.activeInteractableId;
@@ -96,6 +91,11 @@ class RoomLocation extends Location {
                     }
                 }
             }
+        }
+
+        const activeScene = this.game.getActiveScene(this.id);
+        if (activeScene && activeScene.bg_image) {
+            return this.game.resolveImagePath(activeScene.bg_image);
         }
 
         if (this.game.state.roomImages[this.id]) {
@@ -157,7 +157,7 @@ class RoomLocation extends Location {
                         category,
                         isUnknown,
                         isRecommended,
-                        isLocked: !isMet,
+                        isLocked: !isMet || !target,
                         area: h.area || null
                     };
                 });
@@ -185,7 +185,7 @@ class RoomLocation extends Location {
                 category,
                 isUnknown,
                 isRecommended,   // true if taking this exit leads toward undiscovered rooms
-                isLocked: !isMet,
+                isLocked: !isMet || !t.target,
                 area: t.area || null
             };
         });
@@ -927,6 +927,21 @@ class BackroomsGame {
             this.audio.stopAllSounds(0.8);
             this.audio.playUiSound('arrival');
             const targetId = value;
+
+            if (!this.world || !this.world.rooms || !this.world.rooms[targetId]) {
+                console.warn(`Attempted to move to invalid room: ${targetId}. Redirecting to lobby.`);
+                const fallback = (this.world && this.world.rooms && this.world.rooms['lobby']) ? 'lobby' : (this.world && this.world.rooms ? Object.keys(this.world.rooms)[0] : null);
+                if (fallback) {
+                    this.state.currentRoom = fallback;
+                }
+                this.state.isTransitioning = false;
+                this.state.transitionContext = null;
+                this.state.activeInteractableId = null;
+                this.saveSession();
+                this.render();
+                return;
+            }
+
             // Clear previous room image choice to allow a new random pick on entry
             delete this.state.roomImages[targetId];
 

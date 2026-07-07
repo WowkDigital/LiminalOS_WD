@@ -27,40 +27,72 @@ class MapGenerator {
         const roomIds = Object.keys(world.rooms);
         if (roomIds.length === 0) return;
 
-        // Step 1: Spanning Tree (BFS order)
+        const maxPossible = roomIds.length - 1;
+        const categories = Object.keys(world.transition_types);
+
+        const maxSlots = {};
+        const allocatedCategories = {};
+
+        // Step 1: Pre-allocate slots and categories for each room
+        roomIds.forEach(id => {
+            const rawTransitions = world.rooms[id]?.transitions || [];
+            const preferredCategories = rawTransitions
+                .map(t => (typeof t === 'object' && t !== null) ? t.category : t)
+                .filter(cat => Boolean(cat) && world.transition_types[cat]);
+
+            // At least 2 transitions, and 30% chance of 3 transitions (if possible based on room count)
+            const targetCount = Math.max(preferredCategories.length, Math.random() < 0.30 ? 3 : 2);
+            const slotsCount = Math.min(targetCount, maxPossible);
+            maxSlots[id] = slotsCount;
+
+            // Shuffle preferred categories to randomize allocation order
+            const shuffledPref = [...preferredCategories].sort(() => Math.random() - 0.5);
+            const roomCats = [];
+            for (let i = 0; i < slotsCount; i++) {
+                if (i < shuffledPref.length) {
+                    roomCats.push(shuffledPref[i]);
+                } else {
+                    const remainingCats = categories.filter(c => !roomCats.includes(c));
+                    const pool = remainingCats.length > 0 ? remainingCats : categories;
+                    roomCats.push(pool[Math.floor(Math.random() * pool.length)]);
+                }
+            }
+            allocatedCategories[id] = roomCats;
+        });
+
+        // Step 2: Spanning Tree (BFS order to ensure full reachability from start room)
         const startId = roomIds.includes('lobby') ? 'lobby' : roomIds[0];
         const shuffledRest = roomIds
             .filter(id => id !== startId)
             .sort(() => Math.random() - 0.5);
 
-        // assigned = rooms already wired into the tree
         const assigned = [startId];
-        // incoming[roomId] = edge descriptor that "discovers" this room
         const incoming = {};
 
         for (const roomId of shuffledRest) {
-            const parent = assigned[Math.floor(Math.random() * assigned.length)];
-            const tDef = this._pickTransition(parent, roomId);
+            // Find an assigned room that still has unused pre-allocated slots
+            const validParents = assigned.filter(p => allocatedCategories[p].length > 0);
+            const parent = validParents.length > 0
+                ? validParents[Math.floor(Math.random() * validParents.length)]
+                : assigned[Math.floor(Math.random() * assigned.length)];
+
+            // Fallback in case a parent's pre-allocated slots are exhausted
+            if (allocatedCategories[parent].length === 0) {
+                const cat = categories[Math.floor(Math.random() * categories.length)] || 'universal';
+                allocatedCategories[parent].push(cat);
+                maxSlots[parent]++;
+            }
+
+            const category = allocatedCategories[parent].shift();
+            const tDef = this._pickTransitionForCategory(parent, roomId, category);
             incoming[roomId] = { from: parent, ...tDef };
             assigned.push(roomId);
         }
 
-        // Step 2: Determine exit slot count per room
-        // Higher probability for 1 exit (less shortcuts)
-        const maxSlots = {};
-        roomIds.forEach(id => {
-            const r = Math.random();
-            if (r < 0.65) maxSlots[id] = 1;      // 65% chance → 1 exit
-            else if (r < 0.90) maxSlots[id] = 2; // 25% chance → 2 exits
-            else maxSlots[id] = 3;               // 10% chance → 3 exits
-        });
-
-        // Step 3: Build outgoing edge lists
-        // globalTransitions[roomId] = [{ id, label, target, requirements, category, isDiscovery }]
+        // Step 3: Build outgoing edge lists and populate spanning tree transitions
         const globalTransitions = {};
         roomIds.forEach(id => { globalTransitions[id] = []; });
 
-        // Insert spanning-tree edges as exits from the parent
         for (const roomId of shuffledRest) {
             const inc = incoming[roomId];
             globalTransitions[inc.from].push({
@@ -70,23 +102,23 @@ class MapGenerator {
                 requirements: inc.requirements || null,
                 category: inc.category,
                 area: inc.area || null,
-                isDiscovery: true   // this edge leads to a room unknown at game-start
+                isDiscovery: true
             });
         }
 
-        // Step 4: Fill remaining slots with shortcuts
+        // Step 4: Fill remaining pre-allocated slots with shortcut transitions
         roomIds.forEach(roomId => {
-            const used = globalTransitions[roomId].length;
-            const slots = maxSlots[roomId] - used;
-            if (slots <= 0) return;
+            const remainingCats = allocatedCategories[roomId];
+            if (remainingCats.length === 0) return;
 
             const alreadyTargeted = new Set(globalTransitions[roomId].map(t => t.target));
             const candidates = roomIds
                 .filter(id => id !== roomId && !alreadyTargeted.has(id))
                 .sort(() => Math.random() - 0.5);
 
-            candidates.slice(0, slots).forEach(targetRoom => {
-                const tDef = this._pickTransition(roomId, targetRoom);
+            candidates.slice(0, remainingCats.length).forEach((targetRoom, idx) => {
+                const category = remainingCats[idx];
+                const tDef = this._pickTransitionForCategory(roomId, targetRoom, category);
                 globalTransitions[roomId].push({
                     id: tDef.id,
                     label: tDef.label,
@@ -97,27 +129,11 @@ class MapGenerator {
                     isDiscovery: false
                 });
             });
+
+            allocatedCategories[roomId] = [];
         });
 
-        // Step 5: Guarantee every room has at least one exit
-        roomIds.forEach(roomId => {
-            if (globalTransitions[roomId].length === 0) {
-                const others = roomIds.filter(id => id !== roomId);
-                const target = others[Math.floor(Math.random() * others.length)];
-                const tDef = this._pickTransition(roomId, target);
-                globalTransitions[roomId].push({
-                    id: tDef.id,
-                    label: tDef.label,
-                    target,
-                    requirements: null,
-                    category: tDef.category,
-                    area: tDef.area || null,
-                    isDiscovery: true
-                });
-            }
-        });
-
-        // Step 6: Guarantee strong connectivity (every room can reach startId)
+        // Step 5: Guarantee strong connectivity (every room can reach startId back)
         let S = this._getNodesCanReach(startId, globalTransitions, roomIds);
         while (S.size < roomIds.length) {
             const remaining = roomIds.filter(id => !S.has(id));
@@ -141,10 +157,29 @@ class MapGenerator {
         }
 
         this.game.state.roomTransitions = globalTransitions;
-        // BFS depths used by MapGraph for the hierarchical layout
         this.game.state.bfsDepth = this._computeBFSDepth(startId, globalTransitions);
-        // Optimize and precompute graph positions for the entire world
         this.game.state.mapPositions = this._computeGlobalLayout(globalTransitions, startId);
+    }
+
+    /**
+     * Picks a random transition definition compatible with a specific category.
+     */
+    _pickTransitionForCategory(fromRoom, _toRoom, category) {
+        const world = this.game.world;
+        const defs = world.transition_types[category] || [];
+        if (defs.length === 0) {
+            return { id: 'passage', label: '▸ Passage', category, requirements: null };
+        }
+        const def = defs[Math.floor(Math.random() * defs.length)];
+
+        const rawTransitions = world.rooms[fromRoom]?.transitions || [];
+        const rawDef = rawTransitions.find(
+            t => typeof t === 'object' && t !== null && t.category === category
+        );
+        const requirements = rawDef?.requirements || null;
+        const area = rawDef?.area || null;
+
+        return { id: def.id, label: def.label, category, requirements, area };
     }
 
     /**
