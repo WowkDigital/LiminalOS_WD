@@ -601,6 +601,16 @@ class BackroomsGame {
                 new ResizeObserver(syncHudHeight).observe(hudBar);
             }
 
+            if (this.elements.roomImage && window.ResizeObserver) {
+                new ResizeObserver(() => this.syncClickAreasContainer()).observe(this.elements.roomImage);
+            }
+
+            if (this.elements.roomImage) {
+                this.elements.roomImage.addEventListener('load', () => {
+                    this.syncClickAreasContainer();
+                });
+            }
+
             // Click on background to skip transition
             if (this.elements.sceneBg) {
                 this.elements.sceneBg.addEventListener('click', () => {
@@ -1430,6 +1440,8 @@ class BackroomsGame {
 
         if (this.state.isTransitioning) return;
 
+        this.syncClickAreasContainer();
+
         // Get default transit area if defined in current room's transitions
         const currentRoomId = this.state.currentRoom;
         const roomDef = this.world.rooms[currentRoomId];
@@ -1620,6 +1632,46 @@ class BackroomsGame {
                 }
             });
         }
+    }
+
+    /**
+     * Synchronizes the dimensions and absolute position of the click areas container
+     * with the actual visible dimensions of the contained background image.
+     */
+    syncClickAreasContainer() {
+        const img = this.elements.roomImage;
+        const container = document.getElementById('click-areas-container');
+        if (!img || !container) return;
+
+        const w_img = img.naturalWidth;
+        const h_img = img.naturalHeight;
+        if (!w_img || !h_img) return; // Image not loaded yet
+
+        const w_container = img.clientWidth;
+        const h_container = img.clientHeight;
+
+        const r_img = w_img / h_img;
+        const r_container = w_container / h_container;
+
+        let w_display, h_display, left_display, top_display;
+
+        if (r_img > r_container) {
+            w_display = w_container;
+            h_display = w_container / r_img;
+            left_display = 0;
+            top_display = (h_container - h_display) / 2;
+        } else {
+            h_display = h_container;
+            w_display = h_container * r_img;
+            top_display = 0;
+            left_display = (w_container - w_display) / 2;
+        }
+
+        container.style.position = 'absolute';
+        container.style.left = `${img.offsetLeft + left_display}px`;
+        container.style.top = `${img.offsetTop + top_display}px`;
+        container.style.width = `${w_display}px`;
+        container.style.height = `${h_display}px`;
     }
 
     /**
