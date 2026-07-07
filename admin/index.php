@@ -35,7 +35,7 @@ function loadEnv($path) {
 
 loadEnv(__DIR__ . '/../.env');
 
-$adminPassword = $_ENV['ADMIN_PASSWORD'] ?? getenv('ADMIN_PASSWORD') ?? 'liminal_secret_99';
+$adminPassword = $_ENV['ADMIN_PASSWORD'] ?? (getenv('ADMIN_PASSWORD') !== false ? getenv('ADMIN_PASSWORD') : 'liminal_secret_99');
 
 // Handle login POST
 $error = '';
