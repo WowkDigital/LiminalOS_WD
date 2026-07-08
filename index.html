@@ -121,6 +121,14 @@
                 <label for="sfx-vol">SFX VOL</label>
                 <input type="range" id="sfx-vol" min="0" max="1" step="0.01" value="0.5">
             </div>
+            <div class="control-group">
+                <label for="text-glitch-modifier">TEXT GLITCH (<span id="text-glitch-modifier-val">100%</span>)</label>
+                <input type="range" id="text-glitch-modifier" min="0" max="2" step="0.05" value="1.0">
+            </div>
+            <div class="control-group" style="flex-direction: row; align-items: center; justify-content: space-between; margin-top: 5px;">
+                <label for="text-always-readable" style="cursor: pointer; font-size: 0.8rem; color: var(--text-secondary); font-weight: 500;">ALWAYS READABLE</label>
+                <input type="checkbox" id="text-always-readable" style="width: auto; cursor: pointer; accent-color: var(--accent-primary);">
+            </div>
         </div>
 
         <!-- Main Content - layered over the image -->

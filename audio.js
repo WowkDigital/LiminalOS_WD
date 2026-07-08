@@ -169,21 +169,33 @@ class AudioEngine {
                 source.frequency.setValueAtTime(180, this.ctx.currentTime);
 
                 const lfo = this.ctx.createOscillator();
-                const lfoGain = this.ctx.createGain();
-                lfo.frequency.value = 8;
-                lfoGain.gain.value = 40;
-                lfo.connect(lfoGain);
-                lfoGain.connect(source.frequency);
+                lfo.frequency.value = 2.5; // lower frequency
+
+                // Frequency modulation
+                const lfoFreqGain = this.ctx.createGain();
+                lfoFreqGain.gain.value = 40;
+                lfo.connect(lfoFreqGain);
+                lfoFreqGain.connect(source.frequency);
+
+                // Volume modulation
+                const lfoVolumeGain = this.ctx.createGain();
+                lfoVolumeGain.gain.value = 0.25; // oscillate by +/- 0.25
+                lfo.connect(lfoVolumeGain);
+                lfoVolumeGain.connect(gain.gain);
 
                 const filter = this.ctx.createBiquadFilter();
                 filter.type = 'lowpass';
                 filter.frequency.value = 200;
                 source.connect(filter);
                 filter.connect(gain);
-                gain.gain.setTargetAtTime(0.6, this.ctx.currentTime, 0.1);
+                
+                // Base gain level
+                gain.gain.setValueAtTime(0.35, this.ctx.currentTime);
 
                 lfo.start();
                 extraNodes.lfo = lfo;
+                extraNodes.osc2 = lfoFreqGain; // track additional nodes for cleanup if needed
+                extraNodes.osc3 = lfoVolumeGain;
 
             } else if (stateId === 'off') {
                 // Silence – no sound

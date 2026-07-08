@@ -397,7 +397,9 @@ class BackroomsGame {
                 almond_water: 1 // Start with 1 Almond Water
             },
             autoWalk: true,      // Enable auto walk on transition
-            quickTransition: false // Enable 2s quick transition permanently
+            quickTransition: false, // Enable 2s quick transition permanently
+            textGlitchModifier: 1.0,
+            textAlwaysReadable: false
         };
 
         // DOM Elements
@@ -508,6 +510,20 @@ class BackroomsGame {
             this.elements.masterVol = document.getElementById('master-vol');
             this.elements.ambientVol = document.getElementById('ambient-vol');
             this.elements.sfxVol = document.getElementById('sfx-vol');
+            this.elements.textGlitchModifier = document.getElementById('text-glitch-modifier');
+            this.elements.textGlitchModifierVal = document.getElementById('text-glitch-modifier-val');
+            this.elements.textAlwaysReadable = document.getElementById('text-always-readable');
+
+            // Initialize values from state
+            if (this.elements.textGlitchModifier) {
+                this.elements.textGlitchModifier.value = this.state.textGlitchModifier;
+            }
+            if (this.elements.textGlitchModifierVal) {
+                this.elements.textGlitchModifierVal.innerText = `${Math.round(this.state.textGlitchModifier * 100)}%`;
+            }
+            if (this.elements.textAlwaysReadable) {
+                this.elements.textAlwaysReadable.checked = this.state.textAlwaysReadable;
+            }
 
             this.elements.settingsBtn.onclick = (e) => {
                 e.stopPropagation();
@@ -525,6 +541,26 @@ class BackroomsGame {
             this.elements.sfxVol.oninput = (e) => {
                 this.audio.setSfxVolume(e.target.value);
             };
+
+            if (this.elements.textGlitchModifier) {
+                this.elements.textGlitchModifier.oninput = (e) => {
+                    const val = parseFloat(e.target.value);
+                    this.state.textGlitchModifier = val;
+                    if (this.elements.textGlitchModifierVal) {
+                        this.elements.textGlitchModifierVal.innerText = `${Math.round(val * 100)}%`;
+                    }
+                    this.saveSession();
+                    this.render();
+                };
+            }
+
+            if (this.elements.textAlwaysReadable) {
+                this.elements.textAlwaysReadable.onchange = (e) => {
+                    this.state.textAlwaysReadable = e.target.checked;
+                    this.saveSession();
+                    this.render();
+                };
+            }
 
             document.addEventListener('click', () => {
                 this.elements.settingsPanel.classList.add('hidden');
@@ -706,6 +742,12 @@ class BackroomsGame {
         if (this.state.quickTransition === undefined) {
             this.state.quickTransition = false;
         }
+        if (this.state.textGlitchModifier === undefined) {
+            this.state.textGlitchModifier = 1.0;
+        }
+        if (this.state.textAlwaysReadable === undefined) {
+            this.state.textAlwaysReadable = false;
+        }
     }
 
     saveSession() {
@@ -714,16 +756,17 @@ class BackroomsGame {
 
     glitchText(text, sanity) {
         if (!text) return ""; // Safety
+        if (this.state.textAlwaysReadable) return text;
         if (sanity > 90) return text;
 
         // Dynamiczne skalowanie intensywności w zależności od spadku sanity
         const intensity = (100 - sanity) / 100; // od 0.1 do 1.0
 
-        // Zależność procentu zepsutych znaków (maksymalnie 50% przy sanity = 0)
-        const percentage = intensity * 50;
+        // Zależność procentu zepsutych znaków (maksymalnie 50% przy sanity = 0), z uwzględnieniem modyfikatora
+        const percentage = intensity * 50 * this.state.textGlitchModifier;
 
-        // Moc glitcha (wpływa np. na liczbę nakładanych znaków zalgo)
-        const strength = intensity * 3;
+        // Moc glitcha (wpływa np. na liczbę nakładanych znaków zalgo), z uwzględnieniem modyfikatora
+        const strength = intensity * 3 * this.state.textGlitchModifier;
 
         // Dobór aktywnych efektów w zależności od stopnia szaleństwa
         let effects = ['replace', 'case'];
@@ -734,7 +777,7 @@ class BackroomsGame {
             effects.push('zalgo', 'binary', 'delete');
 
             // Okazjonalne odtworzenie dźwięku błędu przy bardzo niskim sanity
-            if (Math.random() < 0.05 && this.audio) {
+            if (Math.random() < 0.05 && this.audio && this.state.textGlitchModifier > 0) {
                 this.audio.playUiSound('glitch');
             }
         }
@@ -745,7 +788,7 @@ class BackroomsGame {
 
         // Fallback w razie braku funkcji
         const zalgoChars = ['░', '▒', '▓', '?', '!', '.', ',', ':', ';', '$', '#', '@', '█', '▄', '▀'];
-        const chance = (100 - sanity) / 250.0;
+        const chance = ((100 - sanity) / 250.0) * this.state.textGlitchModifier;
         let output = "";
         for (const char of text) {
             output += char;
@@ -1092,20 +1135,29 @@ class BackroomsGame {
 
     startGlitchLoop() {
         let lastSanity = -1;
+        let lastFlickerState = false;
         const loop = () => {
             const currentSanity = this.state.sanity;
 
-            if (currentSanity < this.glitchSettings.threshold) {
-                this.updateGlitchEffects(currentSanity);
-                this.spawnRandomArtifacts(currentSanity);
+            const lobbyLight = this.world?.interactables?.['lobby_light'];
+            const lobbyLightState = lobbyLight?.states[this.state.worldStates['lobby_light'] || 0]?.id;
+            const isLobbyFlickering = this.state.currentRoom === 'lobby' && lobbyLightState === 'flickering';
+
+            if (currentSanity < this.glitchSettings.threshold || isLobbyFlickering) {
+                this.updateGlitchEffects(currentSanity, isLobbyFlickering);
+                if (currentSanity < this.glitchSettings.threshold) {
+                    this.spawnRandomArtifacts(currentSanity);
+                }
                 lastSanity = currentSanity;
-            } else if (lastSanity !== -1) {
+                lastFlickerState = isLobbyFlickering;
+            } else if (lastSanity !== -1 || lastFlickerState) {
                 // Reset once when going back above threshold
                 const baseFilter = 'brightness(0.55) contrast(1.15) saturate(0.7)';
                 this.elements.roomImage.style.filter = baseFilter;
                 this.elements.roomImageBlur.style.filter = `blur(20px) ${baseFilter}`;
                 if (this.elements.glitchDisplacement) this.elements.glitchDisplacement.setAttribute('scale', 0);
                 lastSanity = -1;
+                lastFlickerState = false;
             }
             requestAnimationFrame(loop);
         };
@@ -1854,21 +1906,16 @@ class BackroomsGame {
         }
     }
 
-    updateGlitchEffects(sanity) {
-        if (sanity >= this.glitchSettings.threshold) {
-            this.elements.roomImage.style.filter = 'brightness(0.55) contrast(1.15) saturate(0.7)';
-            if (this.elements.glitchDisplacement) this.elements.glitchDisplacement.setAttribute('scale', 0);
-            return;
-        }
-
-        const intensity = (this.glitchSettings.threshold - sanity) / this.glitchSettings.threshold; // 0 to 1
+    updateGlitchEffects(sanity, isLobbyFlickering = false) {
+        const hasGlitch = sanity < this.glitchSettings.threshold;
+        const intensity = hasGlitch ? (this.glitchSettings.threshold - sanity) / this.glitchSettings.threshold : 0; // 0 to 1
         const scale = intensity * this.glitchSettings.maxScale;
 
         if (this.elements.glitchDisplacement) {
             this.elements.glitchDisplacement.setAttribute('scale', scale);
 
             // Randomly flicker the baseFrequency to simulate different "noise" patterns
-            if (Math.random() < this.glitchSettings.flickerChance) {
+            if (hasGlitch && Math.random() < this.glitchSettings.flickerChance) {
                 const freqX = 0.05 + Math.random() * 0.1;
                 const freqY = 0.5 + Math.random() * 2;
                 this.elements.glitchTurbulence.setAttribute('baseFrequency', `${freqX} ${freqY}`);
@@ -1877,14 +1924,28 @@ class BackroomsGame {
 
         // Apply filters to image
         // Base filters + glitch SVG filter
-        const br = 0.55 - intensity * this.glitchSettings.brightnessMod;
+        let br = 0.55 - intensity * this.glitchSettings.brightnessMod;
+
+        if (isLobbyFlickering) {
+            const time = performance.now() / 1000;
+            const frequency = 2.5; // lower frequency, matches audio
+            // Sine wave between -1 and 1
+            const wave = Math.sin(2 * Math.PI * frequency * time);
+            // Modulate brightness around its current base value (br)
+            // e.g. base is br, modulation is wave * 0.40
+            br = Math.max(0.05, br + wave * 0.40);
+        }
+
         const ct = 1.15 + intensity * this.glitchSettings.contrastMod;
         const st = 0.7 - intensity * this.glitchSettings.saturationMod;
 
-        let filterStr = `brightness(${br}) contrast(${ct}) saturate(${st}) url(#glitch-filter)`;
+        let filterStr = `brightness(${br}) contrast(${ct}) saturate(${st})`;
+        if (hasGlitch) {
+            filterStr += ` url(#glitch-filter)`;
+        }
 
         // Add random chromatic aberration/color shifting
-        if (this.elements.glitchColor && intensity > this.glitchSettings.colorShiftChance) {
+        if (hasGlitch && this.elements.glitchColor && intensity > this.glitchSettings.colorShiftChance) {
             const r = 1 + Math.random() * 0.2 * intensity;
             const g = 1;
             const b = 1 + Math.random() * 0.3 * intensity;
@@ -1895,7 +1956,7 @@ class BackroomsGame {
         this.elements.roomImageBlur.style.filter = `blur(20px) ${filterStr}`;
 
         // Apply occasional sharp "glitch" artifacts to the whole app container
-        if (Math.random() < intensity * this.glitchSettings.jitterChance) {
+        if (hasGlitch && Math.random() < intensity * this.glitchSettings.jitterChance) {
             this.elements.appContainer.style.transform = `translate(${(Math.random() - 0.5) * 10 * intensity}px, ${(Math.random() - 0.5) * 5 * intensity}px)`;
             setTimeout(() => {
                 this.elements.appContainer.style.transform = '';

@@ -17,7 +17,16 @@ export async function uploadMedia(formData) {
         method: 'POST',
         body: formData
     });
-    if (!res.ok) throw new Error('Upload failed');
+    if (!res.ok) {
+        let errorMsg = 'Upload failed';
+        try {
+            const errJson = await res.json();
+            if (errJson && errJson.error) {
+                errorMsg = errJson.error;
+            }
+        } catch (e) {}
+        throw new Error(errorMsg);
+    }
     return res.json();
 }
 

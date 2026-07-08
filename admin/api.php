@@ -1521,6 +1521,20 @@ elseif ($method === 'POST') {
         try {
             if (isset($_FILES['file'])) {
                 $file = $_FILES['file'];
+                if ($file['error'] !== UPLOAD_ERR_OK) {
+                    $errors = [
+                        1 => 'The uploaded file exceeds the upload_max_filesize directive in php.ini.',
+                        2 => 'The uploaded file exceeds the MAX_FILE_SIZE directive that was specified in the HTML form.',
+                        3 => 'The uploaded file was only partially uploaded.',
+                        4 => 'No file was uploaded.',
+                        6 => 'Missing a temporary folder.',
+                        7 => 'Failed to write file to disk.',
+                        8 => 'A PHP extension stopped the file upload.'
+                    ];
+                    $errCode = $file['error'];
+                    $errDesc = $errors[$errCode] ?? 'Unknown upload error code: ' . $errCode;
+                    throw new Exception("File upload error: $errDesc");
+                }
                 $pathInfo = pathinfo($file['name']);
                 $originalName = $pathInfo['filename'];
                 $ext = strtolower($pathInfo['extension'] ?? '');
@@ -1540,6 +1554,8 @@ elseif ($method === 'POST') {
 
                 $targetSubdir = $isAudio ? 'sound_effects/' : 'uploads/';
                 $dest = $mediaDir . '/' . $targetSubdir . $filename;
+                // Normalize slashes for the current OS
+                $dest = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $dest);
 
                 if (move_uploaded_file($file['tmp_name'], $dest)) {
                     if (!$isAudio) {
@@ -1563,7 +1579,11 @@ elseif ($method === 'POST') {
                     echo json_encode(['success' => true, 'id' => $pdo->lastInsertId(), 'path' => 'media/' . $targetSubdir . $filename]);
                 }
                 else {
-                    throw new Exception("Failed to move uploaded file to destination: $dest");
+                    $targetDir = dirname($dest);
+                    $isDirWritable = is_writable($targetDir) ? 'writable' : 'NOT writable';
+                    $tmpExists = file_exists($file['tmp_name']) ? 'exists' : 'does NOT exist';
+                    $isUploaded = is_uploaded_file($file['tmp_name']) ? 'is uploaded file' : 'is NOT uploaded file';
+                    throw new Exception("Failed to move uploaded file to destination: $dest (Target directory is $isDirWritable, temp file $tmpExists, and $isUploaded)");
                 }
             }
             else {
