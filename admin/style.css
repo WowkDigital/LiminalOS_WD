@@ -2920,38 +2920,55 @@ input[type="checkbox"]:checked::before {
 }
 
 /* Collapsible Sections */
+/* Collapsible Sections Modern & Compact (Sidebar Aesthetic) */
 .collapsible-section {
-    border: 1px solid var(--glass-border);
+    border: 1px solid rgba(255, 255, 255, 0.07);
     border-radius: var(--radius-sm);
-    background: rgba(0, 0, 0, 0.15);
-    margin-bottom: 1rem;
+    background: rgba(10, 10, 10, 0.55);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    margin-bottom: 0.75rem;
     overflow: hidden;
-    transition: all 0.3s ease;
+    transition: border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.collapsible-section:hover {
+    border-color: rgba(255, 255, 255, 0.12);
+    background: rgba(15, 15, 15, 0.65);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
 
 .collapsible-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.75rem 1rem;
-    background: rgba(255, 255, 255, 0.03);
+    padding: 10px 14px;
+    background: transparent;
     cursor: pointer;
     user-select: none;
-    transition: background 0.2s ease;
+    transition: background var(--transition-fast);
 }
 
 .collapsible-header:hover {
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
 }
 
 .collapsible-header h4 {
     margin: 0;
-    font-size: 0.95rem;
-    color: var(--accent-primary);
+    font-size: 0.85rem;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
     display: flex;
     align-items: center;
     gap: 8px;
     font-weight: 600;
+    transition: color var(--transition-fast);
+}
+
+.collapsible-header:hover h4 {
+    color: var(--accent-primary);
 }
 
 .collapsible-header-actions {
@@ -2961,7 +2978,7 @@ input[type="checkbox"]:checked::before {
 }
 
 .collapsible-icon {
-    transition: transform 0.2s ease;
+    transition: transform var(--transition-fast);
     color: var(--text-muted);
 }
 
@@ -2970,10 +2987,133 @@ input[type="checkbox"]:checked::before {
 }
 
 .collapsible-content {
-    padding: 1rem;
-    border-top: 1px solid var(--glass-border);
+    padding: 12px 14px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(0, 0, 0, 0.12);
 }
 
 .collapsible-section.collapsed .collapsible-content {
     display: none;
+}
+
+/* Hotspot Card Modern Layout (Compact & Graphic Preview) */
+.hotspot-config-card {
+    background: rgba(15, 15, 15, 0.5) !important;
+    border: 1px solid rgba(255, 255, 255, 0.06) !important;
+    border-radius: var(--radius-sm) !important;
+    padding: 12px !important;
+    margin-bottom: 0.75rem !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.hotspot-config-card:hover {
+    border-color: rgba(234, 179, 8, 0.25) !important;
+    background: rgba(20, 20, 20, 0.65) !important;
+}
+
+.hotspot-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding-bottom: 6px;
+    margin-bottom: 10px;
+}
+
+.hotspot-card-body {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    width: 100%;
+}
+
+.hotspot-card-controls {
+    flex: 1;
+    min-width: 250px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 8px;
+}
+
+.hotspot-card-preview-col {
+    flex-shrink: 0;
+    width: 160px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+/* Transitions Grid Top Options Style */
+#transitions-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 8px;
+}
+
+#transitions-container .config-row {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: var(--radius-sm);
+    padding: 6px 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all var(--transition-fast);
+}
+
+#transitions-container .config-row:hover {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+#transitions-container .cat-info-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#transitions-container .cat-label {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+#transitions-container .config-row-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+#transitions-container .btn-cfg {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-muted);
+    border-radius: var(--radius-sm);
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    padding: 0;
+}
+
+#transitions-container .btn-cfg svg {
+    width: 12px;
+    height: 12px;
+}
+
+#transitions-container .btn-cfg:hover {
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+    background: rgba(234, 179, 8, 0.08);
+}
+
+#transitions-container input[type="checkbox"] {
+    cursor: pointer;
+    width: 14px;
+    height: 14px;
+    margin: 0;
 }

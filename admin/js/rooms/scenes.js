@@ -823,21 +823,10 @@ export function renderSceneHotspots(scene) {
         scene.hotspots.forEach((h, idx) => {
             const card = document.createElement('div');
             card.className = 'hotspot-config-card';
-            card.style.cssText = `
-                display: flex;
-                flex-direction: column;
-                gap: 0.75rem;
-                background: rgba(0,0,0,0.25);
-                padding: 1.25rem;
-                border-radius: var(--radius-md);
-                border: 1px solid var(--glass-border);
-                position: relative;
-                margin-bottom: 0.75rem;
-            `;
 
             // Card Header
             const header = document.createElement('div');
-            header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 8px; margin-bottom: 4px;';
+            header.className = 'hotspot-card-header';
             
             const titleSpan = document.createElement('span');
             titleSpan.style.cssText = 'font-weight: 600; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent-primary);';
@@ -858,6 +847,13 @@ export function renderSceneHotspots(scene) {
             header.appendChild(delBtn);
             card.appendChild(header);
 
+            // Card Body
+            const cardBody = document.createElement('div');
+            cardBody.className = 'hotspot-card-body';
+
+            const controlsCol = document.createElement('div');
+            controlsCol.className = 'hotspot-card-controls';
+
             // 1. Trigger Type
             const typeGroup = document.createElement('div');
             typeGroup.className = 'form-group compact';
@@ -874,7 +870,7 @@ export function renderSceneHotspots(scene) {
             `;
             typeGroup.appendChild(typeLabel);
             typeGroup.appendChild(typeSel);
-            card.appendChild(typeGroup);
+            controlsCol.appendChild(typeGroup);
 
             // 2. Destination/Target ID
             const targetGroup = document.createElement('div');
@@ -923,7 +919,7 @@ export function renderSceneHotspots(scene) {
             updateTargetOptions();
             targetGroup.appendChild(targetLabel);
             targetGroup.appendChild(targetEl);
-            card.appendChild(targetGroup);
+            controlsCol.appendChild(targetGroup);
 
             typeSel.addEventListener('change', () => {
                 h.type = typeSel.value;
@@ -956,7 +952,7 @@ export function renderSceneHotspots(scene) {
             });
             labelGroup.appendChild(labelLabel);
             labelGroup.appendChild(labelInput);
-            card.appendChild(labelGroup);
+            controlsCol.appendChild(labelGroup);
 
             // 4. Coordinates button
             const coordGroup = document.createElement('div');
@@ -995,6 +991,7 @@ export function renderSceneHotspots(scene) {
                     h.area = areaObj;
                     updateCoordBtnLabel();
                     updateRoomExportArea();
+                    renderSceneHotspots(scene);
                 };
                 let bgUrl = null;
                 if (scene.bg_image) {
@@ -1014,7 +1011,7 @@ export function renderSceneHotspots(scene) {
 
             coordGroup.appendChild(coordLabel);
             coordGroup.appendChild(coordBtn);
-            card.appendChild(coordGroup);
+            controlsCol.appendChild(coordGroup);
 
             // 5. Requirements input
             const reqGroup = document.createElement('div');
@@ -1067,7 +1064,96 @@ export function renderSceneHotspots(scene) {
 
             reqGroup.appendChild(reqLabel);
             reqGroup.appendChild(reqInput);
-            card.appendChild(reqGroup);
+            controlsCol.appendChild(reqGroup);
+
+            // Hotspot Position Preview Column
+            const previewCol = document.createElement('div');
+            previewCol.className = 'hotspot-card-preview-col';
+
+            const previewLabel = document.createElement('label');
+            previewLabel.textContent = 'Position Preview';
+            previewLabel.style.cssText = 'font-size: 0.8rem; margin-bottom: 4px; font-weight: 600; color: var(--text-secondary); width: 100%; text-align: left;';
+            previewCol.appendChild(previewLabel);
+
+            const previewWrapper = document.createElement('div');
+            previewWrapper.style.cssText = `
+                position: relative;
+                width: 100%;
+                background: rgba(0, 0, 0, 0.4);
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                border-radius: var(--radius-sm);
+                overflow: hidden;
+                box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+            `;
+
+            // Resolve background image URL
+            let bgUrl = null;
+            if (scene.bg_image) {
+                bgUrl = `../${scene.bg_image}`;
+            } else {
+                const roomMedia = state.mediaLibrary.filter(
+                    m => m.context_type === 'room' && m.context_id === state.currentEditId
+                );
+                if (roomMedia.length > 0) {
+                    bgUrl = `../${roomMedia[0].filepath}`;
+                }
+            }
+
+            // Resolve coordinates
+            let coords = null;
+            if (h.area) {
+                if (h.area.shapes && h.area.shapes[0]) {
+                    coords = h.area.shapes[0].coords;
+                } else if (h.area.coords) {
+                    coords = h.area.coords;
+                }
+            }
+
+            if (bgUrl) {
+                const img = document.createElement('img');
+                img.src = bgUrl;
+                img.style.cssText = 'width: 100%; height: auto; display: block; pointer-events: none;';
+                previewWrapper.appendChild(img);
+
+                if (coords) {
+                    const left = parseFloat(coords.x !== undefined ? coords.x : coords.left);
+                    const top = parseFloat(coords.y !== undefined ? coords.y : coords.top);
+                    const width = parseFloat(coords.width !== undefined ? coords.width : coords.w);
+                    const height = parseFloat(coords.height !== undefined ? coords.height : coords.h);
+
+                    if (!isNaN(left) && !isNaN(top) && !isNaN(width) && !isNaN(height)) {
+                        const highlight = document.createElement('div');
+                        highlight.style.cssText = `
+                            position: absolute;
+                            border: 2px dashed var(--accent-primary);
+                            background: rgba(234, 179, 8, 0.25);
+                            box-shadow: 0 0 6px var(--accent-glow);
+                            left: ${left}%;
+                            top: ${top}%;
+                            width: ${width}%;
+                            height: ${height}%;
+                            pointer-events: none;
+                        `;
+                        previewWrapper.appendChild(highlight);
+                    }
+                } else {
+                    const noArea = document.createElement('div');
+                    noArea.style.cssText = 'position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: rgba(255, 255, 255, 0.4); font-size: 0.7rem; background: rgba(0, 0, 0, 0.6); font-family: var(--font-sans);';
+                    noArea.textContent = 'No boundary';
+                    previewWrapper.appendChild(noArea);
+                }
+            } else {
+                const noImage = document.createElement('div');
+                noImage.style.cssText = 'height: 90px; display: flex; align-items: center; justify-content: center; color: rgba(255, 255, 255, 0.3); font-size: 0.7rem; font-family: var(--font-sans); text-align: center; padding: 10px;';
+                noImage.textContent = 'No Scene Image';
+                previewWrapper.appendChild(noImage);
+            }
+
+            previewCol.appendChild(previewWrapper);
+
+            cardBody.appendChild(controlsCol);
+            cardBody.appendChild(previewCol);
+            card.appendChild(cardBody);
 
             list.appendChild(card);
         });

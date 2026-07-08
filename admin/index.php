@@ -234,6 +234,13 @@ if (isset($_SESSION['admin_auth']) && $_SESSION['admin_auth'] === true):
                                     </div>
                                 </div>
 
+                                <div class="form-section transitions-header-section" style="margin-top: 1.5rem; margin-bottom: 1.5rem; padding: 1.25rem; background: rgba(10, 10, 10, 0.45); backdrop-filter: blur(15px); border: 1px solid var(--glass-border); border-radius: var(--radius-sm);">
+                                    <h3 style="margin-top: 0; margin-bottom: 12px; font-size: 0.95rem; font-weight: 600; color: var(--accent-primary);">Active Room Transitions (Portals)</h3>
+                                    <div id="transitions-container">
+                                        <!-- Checkboxes will be injected here via JS -->
+                                    </div>
+                                </div>
+
                             <div class="form-section json-control-section">
                                 <h3 style="margin-bottom: 0.75rem;">Data Control (JSON)</h3>
                                 
