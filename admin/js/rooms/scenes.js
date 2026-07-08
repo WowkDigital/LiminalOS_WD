@@ -198,6 +198,9 @@ function setupClickAreaDrawing() {
             state.editorRequirements.clickAreas[state.currentClickAreaCategory] = areaObj;
             showToast('Click area defined.', 'success');
             refreshCategorySelectors();
+            if (window.syncTransitionsFromEditorRequirements) {
+                window.syncTransitionsFromEditorRequirements();
+            }
         }
         
         document.getElementById('click-area-modal').classList.add('hidden');
@@ -349,6 +352,9 @@ export function renderScenesSection() {
     selector.onchange = (e) => {
         state.selectedSceneId = e.target.value;
         renderActiveSceneEditor();
+        if (window.syncEditorRequirementsFromActiveScene) {
+            window.syncEditorRequirementsFromActiveScene();
+        }
     };
 }
 
@@ -640,6 +646,9 @@ export function renderActiveSceneEditor() {
     renderInteractablesCheckboxes();
     renderSceneHotspots(scene);
     renderSceneCommands(scene);
+    if (window.syncEditorRequirementsFromActiveScene) {
+        window.syncEditorRequirementsFromActiveScene();
+    }
 }
 
 export function renderSceneTexts(scene) {
@@ -841,6 +850,9 @@ export function renderSceneHotspots(scene) {
                 scene.hotspots = scene.hotspots.filter((_, i) => i !== idx);
                 renderSceneHotspots(scene);
                 updateRoomExportArea();
+                if (window.syncEditorRequirementsFromActiveScene) {
+                    window.syncEditorRequirementsFromActiveScene();
+                }
             };
 
             header.appendChild(titleSpan);
@@ -927,11 +939,17 @@ export function renderSceneHotspots(scene) {
                 h.target_id = targetEl.value;
                 titleSpan.textContent = `Hotspot #${idx + 1} (${h.type === 'tra' ? 'Transition' : 'Interactable'})`;
                 updateRoomExportArea();
+                if (window.syncEditorRequirementsFromActiveScene) {
+                    window.syncEditorRequirementsFromActiveScene();
+                }
             });
 
             targetEl.addEventListener('change', () => {
                 h.target_id = targetEl.value;
                 updateRoomExportArea();
+                if (window.syncEditorRequirementsFromActiveScene) {
+                    window.syncEditorRequirementsFromActiveScene();
+                }
             });
 
             // 3. Hover Label
@@ -1171,6 +1189,9 @@ export function renderSceneHotspots(scene) {
         });
         renderSceneHotspots(scene);
         updateRoomExportArea();
+        if (window.syncEditorRequirementsFromActiveScene) {
+            window.syncEditorRequirementsFromActiveScene();
+        }
     };
 }
 

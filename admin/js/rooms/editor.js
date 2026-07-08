@@ -8,7 +8,7 @@ import { TextConfigRow } from '../components/TextConfigRow.js';
 import { getTerminalDialogueTree, setTerminalDialogueTree } from '../terminal.js';
 import { renderInteractablesCheckboxes } from './interactables.js';
 import { setupRoomTerminalListeners, populateTerminalSection, getRoomTerminalDialogueData } from './terminal.js';
-import { renderScenesSection, renderActiveSceneEditor } from './scenes.js';
+import { renderScenesSection, renderActiveSceneEditor, renderSceneHotspots } from './scenes.js';
 
 export function renderRoomMediaPreview() {
     const container = document.getElementById('room-images-preview');
@@ -114,7 +114,9 @@ export function refreshCategorySelectors(selectedValues = null) {
                             type: 'checkbox',
                             value: cat,
                             checked: isChecked,
-                            onChange: () => updateRoomExportArea()
+                            onChange: () => {
+                                syncTransitionsFromEditorRequirements();
+                            }
                         })
                     ].filter(Boolean))
                 ]);
@@ -568,7 +570,13 @@ export async function handleRoomSubmit(e) {
             state.imageIndex = syncRes.image_index || { rooms: {}, transitions: {} };
             state.allInteractables = syncRes.interactables || {};
             state.systemTaxonomy = syncRes.taxonomy || [];
-            navigate('dashboard');
+            
+            state.currentEditId = roomId;
+            const targetHash = `editor?id=${encodeURIComponent(roomId)}`;
+            if (window.location.hash !== '#' + targetHash) {
+                window.location.hash = targetHash;
+            }
+            openEditor(roomId);
         } else {
             throw new Error(result.error);
         }
@@ -646,3 +654,58 @@ window.unassignMediaItem = async (id) => {
         renderRoomMediaPreview();
     }
 };
+
+export function syncTransitionsFromEditorRequirements() {
+    const scene = state.editorScenes?.find(s => s.id === state.selectedSceneId);
+    if (!scene) return;
+
+    const transitionsContainer = document.getElementById('transitions-container');
+    if (!transitionsContainer) return;
+
+    const checkedCats = Array.from(transitionsContainer.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+
+    scene.hotspots = scene.hotspots || [];
+    const nonTraHotspots = scene.hotspots.filter(h => h.type !== 'tra');
+    const updatedTraHotspots = checkedCats.map(cat => {
+        const existing = scene.hotspots.find(h => h.type === 'tra' && h.target_id === cat);
+        return {
+            type: 'tra',
+            target_id: cat,
+            label: existing?.label || cat.toUpperCase(),
+            area: state.editorRequirements.clickAreas?.[cat] || null,
+            requirements: state.editorRequirements.transitions?.[cat] || null
+        };
+    });
+
+    scene.hotspots = [...nonTraHotspots, ...updatedTraHotspots];
+
+    renderSceneHotspots(scene);
+    updateRoomExportArea();
+}
+
+export function syncEditorRequirementsFromActiveScene() {
+    const scene = state.editorScenes?.find(s => s.id === state.selectedSceneId);
+    if (!scene) return;
+
+    state.editorRequirements.transitions = {};
+    state.editorRequirements.clickAreas = {};
+
+    const selectedCats = [];
+    (scene.hotspots || []).forEach(h => {
+        if (h.type === 'tra' && h.target_id) {
+            selectedCats.push(h.target_id);
+            if (h.requirements) {
+                state.editorRequirements.transitions[h.target_id] = h.requirements;
+            }
+            if (h.area) {
+                state.editorRequirements.clickAreas[h.target_id] = h.area;
+            }
+        }
+    });
+
+    refreshCategorySelectors(selectedCats);
+}
+
+// Bind to window for global access across files
+window.syncTransitionsFromEditorRequirements = syncTransitionsFromEditorRequirements;
+window.syncEditorRequirementsFromActiveScene = syncEditorRequirementsFromActiveScene;

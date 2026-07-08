@@ -31,6 +31,9 @@ export function clearRequirements() {
     delete state.editorRequirements[state.currentReqTarget.type][state.currentReqTarget.id];
     document.getElementById('req-modal').classList.add('hidden');
     refreshCategorySelectors();
+    if (window.syncTransitionsFromEditorRequirements) {
+        window.syncTransitionsFromEditorRequirements();
+    }
 
     const checkedIds = Array.from(document.querySelectorAll('#interactables-checkbox-group input:checked')).map(cb => cb.value);
     renderInteractablesCheckboxes(checkedIds);
@@ -62,6 +65,9 @@ export function saveRequirementsToState() {
     showToast('Conditions applied to draft.', 'success');
 
     refreshCategorySelectors();
+    if (window.syncTransitionsFromEditorRequirements) {
+        window.syncTransitionsFromEditorRequirements();
+    }
     const checkedIds = Array.from(document.querySelectorAll('#interactables-checkbox-group input:checked')).map(cb => cb.value);
     renderInteractablesCheckboxes(checkedIds);
 }
