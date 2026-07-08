@@ -131,9 +131,17 @@ class AudioEngine {
         if (mapping) {
             const buffer = await this.ensureBuffer(mapping.audio_file_id);
             if (buffer) {
-                const sfx = this.playBuffer(mapping.audio_file_id, this.sfxGain, mapping.volume || 0.5, mapping.loop);
+                const isLoop = !!mapping.loop;
+                const sfx = this.playBuffer(mapping.audio_file_id, this.sfxGain, mapping.volume || 0.5, isLoop, !isLoop);
                 if (sfx) {
                     this.loops.set(id, { source: sfx.source, gain: sfx.gain });
+                    if (!isLoop) {
+                        const originalOnEnded = sfx.source.onended;
+                        sfx.source.onended = () => {
+                            if (originalOnEnded) originalOnEnded();
+                            this.loops.delete(id);
+                        };
+                    }
                 }
             }
             return;
@@ -329,7 +337,7 @@ class AudioEngine {
         if (mapped) {
             const buffer = await this.ensureBuffer(mapped.audio_file_id);
             if (buffer) {
-                this.playBuffer(mapped.audio_file_id, this.sfxGain, mapped.volume, false, true);
+                this.playBuffer(mapped.audio_file_id, this.sfxGain, mapped.volume, !!mapped.loop, true);
                 return;
             }
         }
@@ -428,7 +436,7 @@ class AudioEngine {
         if (mapping) {
             const buffer = await this.ensureBuffer(mapping.audio_file_id);
             if (buffer) {
-                this.playBuffer(mapping.audio_file_id, this.sfxGain, mapping.volume, false, true);
+                this.playBuffer(mapping.audio_file_id, this.sfxGain, mapping.volume, !!mapping.loop, true);
                 return;
             }
         }
@@ -559,7 +567,7 @@ class AudioEngine {
         if (nextBgmId) {
             const buffer = await this.ensureBuffer(nextBgmId);
             if (buffer && this.currentBgmId === nextBgmId) { // Check race condition
-                const bgm = this.playBuffer(nextBgmId, this.masterGain, mapping.volume || 0.3, true);
+                const bgm = this.playBuffer(nextBgmId, this.masterGain, mapping.volume || 0.3, !!mapping.loop);
                 if (bgm) {
                     this.bgmSource = bgm.source;
                     this.bgmGain = bgm.gain;

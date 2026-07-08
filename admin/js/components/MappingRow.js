@@ -54,7 +54,8 @@ export class MappingRow {
         const loopCheck = el('input', {
             type: 'checkbox',
             checked: !!this.mapping.loop,
-            onChange: (e) => this.onChange(this.currentSfxTab, this.ctx.id, 'loop', e.target.checked)
+            onChange: (e) => this.onChange(this.currentSfxTab, this.ctx.id, 'loop', e.target.checked),
+            title: 'Loop sound (repeat infinitely)'
         });
 
         const saveBtn = el('button', {
@@ -66,6 +67,14 @@ export class MappingRow {
             title: this.isModified ? 'Save changes to this mapping' : 'No changes'
         }, [icon('save')]);
 
+        const loopLabel = el('label', {
+            className: 'mapping-loop',
+            style: 'display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; margin: 0;'
+        }, [
+            loopCheck,
+            el('span', { style: 'font-size: 0.75rem; color: var(--text-secondary);' }, 'Loop')
+        ]);
+
         return el('div', { className: `mapping-row${this.isModified ? ' modified' : ''}` }, [
             el('div', { className: 'mapping-context' }, this.ctx.label),
             select,
@@ -74,9 +83,7 @@ export class MappingRow {
                 icon('volume-2'),
                 range
             ]),
-            el('div', { className: 'mapping-loop' }, [
-                loopCheck
-            ]),
+            loopLabel,
             saveBtn
         ]);
     }

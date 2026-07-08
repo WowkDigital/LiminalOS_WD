@@ -2024,7 +2024,7 @@ input[type="checkbox"]:checked::before {
     border-radius: var(--radius-sm);
     padding: 10px 15px;
     display: grid;
-    grid-template-columns: 1.5fr 2fr 40px 1.5fr 60px 40px;
+    grid-template-columns: 1.5fr 2fr 40px 1.5fr 85px 40px;
     align-items: center;
     gap: 15px;
     transition: var(--transition-fast);
