@@ -1,7 +1,7 @@
 // Interactables rendering and editor logic using ES6 Components
 import { state } from './state.js';
 import { showToast } from './ui.js';
-import { fetchWorld, saveInteractable, deleteInteractable as apiDeleteInteractable } from './api.js';
+import { fetchWorld, saveInteractable, deleteInteractable as apiDeleteInteractable, fetchMedia } from './api.js';
 import { navigate } from './router.js';
 import { renderModalMediaList } from './media.js';
 import { el } from './dom.js';
@@ -195,6 +195,9 @@ export async function handleInteractableSubmit(e) {
             state.allInteractables = syncRes.interactables || {};
             state.systemTaxonomy = syncRes.taxonomy || [];
             
+            const mRes = await fetchMedia();
+            state.mediaLibrary = mRes;
+            
             if (state.backToRoom) {
                 const backRoom = state.backToRoom;
                 state.backToRoom = null;
@@ -224,6 +227,9 @@ export async function handleDeleteInteractable() {
             state.imageIndex = syncRes.image_index || { rooms: {}, transitions: {} };
             state.allInteractables = syncRes.interactables || {};
             state.systemTaxonomy = syncRes.taxonomy || [];
+            
+            const mRes = await fetchMedia();
+            state.mediaLibrary = mRes;
             
             if (state.backToRoom) {
                 const backRoom = state.backToRoom;

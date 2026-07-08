@@ -325,38 +325,60 @@ window.addEventListener('resize', () => {
 });
 
 export function renderScenesSection() {
-    const selector = document.getElementById('scene-selector-dropdown');
-    if (!selector) return;
-    selector.innerHTML = '';
+    const listContainer = document.getElementById('scene-list-container-h')
+                       || document.getElementById('scene-list-container');
+    if (!listContainer) return;
+    listContainer.innerHTML = '';
 
     if (!state.editorScenes) {
         state.editorScenes = [];
     }
 
     state.editorScenes.forEach(scene => {
-        const opt = document.createElement('option');
-        opt.value = scene.id;
-        
         const hCount = (scene.hotspots || []).length;
+        const traCount = (scene.hotspots || []).filter(h => h.type === 'tra').length;
+        const actCount = (scene.hotspots || []).filter(h => h.type === 'act').length;
         const cCount = (scene.terminal_commands || []).length;
-        const rCount = scene.requirements ? Object.keys(scene.requirements).length : 0;
-        const defaultIndicator = scene.is_default ? ' [DEFAULT]' : '';
-        
-        opt.textContent = `${scene.id}${defaultIndicator} (${hCount} Hotspot${hCount === 1 ? '' : 's'} | ${cCount} Cmd${cCount === 1 ? '' : 's'} | ${rCount} Req)`;
-        if (state.selectedSceneId === scene.id) {
-            opt.selected = true;
-        }
-        selector.appendChild(opt);
+        const reqs = scene.requirements || {};
+        const hasReqs = (reqs.sanity_min !== undefined && reqs.sanity_min !== 0) ||
+                        (reqs.sanity_max !== undefined && reqs.sanity_max !== 100) ||
+                        (reqs.items && reqs.items.length > 0) ||
+                        (reqs.interactables && Object.keys(reqs.interactables).length > 0);
+        const isSelected = state.selectedSceneId === scene.id;
+
+        const card = document.createElement('div');
+        card.className = `scene-list-card${isSelected ? ' active' : ''}`;
+        card.dataset.sceneId = scene.id;
+
+        card.innerHTML = `
+            <div class="scene-list-card-info">
+                ${scene.is_default ? '<span class="scene-default-badge">DEFAULT</span>' : ''}
+                <span class="scene-list-name">${scene.id}</span>
+            </div>
+            <div class="scene-list-card-meta">
+                ${traCount > 0 ? `<span class="scene-meta-chip" title="Transition hotspots"><i data-lucide="git-fork"></i>${traCount}</span>` : ''}
+                ${actCount > 0 ? `<span class="scene-meta-chip" title="Interactable hotspots"><i data-lucide="package"></i>${actCount}</span>` : ''}
+                ${cCount > 0 ? `<span class="scene-meta-chip" title="Terminal commands"><i data-lucide="terminal"></i>${cCount}</span>` : ''}
+                ${hasReqs ? `<span class="scene-meta-chip scene-meta-chip--req" title="Has requirements"><i data-lucide="shield-alert"></i></span>` : ''}
+                ${scene.bg_image ? `<span class="scene-meta-chip scene-meta-chip--img" title="Has background"><i data-lucide="image"></i></span>` : ''}
+            </div>
+        `;
+
+        card.addEventListener('click', () => {
+            state.selectedSceneId = scene.id;
+            renderScenesSection();
+            renderActiveSceneEditor();
+            if (window.syncEditorRequirementsFromActiveScene) {
+                window.syncEditorRequirementsFromActiveScene();
+            }
+        });
+
+        listContainer.appendChild(card);
     });
 
-    selector.onchange = (e) => {
-        state.selectedSceneId = e.target.value;
-        renderActiveSceneEditor();
-        if (window.syncEditorRequirementsFromActiveScene) {
-            window.syncEditorRequirementsFromActiveScene();
-        }
-    };
+    if (window.lucide) window.lucide.createIcons();
 }
+
 
 window.toggleCollapsibleSection = (id) => {
     const el = document.getElementById(id);
@@ -508,20 +530,37 @@ export function renderActiveSceneEditor() {
                 </div>
             </div>
 
-            <!-- 5. Hotspots & Click Areas (Expanded by default) -->
-            <div class="collapsible-section" id="sec-scene-hotspots">
-                <div class="collapsible-header" onclick="toggleCollapsibleSection('sec-scene-hotspots')">
-                    <h4><i data-lucide="maximize" style="width: 16px; height: 16px;"></i> Hotspots & Click Areas</h4>
+            <!-- 5a. Transition Hotspots (Expanded by default) -->
+            <div class="collapsible-section" id="sec-scene-hotspots-tra">
+                <div class="collapsible-header" onclick="toggleCollapsibleSection('sec-scene-hotspots-tra')">
+                    <h4><i data-lucide="git-fork" style="width: 16px; height: 16px;"></i> Transition Hotspots</h4>
                     <div class="collapsible-header-actions">
-                        <span style="font-size: 0.8rem; color: var(--text-muted);">${hotspotCount} defined</span>
+                        <span class="hotspot-count-badge hotspot-count-tra" style="font-size: 0.8rem; color: var(--text-muted);">${(scene.hotspots || []).filter(h => h.type === 'tra').length} defined</span>
                         <i data-lucide="chevron-down" class="collapsible-icon" style="width: 16px; height: 16px;"></i>
                     </div>
                 </div>
                 <div class="collapsible-content">
-                    <div id="scene-hotspots-list" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 1rem;">
-                        <!-- list of hotspots -->
+                    <div id="scene-hotspots-list-tra" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 1rem;">
+                        <!-- transition hotspots -->
                     </div>
-                    <button type="button" id="btn-add-scene-hotspot" class="btn-secondary btn-small">+ Add Hotspot</button>
+                    <button type="button" id="btn-add-scene-hotspot-tra" class="btn-secondary btn-small">+ Add Transition Hotspot</button>
+                </div>
+            </div>
+
+            <!-- 5b. Interactable Hotspots (Expanded by default) -->
+            <div class="collapsible-section" id="sec-scene-hotspots-act">
+                <div class="collapsible-header" onclick="toggleCollapsibleSection('sec-scene-hotspots-act')">
+                    <h4><i data-lucide="mouse-pointer-click" style="width: 16px; height: 16px;"></i> Interactable Hotspots</h4>
+                    <div class="collapsible-header-actions">
+                        <span class="hotspot-count-badge hotspot-count-act" style="font-size: 0.8rem; color: var(--text-muted);">${(scene.hotspots || []).filter(h => h.type === 'act').length} defined</span>
+                        <i data-lucide="chevron-down" class="collapsible-icon" style="width: 16px; height: 16px;"></i>
+                    </div>
+                </div>
+                <div class="collapsible-content">
+                    <div id="scene-hotspots-list-act" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 1rem;">
+                        <!-- interactable hotspots -->
+                    </div>
+                    <button type="button" id="btn-add-scene-hotspot-act" class="btn-secondary btn-small">+ Add Interactable Hotspot</button>
                 </div>
             </div>
 
@@ -814,297 +853,175 @@ export function renderSceneRequirements(scene) {
 }
 
 export function renderSceneHotspots(scene) {
-    const list = document.getElementById('scene-hotspots-list');
-    if (!list) return;
-    list.innerHTML = '';
+    const listTra = document.getElementById('scene-hotspots-list-tra');
+    const listAct = document.getElementById('scene-hotspots-list-act');
+    if (!listTra && !listAct) return;
 
     scene.hotspots = scene.hotspots || [];
 
-    // Update collapsible header count
-    const hotspotBadge = document.querySelector('#sec-scene-hotspots .collapsible-header-actions span');
-    if (hotspotBadge) {
-        hotspotBadge.textContent = `${scene.hotspots.length} defined`;
-    }
+    // Update count badges
+    const traCount = scene.hotspots.filter(h => h.type === 'tra').length;
+    const actCount = scene.hotspots.filter(h => h.type === 'act').length;
+    const traBadge = document.querySelector('.hotspot-count-tra');
+    const actBadge = document.querySelector('.hotspot-count-act');
+    if (traBadge) traBadge.textContent = `${traCount} defined`;
+    if (actBadge) actBadge.textContent = `${actCount} defined`;
 
-    if (scene.hotspots.length === 0) {
-        list.innerHTML = '<span style="font-size: 0.85rem; color: #666; font-style: italic;">No hotspots defined.</span>';
-    } else {
-        scene.hotspots.forEach((h, idx) => {
-            const card = document.createElement('div');
-            card.className = 'hotspot-config-card';
+    // Helper to build a single hotspot card
+    const buildHotspotCard = (h, idx) => {
+        const card = document.createElement('div');
+        card.className = 'hotspot-config-card';
 
-            // Card Header
-            const header = document.createElement('div');
-            header.className = 'hotspot-card-header';
-            
-            const titleSpan = document.createElement('span');
-            titleSpan.style.cssText = 'font-weight: 600; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent-primary);';
-            titleSpan.textContent = `Hotspot #${idx + 1} (${h.type === 'tra' ? 'Transition' : 'Interactable'})`;
-            
-            const delBtn = document.createElement('button');
-            delBtn.type = 'button';
-            delBtn.className = 'btn-remove btn-remove-compact';
-            delBtn.style.cssText = 'padding: 4px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); width: 28px; height: 28px;';
-            delBtn.innerHTML = '<i data-lucide="trash-2" style="width: 14px; height: 14px; color: var(--error);"></i>';
-            delBtn.onclick = () => {
-                scene.hotspots = scene.hotspots.filter((_, i) => i !== idx);
-                renderSceneHotspots(scene);
-                updateRoomExportArea();
-                if (window.syncEditorRequirementsFromActiveScene) {
-                    window.syncEditorRequirementsFromActiveScene();
-                }
-            };
+        // Card Header
+        const header = document.createElement('div');
+        header.className = 'hotspot-card-header';
 
-            header.appendChild(titleSpan);
-            header.appendChild(delBtn);
-            card.appendChild(header);
+        const titleSpan = document.createElement('span');
+        titleSpan.style.cssText = 'font-weight: 600; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent-primary);';
+        titleSpan.textContent = h.target_id ? h.target_id.toUpperCase() : `Hotspot #${idx + 1}`;
 
-            // Card Body
-            const cardBody = document.createElement('div');
-            cardBody.className = 'hotspot-card-body';
-
-            const controlsCol = document.createElement('div');
-            controlsCol.className = 'hotspot-card-controls';
-
-            // 1. Trigger Type
-            const typeGroup = document.createElement('div');
-            typeGroup.className = 'form-group compact';
-            typeGroup.style.margin = '0';
-            const typeLabel = document.createElement('label');
-            typeLabel.textContent = 'Trigger Action Type';
-            typeLabel.style.cssText = 'font-size: 0.8rem; margin-bottom: 4px; font-weight: 600; color: var(--text-secondary);';
-            
-            const typeSel = document.createElement('select');
-            typeSel.style.width = '100%';
-            typeSel.innerHTML = `
-                <option value="tra" ${h.type === 'tra' ? 'selected' : ''}>Transition</option>
-                <option value="act" ${h.type === 'act' ? 'selected' : ''}>Interactable</option>
-            `;
-            typeGroup.appendChild(typeLabel);
-            typeGroup.appendChild(typeSel);
-            controlsCol.appendChild(typeGroup);
-
-            // 2. Destination/Target ID
-            const targetGroup = document.createElement('div');
-            targetGroup.className = 'form-group compact';
-            targetGroup.style.margin = '0';
-            const targetLabel = document.createElement('label');
-            targetLabel.style.cssText = 'font-size: 0.8rem; margin-bottom: 4px; font-weight: 600; color: var(--text-secondary);';
-            
-            const targetEl = document.createElement('select');
-            targetEl.style.width = '100%';
-            
-            const updateTargetOptions = () => {
-                targetEl.innerHTML = '';
-                if (typeSel.value === 'tra') {
-                    targetLabel.textContent = 'Transition Destination Category';
-                    const transitionsList = state.transitionTypes || {};
-                    Object.keys(transitionsList).forEach(cat => {
-                        const opt = document.createElement('option');
-                        opt.value = cat;
-                        opt.textContent = cat.toUpperCase();
-                        if (cat === h.target_id) opt.selected = true;
-                        targetEl.appendChild(opt);
-                    });
-                    if (targetEl.options.length === 0) {
-                        const opt = document.createElement('option');
-                        opt.value = h.target_id || 'universal';
-                        opt.textContent = (h.target_id || 'universal').toUpperCase();
-                        opt.selected = true;
-                        targetEl.appendChild(opt);
-                    }
-                } else {
-                    targetLabel.textContent = 'Interactable Object';
-                    const roomId = state.currentEditId;
-                    const interactablesList = state.allInteractables || {};
-                    Object.keys(interactablesList).forEach(iid => {
-                        if (interactablesList[iid].room_id !== roomId && iid !== h.target_id) return;
-                        const opt = document.createElement('option');
-                        opt.value = iid;
-                        opt.textContent = (interactablesList[iid].label || iid).toUpperCase();
-                        if (iid === h.target_id) opt.selected = true;
-                        targetEl.appendChild(opt);
-                    });
-                }
-            };
-            
-            updateTargetOptions();
-            targetGroup.appendChild(targetLabel);
-            targetGroup.appendChild(targetEl);
-            controlsCol.appendChild(targetGroup);
-
-            typeSel.addEventListener('change', () => {
-                h.type = typeSel.value;
-                updateTargetOptions();
-                h.target_id = targetEl.value;
-                titleSpan.textContent = `Hotspot #${idx + 1} (${h.type === 'tra' ? 'Transition' : 'Interactable'})`;
-                updateRoomExportArea();
-                if (window.syncEditorRequirementsFromActiveScene) {
-                    window.syncEditorRequirementsFromActiveScene();
-                }
-            });
-
-            targetEl.addEventListener('change', () => {
-                h.target_id = targetEl.value;
-                updateRoomExportArea();
-                if (window.syncEditorRequirementsFromActiveScene) {
-                    window.syncEditorRequirementsFromActiveScene();
-                }
-            });
-
-            // 3. Hover Label
-            const labelGroup = document.createElement('div');
-            labelGroup.className = 'form-group compact';
-            labelGroup.style.margin = '0';
-            const labelLabel = document.createElement('label');
-            labelLabel.textContent = 'Active Hotspot Hover Label';
-            labelLabel.style.cssText = 'font-size: 0.8rem; margin-bottom: 4px; font-weight: 600; color: var(--text-secondary);';
-            
-            const labelInput = document.createElement('input');
-            labelInput.type = 'text';
-            labelInput.placeholder = 'Label (e.g. Open Box)';
-            labelInput.value = h.label || '';
-            labelInput.addEventListener('input', () => {
-                h.label = labelInput.value.trim() || null;
-                updateRoomExportArea();
-            });
-            labelGroup.appendChild(labelLabel);
-            labelGroup.appendChild(labelInput);
-            controlsCol.appendChild(labelGroup);
-
-            // 4. Coordinates button
-            const coordGroup = document.createElement('div');
-            coordGroup.className = 'form-group compact';
-            coordGroup.style.margin = '0';
-            const coordLabel = document.createElement('label');
-            coordLabel.textContent = 'Hotspot Click Boundary';
-            coordLabel.style.cssText = 'font-size: 0.8rem; margin-bottom: 4px; font-weight: 600; color: var(--text-secondary);';
-            
-            const coordBtn = document.createElement('button');
-            coordBtn.type = 'button';
-            coordBtn.className = 'btn-small btn-secondary';
-            coordBtn.style.width = '100%';
-            coordBtn.style.height = '42px';
-            
-            const updateCoordBtnLabel = () => {
-                if (h.area) {
-                    coordBtn.textContent = 'Edit Boundary Coordinates';
-                    coordBtn.classList.remove('btn-secondary');
-                    coordBtn.style.borderColor = '#22c55e';
-                    coordBtn.style.color = '#22c55e';
-                    coordBtn.style.background = 'rgba(34, 197, 94, 0.1)';
-                } else {
-                    coordBtn.textContent = 'Draw Bounding Box';
-                    coordBtn.classList.add('btn-secondary');
-                    coordBtn.style.borderColor = '';
-                    coordBtn.style.color = '';
-                    coordBtn.style.background = '';
-                }
-            };
-            
-            updateCoordBtnLabel();
-
-            coordBtn.onclick = () => {
-                window.onSaveSceneClickArea = (areaObj) => {
-                    h.area = areaObj;
-                    updateCoordBtnLabel();
-                    updateRoomExportArea();
-                    renderSceneHotspots(scene);
-                };
-                let bgUrl = null;
-                if (scene.bg_image) {
-                    bgUrl = `../${scene.bg_image}`;
-                } else {
-                    const roomMedia = state.mediaLibrary.filter(
-                        m => m.context_type === 'room' && m.context_id === state.currentEditId
-                    );
-                    if (roomMedia.length > 0) {
-                        bgUrl = `../${roomMedia[0].filepath}`;
-                    }
-                }
-                state.editorRequirements.interactableClickAreas = state.editorRequirements.interactableClickAreas || {};
-                state.editorRequirements.interactableClickAreas[h.target_id] = h.area || null;
-                window.openClickAreaModal(h.target_id, 'interactable', bgUrl);
-            };
-
-            coordGroup.appendChild(coordLabel);
-            coordGroup.appendChild(coordBtn);
-            controlsCol.appendChild(coordGroup);
-
-            // 5. Requirements input
-            const reqGroup = document.createElement('div');
-            reqGroup.className = 'form-group compact';
-            reqGroup.style.margin = '0';
-            const reqLabel = document.createElement('label');
-            reqLabel.textContent = 'Active Conditions / Requirements';
-            reqLabel.style.cssText = 'font-size: 0.8rem; margin-bottom: 4px; font-weight: 600; color: var(--text-secondary);';
-            
-            const reqInput = document.createElement('input');
-            reqInput.type = 'text';
-            reqInput.placeholder = 'e.g. smin:30, item:key_card';
-            
-            const currentReqText = [];
-            if (h.requirements) {
-                if (h.requirements.sanity_min !== undefined) currentReqText.push(`smin:${h.requirements.sanity_min}`);
-                if (h.requirements.sanity_max !== undefined) currentReqText.push(`smax:${h.requirements.sanity_max}`);
-                if (h.requirements.items) h.requirements.items.forEach(i => currentReqText.push(`item:${i}`));
-                if (h.requirements.worldStates) {
-                    for (const k in h.requirements.worldStates) {
-                        currentReqText.push(`state:${k}:${h.requirements.worldStates[k]}`);
-                    }
-                }
+        const delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.className = 'btn-remove btn-remove-compact';
+        delBtn.style.cssText = 'padding: 4px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); width: 28px; height: 28px;';
+        delBtn.innerHTML = '<i data-lucide="trash-2" style="width: 14px; height: 14px; color: var(--error);"></i>';
+        delBtn.onclick = () => {
+            scene.hotspots = scene.hotspots.filter((_, i) => i !== idx);
+            renderSceneHotspots(scene);
+            updateRoomExportArea();
+            if (window.syncEditorRequirementsFromActiveScene) {
+                window.syncEditorRequirementsFromActiveScene();
             }
-            
-            reqInput.value = currentReqText.join(', ');
-            reqInput.addEventListener('input', () => {
-                const val = reqInput.value.trim();
-                if (val) {
-                    const reqObj = {};
-                    val.split(',').forEach(term => {
-                        const parts = term.split(':');
-                        const type = parts[0]?.trim();
-                        if (type === 'smin') reqObj.sanity_min = parseInt(parts[1]);
-                        else if (type === 'smax') reqObj.sanity_max = parseInt(parts[1]);
-                        else if (type === 'item') {
-                            reqObj.items = reqObj.items || [];
-                            reqObj.items.push(parts[1].trim());
-                        } else if (type === 'state') {
-                            reqObj.worldStates = reqObj.worldStates || {};
-                            reqObj.worldStates[parts[1].trim()] = parseInt(parts[2] !== undefined ? parts[2].trim() : '1');
-                        }
-                    });
-                    h.requirements = reqObj;
-                } else {
-                    h.requirements = null;
+        };
+
+        header.appendChild(titleSpan);
+        header.appendChild(delBtn);
+        card.appendChild(header);
+
+        // Card Body
+        const cardBody = document.createElement('div');
+        cardBody.className = 'hotspot-card-body';
+
+        const controlsCol = document.createElement('div');
+        controlsCol.className = 'hotspot-card-controls';
+
+        // 1. Target ID (no type selector — type is determined by section)
+        const targetGroup = document.createElement('div');
+        targetGroup.className = 'form-group compact';
+        targetGroup.style.margin = '0';
+        const targetLabel = document.createElement('label');
+        targetLabel.style.cssText = 'font-size: 0.8rem; margin-bottom: 4px; font-weight: 600; color: var(--text-secondary);';
+
+        const targetEl = document.createElement('select');
+        targetEl.style.width = '100%';
+
+        const populateTargetOptions = () => {
+            targetEl.innerHTML = '';
+            if (h.type === 'tra') {
+                targetLabel.textContent = 'Transition Category';
+                const transitionsList = state.transitionTypes || {};
+                Object.keys(transitionsList).forEach(cat => {
+                    const opt = document.createElement('option');
+                    opt.value = cat;
+                    opt.textContent = cat.toUpperCase();
+                    if (cat === h.target_id) opt.selected = true;
+                    targetEl.appendChild(opt);
+                });
+                if (targetEl.options.length === 0) {
+                    const opt = document.createElement('option');
+                    opt.value = h.target_id || 'universal';
+                    opt.textContent = (h.target_id || 'universal').toUpperCase();
+                    opt.selected = true;
+                    targetEl.appendChild(opt);
                 }
+            } else {
+                targetLabel.textContent = 'Interactable Object';
+                const roomId = state.currentEditId;
+                const interactablesList = state.allInteractables || {};
+                Object.keys(interactablesList).forEach(iid => {
+                    if (interactablesList[iid].room_id !== roomId && iid !== h.target_id) return;
+                    const opt = document.createElement('option');
+                    opt.value = iid;
+                    opt.textContent = (interactablesList[iid].label || iid).toUpperCase();
+                    if (iid === h.target_id) opt.selected = true;
+                    targetEl.appendChild(opt);
+                });
+            }
+        };
+
+        populateTargetOptions();
+        targetGroup.appendChild(targetLabel);
+        targetGroup.appendChild(targetEl);
+        controlsCol.appendChild(targetGroup);
+
+        targetEl.addEventListener('change', () => {
+            h.target_id = targetEl.value;
+            titleSpan.textContent = h.target_id ? h.target_id.toUpperCase() : titleSpan.textContent;
+            updateRoomExportArea();
+            if (window.syncEditorRequirementsFromActiveScene) {
+                window.syncEditorRequirementsFromActiveScene();
+            }
+        });
+
+        // 2. Hover Label
+        const labelGroup = document.createElement('div');
+        labelGroup.className = 'form-group compact';
+        labelGroup.style.margin = '0';
+        const labelLabel = document.createElement('label');
+        labelLabel.textContent = 'Hover Label';
+        labelLabel.style.cssText = 'font-size: 0.8rem; margin-bottom: 4px; font-weight: 600; color: var(--text-secondary);';
+
+        const labelInput = document.createElement('input');
+        labelInput.type = 'text';
+        labelInput.placeholder = 'Label (e.g. Open Box)';
+        labelInput.value = h.label || '';
+        labelInput.addEventListener('input', () => {
+            h.label = labelInput.value.trim() || null;
+            updateRoomExportArea();
+        });
+        labelGroup.appendChild(labelLabel);
+        labelGroup.appendChild(labelInput);
+        controlsCol.appendChild(labelGroup);
+
+        // 3. Coordinates button
+        const coordGroup = document.createElement('div');
+        coordGroup.className = 'form-group compact';
+        coordGroup.style.margin = '0';
+        const coordLabel = document.createElement('label');
+        coordLabel.textContent = 'Click Boundary';
+        coordLabel.style.cssText = 'font-size: 0.8rem; margin-bottom: 4px; font-weight: 600; color: var(--text-secondary);';
+
+        const coordBtn = document.createElement('button');
+        coordBtn.type = 'button';
+        coordBtn.className = 'btn-small btn-secondary';
+        coordBtn.style.width = '100%';
+        coordBtn.style.height = '42px';
+
+        const updateCoordBtnLabel = () => {
+            if (h.area) {
+                coordBtn.textContent = 'Edit Boundary Coordinates';
+                coordBtn.classList.remove('btn-secondary');
+                coordBtn.style.borderColor = '#22c55e';
+                coordBtn.style.color = '#22c55e';
+                coordBtn.style.background = 'rgba(34, 197, 94, 0.1)';
+            } else {
+                coordBtn.textContent = 'Draw Bounding Box';
+                coordBtn.classList.add('btn-secondary');
+                coordBtn.style.borderColor = '';
+                coordBtn.style.color = '';
+                coordBtn.style.background = '';
+            }
+        };
+
+        updateCoordBtnLabel();
+
+        coordBtn.onclick = () => {
+            window.onSaveSceneClickArea = (areaObj) => {
+                h.area = areaObj;
+                updateCoordBtnLabel();
                 updateRoomExportArea();
-            });
-
-            reqGroup.appendChild(reqLabel);
-            reqGroup.appendChild(reqInput);
-            controlsCol.appendChild(reqGroup);
-
-            // Hotspot Position Preview Column
-            const previewCol = document.createElement('div');
-            previewCol.className = 'hotspot-card-preview-col';
-
-            const previewLabel = document.createElement('label');
-            previewLabel.textContent = 'Position Preview';
-            previewLabel.style.cssText = 'font-size: 0.8rem; margin-bottom: 4px; font-weight: 600; color: var(--text-secondary); width: 100%; text-align: left;';
-            previewCol.appendChild(previewLabel);
-
-            const previewWrapper = document.createElement('div');
-            previewWrapper.style.cssText = `
-                position: relative;
-                width: 100%;
-                background: rgba(0, 0, 0, 0.4);
-                border: 1px solid rgba(255, 255, 255, 0.08);
-                border-radius: var(--radius-sm);
-                overflow: hidden;
-                box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-            `;
-
-            // Resolve background image URL
+                renderSceneHotspots(scene);
+            };
             let bgUrl = null;
             if (scene.bg_image) {
                 bgUrl = `../${scene.bg_image}`;
@@ -1116,84 +1033,207 @@ export function renderSceneHotspots(scene) {
                     bgUrl = `../${roomMedia[0].filepath}`;
                 }
             }
+            state.editorRequirements.interactableClickAreas = state.editorRequirements.interactableClickAreas || {};
+            state.editorRequirements.interactableClickAreas[h.target_id] = h.area || null;
+            window.openClickAreaModal(h.target_id, 'interactable', bgUrl);
+        };
 
-            // Resolve coordinates
-            let coords = null;
-            if (h.area) {
-                if (h.area.shapes && h.area.shapes[0]) {
-                    coords = h.area.shapes[0].coords;
-                } else if (h.area.coords) {
-                    coords = h.area.coords;
+        coordGroup.appendChild(coordLabel);
+        coordGroup.appendChild(coordBtn);
+        controlsCol.appendChild(coordGroup);
+
+        // 4. Requirements input
+        const reqGroup = document.createElement('div');
+        reqGroup.className = 'form-group compact';
+        reqGroup.style.margin = '0';
+        const reqLabel = document.createElement('label');
+        reqLabel.textContent = 'Active Conditions';
+        reqLabel.style.cssText = 'font-size: 0.8rem; margin-bottom: 4px; font-weight: 600; color: var(--text-secondary);';
+
+        const reqInput = document.createElement('input');
+        reqInput.type = 'text';
+        reqInput.placeholder = 'e.g. smin:30, item:key_card';
+
+        const currentReqText = [];
+        if (h.requirements) {
+            if (h.requirements.sanity_min !== undefined) currentReqText.push(`smin:${h.requirements.sanity_min}`);
+            if (h.requirements.sanity_max !== undefined) currentReqText.push(`smax:${h.requirements.sanity_max}`);
+            if (h.requirements.items) h.requirements.items.forEach(i => currentReqText.push(`item:${i}`));
+            if (h.requirements.worldStates) {
+                for (const k in h.requirements.worldStates) {
+                    currentReqText.push(`state:${k}:${h.requirements.worldStates[k]}`);
                 }
             }
+        }
 
-            if (bgUrl) {
-                const img = document.createElement('img');
-                img.src = bgUrl;
-                img.style.cssText = 'width: 100%; height: auto; display: block; pointer-events: none;';
-                previewWrapper.appendChild(img);
-
-                if (coords) {
-                    const left = parseFloat(coords.x !== undefined ? coords.x : coords.left);
-                    const top = parseFloat(coords.y !== undefined ? coords.y : coords.top);
-                    const width = parseFloat(coords.width !== undefined ? coords.width : coords.w);
-                    const height = parseFloat(coords.height !== undefined ? coords.height : coords.h);
-
-                    if (!isNaN(left) && !isNaN(top) && !isNaN(width) && !isNaN(height)) {
-                        const highlight = document.createElement('div');
-                        highlight.style.cssText = `
-                            position: absolute;
-                            border: 2px dashed var(--accent-primary);
-                            background: rgba(234, 179, 8, 0.25);
-                            box-shadow: 0 0 6px var(--accent-glow);
-                            left: ${left}%;
-                            top: ${top}%;
-                            width: ${width}%;
-                            height: ${height}%;
-                            pointer-events: none;
-                        `;
-                        previewWrapper.appendChild(highlight);
+        reqInput.value = currentReqText.join(', ');
+        reqInput.addEventListener('input', () => {
+            const val = reqInput.value.trim();
+            if (val) {
+                const reqObj = {};
+                val.split(',').forEach(term => {
+                    const parts = term.split(':');
+                    const type = parts[0]?.trim();
+                    if (type === 'smin') reqObj.sanity_min = parseInt(parts[1]);
+                    else if (type === 'smax') reqObj.sanity_max = parseInt(parts[1]);
+                    else if (type === 'item') {
+                        reqObj.items = reqObj.items || [];
+                        reqObj.items.push(parts[1].trim());
+                    } else if (type === 'state') {
+                        reqObj.worldStates = reqObj.worldStates || {};
+                        reqObj.worldStates[parts[1].trim()] = parseInt(parts[2] !== undefined ? parts[2].trim() : '1');
                     }
-                } else {
-                    const noArea = document.createElement('div');
-                    noArea.style.cssText = 'position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: rgba(255, 255, 255, 0.4); font-size: 0.7rem; background: rgba(0, 0, 0, 0.6); font-family: var(--font-sans);';
-                    noArea.textContent = 'No boundary';
-                    previewWrapper.appendChild(noArea);
+                });
+                h.requirements = reqObj;
+            } else {
+                h.requirements = null;
+            }
+            updateRoomExportArea();
+        });
+
+        reqGroup.appendChild(reqLabel);
+        reqGroup.appendChild(reqInput);
+        controlsCol.appendChild(reqGroup);
+
+        // Preview column
+        const previewCol = document.createElement('div');
+        previewCol.className = 'hotspot-card-preview-col';
+
+        const previewLabel = document.createElement('label');
+        previewLabel.textContent = 'Position Preview';
+        previewLabel.style.cssText = 'font-size: 0.8rem; margin-bottom: 4px; font-weight: 600; color: var(--text-secondary); width: 100%; text-align: left;';
+        previewCol.appendChild(previewLabel);
+
+        const previewWrapper = document.createElement('div');
+        previewWrapper.style.cssText = `
+            position: relative;
+            width: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        `;
+
+        let bgUrl = null;
+        if (scene.bg_image) {
+            bgUrl = `../${scene.bg_image}`;
+        } else {
+            const roomMedia = state.mediaLibrary.filter(
+                m => m.context_type === 'room' && m.context_id === state.currentEditId
+            );
+            if (roomMedia.length > 0) {
+                bgUrl = `../${roomMedia[0].filepath}`;
+            }
+        }
+
+        let coords = null;
+        if (h.area) {
+            if (h.area.shapes && h.area.shapes[0]) {
+                coords = h.area.shapes[0].coords;
+            } else if (h.area.coords) {
+                coords = h.area.coords;
+            }
+        }
+
+        if (bgUrl) {
+            const img = document.createElement('img');
+            img.src = bgUrl;
+            img.style.cssText = 'width: 100%; height: auto; display: block; pointer-events: none;';
+            previewWrapper.appendChild(img);
+
+            if (coords) {
+                const left = parseFloat(coords.x !== undefined ? coords.x : coords.left);
+                const top = parseFloat(coords.y !== undefined ? coords.y : coords.top);
+                const width = parseFloat(coords.width !== undefined ? coords.width : coords.w);
+                const height = parseFloat(coords.height !== undefined ? coords.height : coords.h);
+
+                if (!isNaN(left) && !isNaN(top) && !isNaN(width) && !isNaN(height)) {
+                    const highlight = document.createElement('div');
+                    highlight.style.cssText = `
+                        position: absolute;
+                        border: 2px dashed var(--accent-primary);
+                        background: rgba(234, 179, 8, 0.25);
+                        box-shadow: 0 0 6px var(--accent-glow);
+                        left: ${left}%;
+                        top: ${top}%;
+                        width: ${width}%;
+                        height: ${height}%;
+                        pointer-events: none;
+                    `;
+                    previewWrapper.appendChild(highlight);
                 }
             } else {
-                const noImage = document.createElement('div');
-                noImage.style.cssText = 'height: 90px; display: flex; align-items: center; justify-content: center; color: rgba(255, 255, 255, 0.3); font-size: 0.7rem; font-family: var(--font-sans); text-align: center; padding: 10px;';
-                noImage.textContent = 'No Scene Image';
-                previewWrapper.appendChild(noImage);
+                const noArea = document.createElement('div');
+                noArea.style.cssText = 'position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: rgba(255, 255, 255, 0.4); font-size: 0.7rem; background: rgba(0, 0, 0, 0.6); font-family: var(--font-sans);';
+                noArea.textContent = 'No boundary';
+                previewWrapper.appendChild(noArea);
             }
+        } else {
+            const noImage = document.createElement('div');
+            noImage.style.cssText = 'height: 90px; display: flex; align-items: center; justify-content: center; color: rgba(255, 255, 255, 0.3); font-size: 0.7rem; font-family: var(--font-sans); text-align: center; padding: 10px;';
+            noImage.textContent = 'No Scene Image';
+            previewWrapper.appendChild(noImage);
+        }
 
-            previewCol.appendChild(previewWrapper);
+        previewCol.appendChild(previewWrapper);
 
-            cardBody.appendChild(controlsCol);
-            cardBody.appendChild(previewCol);
-            card.appendChild(cardBody);
+        cardBody.appendChild(controlsCol);
+        cardBody.appendChild(previewCol);
+        card.appendChild(cardBody);
 
-            list.appendChild(card);
-        });
+        return card;
+    };
+
+    // Fill Transition list
+    if (listTra) {
+        listTra.innerHTML = '';
+        const traHotspots = scene.hotspots.filter(h => h.type === 'tra');
+        if (traHotspots.length === 0) {
+            listTra.innerHTML = '<span style="font-size: 0.85rem; color: #666; font-style: italic;">No transition hotspots defined.</span>';
+        } else {
+            traHotspots.forEach((h) => {
+                const idx = scene.hotspots.indexOf(h);
+                listTra.appendChild(buildHotspotCard(h, idx));
+            });
+        }
+        const addTraBtn = document.getElementById('btn-add-scene-hotspot-tra');
+        if (addTraBtn) {
+            addTraBtn.onclick = () => {
+                scene.hotspots.push({ type: 'tra', target_id: '', label: '', area: null, requirements: null });
+                renderSceneHotspots(scene);
+                updateRoomExportArea();
+                if (window.syncEditorRequirementsFromActiveScene) window.syncEditorRequirementsFromActiveScene();
+            };
+        }
+    }
+
+    // Fill Interactable list
+    if (listAct) {
+        listAct.innerHTML = '';
+        const actHotspots = scene.hotspots.filter(h => h.type === 'act');
+        if (actHotspots.length === 0) {
+            listAct.innerHTML = '<span style="font-size: 0.85rem; color: #666; font-style: italic;">No interactable hotspots defined.</span>';
+        } else {
+            actHotspots.forEach((h) => {
+                const idx = scene.hotspots.indexOf(h);
+                listAct.appendChild(buildHotspotCard(h, idx));
+            });
+        }
+        const addActBtn = document.getElementById('btn-add-scene-hotspot-act');
+        if (addActBtn) {
+            addActBtn.onclick = () => {
+                scene.hotspots.push({ type: 'act', target_id: '', label: '', area: null, requirements: null });
+                renderSceneHotspots(scene);
+                updateRoomExportArea();
+                if (window.syncEditorRequirementsFromActiveScene) window.syncEditorRequirementsFromActiveScene();
+            };
+        }
     }
 
     if (window.lucide) window.lucide.createIcons();
-
-    document.getElementById('btn-add-scene-hotspot').onclick = () => {
-        scene.hotspots.push({
-            type: 'tra',
-            target_id: '',
-            label: '',
-            area: null,
-            requirements: null
-        });
-        renderSceneHotspots(scene);
-        updateRoomExportArea();
-        if (window.syncEditorRequirementsFromActiveScene) {
-            window.syncEditorRequirementsFromActiveScene();
-        }
-    };
 }
+
 
 export function renderSceneCommands(scene) {
     const list = document.getElementById('scene-commands-list');

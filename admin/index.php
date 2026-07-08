@@ -206,127 +206,146 @@ if (isset($_SESSION['admin_auth']) && $_SESSION['admin_auth'] === true):
                 <form id="room-form">
                     <div class="editor-layout">
                         <div class="editor-main">
-                            <!-- Room Editor Tabs -->
-                            <div class="editor-tabs">
-                                <button type="button" class="tab-btn active" data-room-tab="room-tab-general">General Config</button>
-                                <button type="button" class="tab-btn" data-room-tab="room-tab-terminal">Terminal Interaction</button>
-                                <button type="button" class="tab-btn" data-room-tab="room-tab-scenes">Scenes Manager</button>
-                            </div>
 
-                            <!-- General Config Tab Content -->
-                            <div id="room-tab-general" class="room-tab-content">
-                                <div class="form-row-3">
-                                    <div class="form-group">
-                                        <label for="room-id">Unique Room ID</label>
-                                        <input type="text" id="room-id" name="id" placeholder="e.g. infinite_hallway" required>
-                                        <small>Must be unique, lowercase, no spaces.</small>
-                                    </div>
-
-                                    <div class="form-group">
-                                        <label for="room-name">Display Name</label>
-                                        <input type="text" id="room-name" name="name" placeholder="e.g. The Infinite Hallway"
-                                            required>
-                                    </div>
-
-                                    <div class="form-group">
-                                        <label for="room-tags">Tags (comma separated)</label>
-                                        <input type="text" id="room-tags" name="tags" placeholder="liminal, dark, industrial">
+                            <!-- ACCORDION: Location Metadata -->
+                            <details class="editor-accordion" open>
+                                <summary class="editor-accordion-header">
+                                    <span class="accordion-icon-wrap"><i data-lucide="map-pin"></i></span>
+                                    <span class="accordion-title">Location Metadata</span>
+                                    <i data-lucide="chevron-down" class="accordion-chevron"></i>
+                                </summary>
+                                <div class="editor-accordion-body">
+                                    <div class="form-row-3">
+                                        <div class="form-group">
+                                            <label for="room-id">Unique Room ID</label>
+                                            <input type="text" id="room-id" name="id" placeholder="e.g. infinite_hallway" required>
+                                            <small>Unique, lowercase, no spaces.</small>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="room-name">Display Name</label>
+                                            <input type="text" id="room-name" name="name" placeholder="e.g. The Infinite Hallway" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="room-tags">Tags (comma separated)</label>
+                                            <input type="text" id="room-tags" name="tags" placeholder="liminal, dark, industrial">
+                                        </div>
                                     </div>
                                 </div>
+                            </details>
 
-                                <div class="form-section transitions-header-section" style="margin-top: 1.5rem; margin-bottom: 1.5rem; padding: 1.25rem; background: rgba(10, 10, 10, 0.45); backdrop-filter: blur(15px); border: 1px solid var(--glass-border); border-radius: var(--radius-sm);">
-                                    <h3 style="margin-top: 0; margin-bottom: 12px; font-size: 0.95rem; font-weight: 600; color: var(--accent-primary);">Active Room Transitions (Portals)</h3>
+                            <!-- ACCORDION: Active Room Transitions (Portals) -->
+                            <details class="editor-accordion" open>
+                                <summary class="editor-accordion-header">
+                                    <span class="accordion-icon-wrap"><i data-lucide="git-fork"></i></span>
+                                    <span class="accordion-title">Active Room Transitions <span class="accordion-subtitle">(Portals)</span></span>
+                                    <i data-lucide="chevron-down" class="accordion-chevron"></i>
+                                </summary>
+                                <div class="editor-accordion-body">
                                     <div id="transitions-container">
                                         <!-- Checkboxes will be injected here via JS -->
                                     </div>
                                 </div>
+                            </details>
 
-                            <div class="form-section json-control-section">
-                                <h3 style="margin-bottom: 0.75rem;">Data Control (JSON)</h3>
-                                
-                                <div class="json-tabs">
-                                    <button type="button" class="json-tab-btn active" data-tab-type="export" data-target="room-export-container">Export</button>
-                                    <button type="button" class="json-tab-btn" data-tab-type="import" data-target="room-import-container">Import</button>
-                                </div>
-                                
-                                <div id="room-export-container" class="json-tab-panel active">
-                                    <div class="form-group compact" style="margin-top: 10px;">
-                                        <textarea id="room-json-export" readonly rows="10"
-                                            style="font-family: var(--font-mono); font-size: 0.8rem; background: rgba(0,0,0,0.5); color: var(--accent-primary); resize: none;"></textarea>
-                                        <button type="button" id="btn-copy-room-json" class="btn-secondary full-width"
-                                            style="margin-top: 10px;">
-                                            <i data-lucide="copy"
-                                                style="width: 14px; height: 14px; display: inline-block; vertical-align: middle; margin-right: 5px;"></i>
-                                            Copy JSON
-                                        </button>
-                                    </div>
-                                </div>
-                                
-                                <div id="room-import-container" class="json-tab-panel hidden">
-                                    <div class="form-group compact" style="margin-top: 10px;">
-                                        <textarea id="room-json-import" rows="10" placeholder="Paste room JSON data here..."
-                                            style="font-family: var(--font-mono); font-size: 0.8rem; background: rgba(0,0,0,0.5); resize: none;"></textarea>
-                                        <button type="button" id="btn-apply-room-json" class="btn-primary full-width"
-                                            style="margin-top: 10px;">
-                                            <i data-lucide="upload"
-                                                style="width: 14px; height: 14px; display: inline-block; vertical-align: middle; margin-right: 5px;"></i>
-                                            Apply JSON Data
-                                        </button>
-                                        <small style="margin-top: 8px;">Warning: This will overwrite currently entered data.</small>
-                                    </div>
-                                </div>
-                            </div> <!-- Close json-control-section -->
-                        </div> <!-- Close room-tab-general -->
-
-                            <!-- Terminal Interaction Tab Content -->
-                            <div id="room-tab-terminal" class="room-tab-content hidden">
-                                <div class="form-section">
-                                    <label class="checkbox-container" style="display: flex; align-items: center; gap: 8px; font-size: 1rem; margin-bottom: 1.5rem; cursor: pointer;">
-                                        <input type="checkbox" id="room-terminal-enabled">
-                                        <span class="checkbox-label" style="font-weight: 600;">Enable Terminal Interaction in this Room</span>
-                                    </label>
-                                    
-                                    <div id="room-terminal-config" class="hidden" style="border-top: 1px dashed var(--glass-border); padding-top: 1.5rem;">
-                                        <div class="form-group">
-                                            <label for="room-terminal-text">Screen Content Text</label>
-                                            <textarea id="room-terminal-text" rows="4" placeholder="Text displayed on CRT screen when player interacts with the terminal in this room..."></textarea>
-                                            <small>Use {ROOM} for room display name placeholder.</small>
-                                        </div>
-                                        
-                                        <div class="form-section" style="margin-top: 1.5rem; background: rgba(0,0,0,0.15); padding: 1.5rem; border-radius: var(--radius-sm);">
-                                            <h3 style="border-bottom: 1px dashed var(--glass-border); padding-bottom: 8px; margin-bottom: 1rem;">Terminal Options</h3>
-                                            <div id="room-terminal-options-list">
-                                                <!-- Dynamic option cards loaded from terminal dialogue tree -->
+                            <!-- ACCORDION: Terminal Interaction -->
+                            <details class="editor-accordion">
+                                <summary class="editor-accordion-header">
+                                    <span class="accordion-icon-wrap"><i data-lucide="terminal"></i></span>
+                                    <span class="accordion-title">Terminal Interaction</span>
+                                    <i data-lucide="chevron-down" class="accordion-chevron"></i>
+                                </summary>
+                                <div class="editor-accordion-body">
+                                    <!-- Hidden tab panel kept for JS compat -->
+                                    <div id="room-tab-terminal" class="room-tab-content">
+                                        <label class="checkbox-container" style="display: flex; align-items: center; gap: 8px; font-size: 1rem; margin-bottom: 1.5rem; cursor: pointer;">
+                                            <input type="checkbox" id="room-terminal-enabled">
+                                            <span class="checkbox-label" style="font-weight: 600;">Enable Terminal Interaction in this Room</span>
+                                        </label>
+                                        <div id="room-terminal-config" class="hidden" style="border-top: 1px dashed var(--glass-border); padding-top: 1.5rem;">
+                                            <div class="form-group">
+                                                <label for="room-terminal-text">Screen Content Text</label>
+                                                <textarea id="room-terminal-text" rows="4" placeholder="Text displayed on CRT screen when player interacts with the terminal in this room..."></textarea>
+                                                <small>Use {ROOM} for room display name placeholder.</small>
                                             </div>
-                                            <button type="button" id="btn-add-room-terminal-option" class="btn-small" style="margin-top: 12px;">+ Add Option</button>
+                                            <div class="form-section" style="margin-top: 1.5rem; background: rgba(0,0,0,0.15); padding: 1.5rem; border-radius: var(--radius-sm);">
+                                                <h3 style="border-bottom: 1px dashed var(--glass-border); padding-bottom: 8px; margin-bottom: 1rem;">Terminal Options</h3>
+                                                <div id="room-terminal-options-list"></div>
+                                                <button type="button" id="btn-add-room-terminal-option" class="btn-small" style="margin-top: 12px;">+ Add Option</button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
+                            </details>
 
-                            <!-- Scenes Manager Tab Content -->
-                            <div id="room-tab-scenes" class="room-tab-content hidden">
-                                <div class="scenes-manager-layout-v2" style="display: flex; flex-direction: column; gap: 1.5rem; min-height: 480px;">
-                                    
-                                    <!-- Top Selection Bar (1 Column Layout) -->
-                                    <div class="scenes-top-bar" style="display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; background: rgba(0,0,0,0.15); padding: 1rem; border: 1px solid var(--glass-border); border-radius: var(--radius-sm); flex-wrap: wrap;">
-                                        <div style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 280px;">
-                                            <label for="scene-selector-dropdown" style="margin-bottom: 0; font-weight: 600; white-space: nowrap; color: var(--text-secondary);">Active Scene:</label>
-                                            <select id="scene-selector-dropdown" style="flex: 1; max-width: 400px;"></select>
+                            <!-- ACCORDION: Scenes Manager -->
+                            <details class="editor-accordion" open>
+                                <summary class="editor-accordion-header">
+                                    <span class="accordion-icon-wrap"><i data-lucide="layers"></i></span>
+                                    <span class="accordion-title">Scenes Manager</span>
+                                    <i data-lucide="chevron-down" class="accordion-chevron"></i>
+                                </summary>
+                                <div class="editor-accordion-body" style="padding: 0;">
+                                    <div id="room-tab-scenes" class="room-tab-content">
+                                        <div class="scenes-manager-v3">
+                                            <!-- Top: Scene cards bar -->
+                                            <div class="scenes-topbar-v3">
+                                                <div id="scene-list-container" class="scene-list-container-h">
+                                                    <!-- Cards injected by renderScenesSection() -->
+                                                </div>
+                                                <div class="scenes-topbar-actions">
+                                                    <button type="button" id="btn-add-scene" class="btn-primary scenes-add-btn">+ Add Scene</button>
+                                                </div>
+                                            </div>
+                                            <!-- Bottom: Active scene editor -->
+                                            <div id="active-scene-editor" class="scene-editor-panel scenes-editor-v3">
+                                                <div class="empty-state" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #888; padding: 3rem;">
+                                                    <i data-lucide="layers" style="width: 40px; height: 40px; margin-bottom: 1rem; opacity: 0.3;"></i>
+                                                    <span style="font-size: 0.9rem; text-align: center;">Select a scene state above or create a new one.</span>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <button type="button" id="btn-add-scene" class="btn-primary" style="margin-top: 0; width: auto; padding: 10px 20px; font-size: 0.9rem;">+ Add Scene State</button>
                                     </div>
-
-                                    <!-- Active Scene Editor Form -->
-                                    <div id="active-scene-editor" class="scene-editor-panel" style="background: rgba(255,255,255,0.02); padding: 1.5rem; border-radius: var(--radius-sm); position: relative; border: 1px solid var(--glass-border); width: 100%;">
-                                        <div class="empty-state" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #888;">
-                                            <i data-lucide="image" style="width: 48px; height: 48px; margin-bottom: 1rem; opacity: 0.5;"></i>
-                                            <span>Select a scene state from the dropdown or create a new one to edit its sub-scene states.</span>
-                                        </div>
-                                    </div>
-
                                 </div>
-                            </div>
+                            </details>
+
+                            <!-- ACCORDION: Data Control (JSON) — at the bottom -->
+                            <details class="editor-accordion editor-accordion--json">
+                                <summary class="editor-accordion-header">
+                                    <span class="accordion-icon-wrap"><i data-lucide="code-2"></i></span>
+                                    <span class="accordion-title">Data Control <span class="accordion-subtitle">(JSON)</span></span>
+                                    <i data-lucide="chevron-down" class="accordion-chevron"></i>
+                                </summary>
+                                <div class="editor-accordion-body">
+                                    <!-- Dummy tab panels so JS selectors still work -->
+                                    <div id="room-tab-general" class="room-tab-content" style="display:none;"></div>
+                                    <div class="json-tabs">
+                                        <button type="button" class="json-tab-btn active" data-tab-type="export" data-target="room-export-container">Export</button>
+                                        <button type="button" class="json-tab-btn" data-tab-type="import" data-target="room-import-container">Import</button>
+                                    </div>
+                                    <div id="room-export-container" class="json-tab-panel active">
+                                        <div class="form-group compact" style="margin-top: 10px;">
+                                            <textarea id="room-json-export" readonly rows="10"
+                                                style="font-family: var(--font-mono); font-size: 0.8rem; background: rgba(0,0,0,0.5); color: var(--accent-primary); resize: none;"></textarea>
+                                            <button type="button" id="btn-copy-room-json" class="btn-secondary full-width" style="margin-top: 10px;">
+                                                <i data-lucide="copy" style="width: 14px; height: 14px; display: inline-block; vertical-align: middle; margin-right: 5px;"></i>
+                                                Copy JSON
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div id="room-import-container" class="json-tab-panel hidden">
+                                        <div class="form-group compact" style="margin-top: 10px;">
+                                            <textarea id="room-json-import" rows="10" placeholder="Paste room JSON data here..."
+                                                style="font-family: var(--font-mono); font-size: 0.8rem; background: rgba(0,0,0,0.5); resize: none;"></textarea>
+                                            <button type="button" id="btn-apply-room-json" class="btn-primary full-width" style="margin-top: 10px;">
+                                                <i data-lucide="upload" style="width: 14px; height: 14px; display: inline-block; vertical-align: middle; margin-right: 5px;"></i>
+                                                Apply JSON Data
+                                            </button>
+                                            <small style="margin-top: 8px;">Warning: This will overwrite currently entered data.</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </details>
+
                         </div>
                     </div>
 

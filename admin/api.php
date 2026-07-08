@@ -1399,6 +1399,33 @@ elseif ($method === 'POST') {
                     ->execute([$inter['room_id'], $id, $reqJson]);
             }
 
+            // Sync media assignments for the interactable's state images
+            $assignedImages = [];
+            foreach (($inter['states'] ?? []) as $state) {
+                if (!empty($state['image'])) {
+                    $assignedImages[] = $state['image'];
+                }
+            }
+            $assignedImages = array_unique($assignedImages);
+
+            // Unassign media no longer referenced
+            $stmtCurrent = $pdo->prepare("SELECT filepath FROM media_library WHERE context_type = 'interactable' AND context_id = ?");
+            $stmtCurrent->execute([$id]);
+            $currentMediaFiles = $stmtCurrent->fetchAll(PDO::FETCH_COLUMN);
+
+            foreach ($currentMediaFiles as $filepath) {
+                if (!in_array($filepath, $assignedImages)) {
+                    $stmtUnassign = $pdo->prepare("UPDATE media_library SET context_type = 'none', context_id = 'none', tags = 'uploaded' WHERE context_type = 'interactable' AND context_id = ? AND filepath = ?");
+                    $stmtUnassign->execute([$id, $filepath]);
+                }
+            }
+
+            // Assign newly referenced media
+            foreach ($assignedImages as $filepath) {
+                $stmtAssign = $pdo->prepare("UPDATE media_library SET context_type = 'interactable', context_id = ?, tags = 'assigned' WHERE filepath = ?");
+                $stmtAssign->execute([$id, $filepath]);
+            }
+
             $pdo->commit();
             echo json_encode(['success' => true]);
         }
@@ -1412,6 +1439,7 @@ elseif ($method === 'POST') {
         $id = $data['id'];
         try {
             $pdo->prepare("DELETE FROM interactables WHERE id = ?")->execute([$id]);
+            $pdo->prepare("UPDATE media_library SET context_type = 'none', context_id = 'none', tags = 'uploaded' WHERE context_type = 'interactable' AND context_id = ?")->execute([$id]);
             echo json_encode(['success' => true]);
         }
         catch (Throwable $e) {
@@ -1423,6 +1451,7 @@ elseif ($method === 'POST') {
         $id = $data['id'];
         try {
             $pdo->prepare("DELETE FROM rooms WHERE id = ?")->execute([$id]);
+            $pdo->prepare("UPDATE media_library SET context_type = 'none', context_id = 'none', tags = 'uploaded' WHERE context_type = 'room' AND context_id = ?")->execute([$id]);
             echo json_encode(['success' => true]);
         }
         catch (Throwable $e) {
@@ -1478,6 +1507,7 @@ elseif ($method === 'POST') {
         try {
             $pdo->prepare("DELETE FROM room_transitions WHERE category = (SELECT category FROM transitions WHERE id = ?)")->execute([$id]);
             $pdo->prepare("DELETE FROM transitions WHERE id = ?")->execute([$id]);
+            $pdo->prepare("UPDATE media_library SET context_type = 'none', context_id = 'none', tags = 'uploaded' WHERE context_type = 'transition' AND context_id = ?")->execute([$id]);
             $pdo->commit();
             echo json_encode(['success' => true]);
         }

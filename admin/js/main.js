@@ -160,18 +160,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-delete-interactable').addEventListener('click', handleDeleteInteractable);
     document.getElementById('btn-delete-transition').addEventListener('click', handleDeleteTransition);
 
-    // Room Editor Tab Switching
-    document.querySelectorAll('[data-room-tab]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const tabId = btn.getAttribute('data-room-tab');
-            document.querySelectorAll('[data-room-tab]').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            
-            document.querySelectorAll('.room-tab-content').forEach(p => p.classList.add('hidden'));
-            const targetPanel = document.getElementById(tabId);
-            if (targetPanel) targetPanel.classList.remove('hidden');
-        });
-    });
+    // Room Editor Tabs replaced with accordions — no tab switcher needed
+
 
     // Diagnostics bindings
     document.getElementById('btn-run-tests').addEventListener('click', runDiagnosticsSuite);

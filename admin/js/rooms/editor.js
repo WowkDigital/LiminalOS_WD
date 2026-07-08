@@ -161,15 +161,7 @@ export function openEditor(id = null) {
 
     const roomForm = document.getElementById('room-form');
 
-    // Reset active tab to General
-    const firstTabBtn = document.querySelector('[data-room-tab="room-tab-general"]');
-    if (firstTabBtn) {
-        document.querySelectorAll('[data-room-tab]').forEach(b => b.classList.remove('active'));
-        firstTabBtn.classList.add('active');
-        document.querySelectorAll('.room-tab-content').forEach(p => p.classList.add('hidden'));
-        const targetPanel = document.getElementById('room-tab-general');
-        if (targetPanel) targetPanel.classList.remove('hidden');
-    }
+    // Tabs replaced with accordions — no panel visibility management needed
 
     // Initialize terminal listeners
     setupRoomTerminalListeners();

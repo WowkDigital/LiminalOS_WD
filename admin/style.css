@@ -3116,4 +3116,288 @@ input[type="checkbox"]:checked::before {
     width: 14px;
     height: 14px;
     margin: 0;
-}
+}
+
+/* =========================================================
+   Room Editor — Unified Accordion Layout
+   ========================================================= */
+
+.editor-accordion {
+    background: rgba(10, 10, 12, 0.55);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    margin-bottom: 12px;
+    overflow: hidden;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.editor-accordion:hover {
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+.editor-accordion[open] {
+    border-color: rgba(234, 179, 8, 0.2);
+    box-shadow: 0 0 0 1px rgba(234, 179, 8, 0.06), 0 4px 24px rgba(0,0,0,0.4);
+}
+
+.editor-accordion-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    cursor: pointer;
+    user-select: none;
+    list-style: none;
+    background: transparent;
+    border-bottom: 1px solid transparent;
+    transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.editor-accordion[open] > .editor-accordion-header {
+    border-bottom-color: var(--glass-border);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.editor-accordion-header::-webkit-details-marker {
+    display: none;
+}
+
+.editor-accordion-header::marker {
+    display: none;
+}
+
+.editor-accordion-header:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.accordion-icon-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    background: rgba(234, 179, 8, 0.08);
+    border: 1px solid rgba(234, 179, 8, 0.18);
+    border-radius: var(--radius-sm);
+    color: var(--accent-primary);
+    flex-shrink: 0;
+}
+
+.accordion-icon-wrap svg {
+    width: 14px;
+    height: 14px;
+}
+
+.accordion-title {
+    flex: 1;
+    font-family: var(--font-sans);
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-main);
+    letter-spacing: 0.02em;
+}
+
+.accordion-subtitle {
+    color: var(--text-muted);
+    font-weight: 400;
+    font-size: 0.82rem;
+    margin-left: 4px;
+}
+
+.accordion-chevron {
+    width: 16px;
+    height: 16px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), color var(--transition-fast);
+}
+
+.editor-accordion[open] .accordion-chevron {
+    transform: rotate(180deg);
+    color: var(--accent-primary);
+}
+
+.editor-accordion-body {
+    padding: 1.25rem 1.5rem 1.5rem;
+}
+
+/* JSON accordion — more subtle, visually demoted */
+.editor-accordion--json {
+    border-style: dashed;
+    border-color: rgba(255, 255, 255, 0.06);
+    background: rgba(0, 0, 0, 0.3);
+}
+
+.editor-accordion--json .accordion-icon-wrap {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: var(--text-secondary);
+}
+
+.editor-accordion--json .accordion-title {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.editor-accordion--json[open] {
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow: none;
+}
+
+/* Ensure room-tab-content panels inside accordion are always visible */
+.editor-accordion .room-tab-content {
+    display: block !important;
+}
+
+/* =========================================================
+   Scenes Manager — Split Layout
+   ========================================================= */
+
+.scenes-manager-v3 {
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid var(--glass-border);
+}
+
+/* Top bar: horizontal scene card strip + add button */
+.scenes-topbar-v3 {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    border-bottom: 1px solid var(--glass-border);
+    background: rgba(0, 0, 0, 0.2);
+    min-height: 56px;
+}
+
+.scenes-topbar-actions {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    border-left: 1px solid var(--glass-border);
+    flex-shrink: 0;
+}
+
+.scenes-add-btn {
+    padding: 5px 10px !important;
+    font-size: 0.78rem !important;
+    height: auto !important;
+    width: auto !important;
+    margin: 0 !important;
+}
+
+.scene-list-container-h {
+    flex: 1;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 6px 8px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 5px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.1) transparent;
+}
+
+/* Scene List Card — horizontal compact */
+.scene-list-card {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 7px 11px;
+    border-radius: var(--radius-sm);
+    border: 1px solid transparent;
+    background: rgba(255, 255, 255, 0.03);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    user-select: none;
+    flex-shrink: 0;
+    min-width: 110px;
+}
+
+.scene-list-card:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+.scene-list-card.active {
+    background: rgba(234, 179, 8, 0.08);
+    border-color: rgba(234, 179, 8, 0.3);
+}
+
+.scene-list-card-info {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.scene-list-name {
+    font-size: 0.82rem;
+    font-weight: 600;
+    font-family: var(--font-mono);
+    color: var(--text-main);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.scene-list-card.active .scene-list-name {
+    color: var(--accent-primary);
+}
+
+.scene-default-badge {
+    font-size: 0.6rem;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    letter-spacing: 0.06em;
+    color: var(--accent-primary);
+    background: rgba(234, 179, 8, 0.12);
+    border: 1px solid rgba(234, 179, 8, 0.25);
+    border-radius: 3px;
+    padding: 1px 5px;
+    flex-shrink: 0;
+}
+
+.scene-list-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+}
+
+.scene-meta-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.68rem;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 3px;
+    padding: 1px 5px;
+}
+
+.scene-meta-chip svg {
+    width: 10px;
+    height: 10px;
+}
+
+.scene-meta-chip--req {
+    color: var(--accent-primary);
+    border-color: rgba(234, 179, 8, 0.2);
+    background: rgba(234, 179, 8, 0.06);
+}
+
+.scene-meta-chip--img {
+    color: #60a5fa;
+    border-color: rgba(96, 165, 250, 0.2);
+    background: rgba(96, 165, 250, 0.06);
+}
+
+/* Bottom editor panel */
+.scenes-editor-v3 {
+    padding: 1.5rem;
+}
+
